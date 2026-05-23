@@ -3,6 +3,9 @@
 import * as React from "react";
 import { Bell, ChevronDown, Menu, PanelRight, PanelRightClose, Search } from "lucide-react";
 import { useUIStore } from "@/store/use-ui-store";
+import { useAuthStore } from "@/store/use-auth-store";
+import { authService } from "@/lib/auth-service";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,12 +15,33 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileSidebar } from "./sidebar";
 
 export function Navbar() {
+  const router = useRouter();
   const { isRightPanelOpen, toggleRightPanel } = useUIStore();
+  const { user, profile, clearAuth } = useAuthStore();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      clearAuth();
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  const userInitials = profile?.name
+    ? profile.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "U";
 
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-brand-hairline bg-white px-4 md:px-6 select-none">
@@ -84,19 +108,27 @@ export function Navbar() {
             render={
               <Button variant="ghost" className="flex min-h-10 items-center gap-2 rounded-full p-1 pl-2">
                 <Avatar className="h-7 w-7 border border-brand-hairline">
-                  <AvatarFallback>A</AvatarFallback>
+                  {user?.photoURL && (
+                    <AvatarImage src={user.photoURL} alt={profile?.name || "User"} />
+                  )}
+                  <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
                 <ChevronDown className="hidden h-4 w-4 text-brand-muted sm:block" />
               </Button>
             }
           />
           <DropdownMenuContent align="end" className="w-56 rounded-[10px] border-brand-hairline bg-white">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel className="flex flex-col text-left">
+              <span className="font-semibold text-brand-ink">{profile?.name || "User"}</span>
+              <span className="text-xs text-brand-muted font-normal truncate">{profile?.email || ""}</span>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-            <DropdownMenuItem>Billing & Subscription</DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer">Profile Settings</DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer">Billing & Subscription</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Log out</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleLogout}>
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

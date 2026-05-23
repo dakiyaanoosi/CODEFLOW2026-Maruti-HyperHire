@@ -41,14 +41,11 @@ export function Header() {
 
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="outline" size="sm" className="h-10 px-4 text-sm" nativeButton={false} render={
-            <Link href="/dashboard">Book Demo</Link>
+            <Link href="/login">Log In</Link>
           } />
           <Button size="sm" className="h-10 px-4 text-sm" nativeButton={false} render={
-            <Link href="/dashboard">Sign up for free</Link>
+            <Link href="/signup">Sign up for free</Link>
           } />
-          <Link href="/dashboard" className="text-sm font-normal text-brand-link">
-            Log In
-          </Link>
         </div>
 
         <Button
@@ -85,10 +82,10 @@ export function Header() {
             </nav>
             <div className="flex flex-col gap-2 border-t border-brand-hairline pt-4">
               <Button variant="outline" className="w-full" onClick={() => setMobileMenuOpen(false)} nativeButton={false} render={
-                <Link href="/dashboard">Book Demo</Link>
+                <Link href="/login">Log In</Link>
               } />
               <Button className="w-full" onClick={() => setMobileMenuOpen(false)} nativeButton={false} render={
-                <Link href="/dashboard">Sign up for free</Link>
+                <Link href="/signup">Sign up for free</Link>
               } />
             </div>
           </motion.div>

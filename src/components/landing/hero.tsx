@@ -27,12 +27,12 @@ export function Hero() {
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button size="lg" nativeButton={false} render={
-              <Link href="/dashboard">
+              <Link href="/signup">
                 Sign up for free <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             } />
             <Button variant="outline" size="lg" nativeButton={false} render={
-              <Link href="/dashboard">Book Demo</Link>
+              <Link href="/signup">Book Demo</Link>
             } />
           </div>
         </motion.div>

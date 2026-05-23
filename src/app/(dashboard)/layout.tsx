@@ -1,15 +1,43 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/use-auth-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { RightPanel } from "@/components/layout/right-panel";
-
+import { Loader2 } from "lucide-react";
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const { user, profile, isLoading } = useAuthStore();
+
+  React.useEffect(() => {
+    if (!isLoading && (!user || !profile)) {
+      router.replace("/login");
+    }
+  }, [user, profile, isLoading, router]);
+
+  // Premium loading state while resolving authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-8 w-8 text-brand-primary animate-spin" />
+        <span className="text-xs font-semibold tracking-wider uppercase text-brand-ink font-mono animate-pulse">
+          Authenticating Session...
+        </span>
+      </div>
+    );
+  }
+
+  // Prevent flash of content during redirect
+  if (!user || !profile) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-brand-ink">
       <Sidebar />
