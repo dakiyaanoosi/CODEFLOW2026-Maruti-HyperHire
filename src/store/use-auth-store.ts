@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { ExperienceLevel, WorkCategory, SocialLinks } from "@/types/profile";
 
 export interface SerializedUser {
   uid: string;
@@ -13,6 +14,21 @@ export interface UserProfile {
   name: string;
   email: string;
   createdAt: string;
+  updatedAt?: string;
+  // Student Profile fields
+  bio?: string;
+  college?: string;
+  skills?: string[];
+  experienceLevel?: ExperienceLevel;
+  availability?: string;
+  preferredCategories?: WorkCategory[];
+  hourlyRate?: number;
+  portfolioLinks?: string[];
+  socialLinks?: SocialLinks;
+  trustScore?: number;
+  verificationStatus?: "Verified" | "Unverified";
+  profileStrength?: number;
+  avatarInitials?: string;
 }
 
 interface AuthState {

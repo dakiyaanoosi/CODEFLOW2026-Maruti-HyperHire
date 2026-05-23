@@ -9,6 +9,7 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider, isFirebaseConfigured } from "./firebase";
 import { SerializedUser, UserProfile } from "@/store/use-auth-store";
+import { profileService } from "./profile-service";
 
 // Helper to serialize Firebase user
 export function serializeUser(user: FirebaseUser): SerializedUser {
@@ -54,15 +55,20 @@ export const authService = {
       const credentials = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(credentials.user, { displayName: name });
       
-      const profile: UserProfile = {
-        uid: credentials.user.uid,
-        role,
-        name,
-        email,
-        createdAt: new Date().toISOString(),
-      };
-
-      await setDoc(doc(db, "users", credentials.user.uid), profile);
+      let profile: UserProfile;
+      if (role === "student") {
+        profile = await profileService.createDefaultStudentProfile(credentials.user.uid, email, name);
+      } else {
+        profile = {
+          uid: credentials.user.uid,
+          role,
+          name,
+          email,
+          createdAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, "users", credentials.user.uid), profile);
+      }
+      
       return { user: serializeUser(credentials.user), profile };
     } else {
       // Simulation mode
@@ -77,26 +83,37 @@ export const authService = {
           }
 
           const uid = "sim_user_" + Math.random().toString(36).substring(2, 9);
-          const profile: UserProfile = {
-            uid,
-            role,
-            name,
-            email,
-            createdAt: new Date().toISOString(),
-          };
-
-          users[uid] = profile;
-          saveSimulatedUsers(users);
-
-          const user: SerializedUser = {
-            uid,
-            email,
-            displayName: name,
-            photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
-          };
-
-          localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile }));
-          resolve({ user, profile });
+          
+          if (role === "student") {
+            profileService.createDefaultStudentProfile(uid, email, name).then((profile) => {
+              const user: SerializedUser = {
+                uid,
+                email,
+                displayName: name,
+                photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
+              };
+              localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile }));
+              resolve({ user, profile });
+            }).catch(reject);
+          } else {
+            const profile: UserProfile = {
+              uid,
+              role,
+              name,
+              email,
+              createdAt: new Date().toISOString(),
+            };
+            users[uid] = profile;
+            saveSimulatedUsers(users);
+            const user: SerializedUser = {
+              uid,
+              email,
+              displayName: name,
+              photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
+            };
+            localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile }));
+            resolve({ user, profile });
+          }
         }, 800);
       });
     }
@@ -111,14 +128,11 @@ export const authService = {
   ): Promise<{ user: SerializedUser; profile: UserProfile }> {
     if (isFirebaseConfigured && auth && db) {
       const credentials = await signInWithEmailAndPassword(auth, email, password);
-      const docRef = doc(db, "users", credentials.user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        throw new Error("auth/user-profile-not-found: User document not found in Firestore.");
-      }
-
-      const profile = docSnap.data() as UserProfile;
+      const profile = await profileService.ensureProfileExists(
+        credentials.user.uid,
+        credentials.user.email || email,
+        credentials.user.displayName || "Student User"
+      );
       return { user: serializeUser(credentials.user), profile };
     } else {
       // Simulation mode
@@ -163,21 +177,24 @@ export const authService = {
       let profile: UserProfile;
 
       if (!docSnap.exists()) {
-        // If selectedRole is not provided, this is a Login attempt for a non-existent account
-        if (!selectedRole) {
-          await signOut(auth);
-          throw new Error("auth/user-not-found: We couldn't find a HyperHire account associated with this Google account. Please sign up first.");
+        // If profile doesn't exist, auto-create it as a student profile
+        const roleToCreate = selectedRole || "student";
+        if (roleToCreate === "student") {
+          profile = await profileService.createDefaultStudentProfile(
+            credentials.user.uid,
+            credentials.user.email || "",
+            credentials.user.displayName || "Google User"
+          );
+        } else {
+          profile = {
+            uid: credentials.user.uid,
+            role: "business",
+            name: credentials.user.displayName || "Google User",
+            email: credentials.user.email || "",
+            createdAt: new Date().toISOString(),
+          };
+          await setDoc(docRef, profile);
         }
-
-        // New Google Signup
-        profile = {
-          uid: credentials.user.uid,
-          role: selectedRole,
-          name: credentials.user.displayName || "Google User",
-          email: credentials.user.email || "",
-          createdAt: new Date().toISOString(),
-        };
-        await setDoc(docRef, profile);
       } else {
         profile = docSnap.data() as UserProfile;
       }
@@ -205,7 +222,21 @@ export const authService = {
               localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile: existingUser }));
               resolve({ user, profile: existingUser });
             } else {
-              reject(new Error("auth/user-not-found: No HyperHire account found for this Google email. Please register first."));
+              // Auto-create simulated google user if missing
+              const mockName = "Kunal Das (Student)";
+              const mockEmail = "kunal.das@gmail.com";
+              const uid = "sim_google_kunal";
+              
+              profileService.createDefaultStudentProfile(uid, mockEmail, mockName).then((profile) => {
+                const user: SerializedUser = {
+                  uid,
+                  email: mockEmail,
+                  displayName: mockName,
+                  photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${mockName}`,
+                };
+                localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile }));
+                resolve({ user, profile });
+              }).catch(reject);
             }
             return;
           }

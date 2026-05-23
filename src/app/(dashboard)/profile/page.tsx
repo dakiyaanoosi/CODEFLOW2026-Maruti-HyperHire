@@ -1,53 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { useAuthStore } from "@/store/use-auth-store";
+import { useAuthStore, UserProfile } from "@/store/use-auth-store";
 import { ProfileCard } from "@/components/profile/ProfileCard";
 import { ProfileDetails } from "@/components/profile/ProfileDetails";
 import { ProfileEditForm } from "@/components/profile/ProfileEditForm";
-import { StudentProfile, MOCK_PROFILE } from "@/types/profile";
+import { StudentProfile } from "@/types/profile";
 import { Pencil, Eye, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-
-const LOCAL_KEY = "hyperhire_student_profile";
-
-function loadProfile(name: string, email: string): StudentProfile {
-  if (typeof window === "undefined") return { ...MOCK_PROFILE, name, avatarInitials: name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() };
-  const raw = localStorage.getItem(LOCAL_KEY);
-  if (raw) {
-    try {
-      return JSON.parse(raw) as StudentProfile;
-    } catch {/* fall through */}
-  }
-  // Seed from auth user
-  return {
-    ...MOCK_PROFILE,
-    name,
-    avatarInitials: name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
-  };
-}
-
-function saveProfile(p: StudentProfile) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(p));
-  }
-}
-
-function computeStrength(p: StudentProfile): number {
-  let score = 0;
-  if (p.name) score += 10;
-  if (p.college) score += 10;
-  if (p.bio && p.bio.length > 30) score += 15;
-  if (p.skills.length >= 3) score += 15;
-  if (p.skills.length >= 6) score += 5;
-  if (p.preferredCategories.length >= 1) score += 10;
-  if (p.hourlyRate > 0) score += 10;
-  if (p.availability) score += 5;
-  if (p.portfolioLinks.length >= 1) score += 10;
-  if (p.socialLinks.github || p.socialLinks.linkedin) score += 10;
-  return Math.min(score, 100);
-}
+import { profileService, computeProfileStrength, getAvatarInitials } from "@/lib/profile-service";
 
 type Tab = "view" | "edit";
 
@@ -71,45 +33,149 @@ function SaveToast({ visible }: { visible: boolean }) {
 }
 
 export default function ProfilePage() {
-  const { profile: authProfile } = useAuthStore();
-  const authName = authProfile?.name || "Student User";
-  const authEmail = authProfile?.email || "";
-
-  const [profile, setProfile] = React.useState<StudentProfile>(() =>
-    loadProfile(authName, authEmail)
-  );
+  const { user, profile: authProfile, setProfile: setAuthProfile } = useAuthStore();
+  const [profile, setProfile] = React.useState<StudentProfile | null>(null);
   const [tab, setTab] = React.useState<Tab>("view");
   const [isSaving, setIsSaving] = React.useState(false);
   const [showToast, setShowToast] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  // Keep profile name in sync with auth name if not manually changed
   React.useEffect(() => {
-    if (!localStorage.getItem(LOCAL_KEY) && authName) {
-      setProfile(prev => ({
-        ...prev,
-        name: authName,
-        avatarInitials: authName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
-      }));
+    async function loadData() {
+      if (user?.uid) {
+        setIsLoading(true);
+        try {
+          const fetched = await profileService.getProfile(user.uid);
+          if (fetched) {
+            setProfile({
+              name: fetched.name || "",
+              college: fetched.college || "",
+              bio: fetched.bio || "",
+              skills: fetched.skills || [],
+              experienceLevel: fetched.experienceLevel || "Beginner",
+              availability: fetched.availability || "",
+              preferredCategories: (fetched.preferredCategories as any) || [],
+              hourlyRate: fetched.hourlyRate || 0,
+              portfolioLinks: fetched.portfolioLinks || [],
+              socialLinks: fetched.socialLinks || {},
+              trustScore: fetched.trustScore || 80,
+              isVerified: fetched.verificationStatus === "Verified" || (fetched as any).isVerified || false,
+              profileStrength: fetched.profileStrength || 10,
+              avatarInitials: fetched.avatarInitials || getAvatarInitials(fetched.name),
+            });
+          } else {
+            const seeded = await profileService.createDefaultStudentProfile(
+              user.uid,
+              user.email || "",
+              user.displayName || "Student User"
+            );
+            setProfile({
+              name: seeded.name,
+              college: seeded.college || "",
+              bio: seeded.bio || "",
+              skills: seeded.skills || [],
+              experienceLevel: seeded.experienceLevel || "Beginner",
+              availability: seeded.availability || "",
+              preferredCategories: (seeded.preferredCategories as any) || [],
+              hourlyRate: seeded.hourlyRate || 0,
+              portfolioLinks: seeded.portfolioLinks || [],
+              socialLinks: seeded.socialLinks || {},
+              trustScore: seeded.trustScore || 80,
+              isVerified: seeded.verificationStatus === "Verified",
+              profileStrength: seeded.profileStrength || 10,
+              avatarInitials: seeded.avatarInitials || "ST",
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load profile:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [authName]);
+    loadData();
+  }, [user]);
 
   function handleChange(partial: Partial<StudentProfile>) {
+    if (!profile) return;
     setProfile(prev => {
+      if (!prev) return null;
       const updated = { ...prev, ...partial };
-      updated.profileStrength = computeStrength(updated);
+      const mappingForStrength: Partial<UserProfile> = {
+        name: updated.name,
+        college: updated.college,
+        bio: updated.bio,
+        skills: updated.skills,
+        experienceLevel: updated.experienceLevel,
+        availability: updated.availability,
+        preferredCategories: updated.preferredCategories,
+        hourlyRate: updated.hourlyRate,
+        portfolioLinks: updated.portfolioLinks,
+        socialLinks: updated.socialLinks,
+      };
+      updated.profileStrength = computeProfileStrength(mappingForStrength);
       return updated;
     });
   }
 
   async function handleSave() {
+    if (!user?.uid || !profile) return;
     setIsSaving(true);
-    // Simulate async save (swap with Firestore call when ready)
-    await new Promise(r => setTimeout(r, 600));
-    saveProfile(profile);
-    setIsSaving(false);
-    setTab("view");
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    try {
+      const updateData: Partial<UserProfile> = {
+        name: profile.name,
+        college: profile.college,
+        bio: profile.bio,
+        skills: profile.skills,
+        experienceLevel: profile.experienceLevel,
+        availability: profile.availability,
+        preferredCategories: profile.preferredCategories,
+        hourlyRate: profile.hourlyRate,
+        portfolioLinks: profile.portfolioLinks,
+        socialLinks: profile.socialLinks,
+        trustScore: profile.trustScore,
+        verificationStatus: profile.isVerified ? "Verified" : "Unverified",
+      };
+
+      const updated = await profileService.updateProfile(user.uid, updateData);
+      setAuthProfile(updated);
+      
+      setProfile({
+        name: updated.name,
+        college: updated.college || "",
+        bio: updated.bio || "",
+        skills: updated.skills || [],
+        experienceLevel: updated.experienceLevel || "Beginner",
+        availability: updated.availability || "",
+        preferredCategories: (updated.preferredCategories as any) || [],
+        hourlyRate: updated.hourlyRate || 0,
+        portfolioLinks: updated.portfolioLinks || [],
+        socialLinks: updated.socialLinks || {},
+        trustScore: updated.trustScore || 80,
+        isVerified: updated.verificationStatus === "Verified" || (updated as any).isVerified || false,
+        profileStrength: updated.profileStrength || 10,
+        avatarInitials: updated.avatarInitials || "ST",
+      });
+
+      setTab("view");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (isLoading || !profile) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
+          <p className="text-sm text-brand-muted font-medium">Loading profile workspace...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -122,7 +188,7 @@ export default function ProfilePage() {
             <p className="mt-1.5 text-sm text-brand-body">
               {tab === "view"
                 ? "Your public profile visible to businesses and the talent pool."
-                : "Update your profile information. Changes are saved locally."}
+                : "Update your profile information. Changes will be saved to your cloud profile."}
             </p>
           </div>
 
