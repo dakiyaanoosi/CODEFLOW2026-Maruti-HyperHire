@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Github, Globe, Linkedin, Twitter, DollarSign, Clock, GraduationCap } from "lucide-react";
+import { GitBranch, Globe, Link2, X as XIcon, DollarSign, Clock, GraduationCap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrustScoreBadge } from "./TrustScoreBadge";
 import { ProfileStrengthMeter } from "./ProfileStrengthMeter";
@@ -32,7 +32,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
 
           <div>
             <h2 className="text-[20px] font-medium leading-[1.5] text-brand-ink">
-              Generic User
+              {profile.name}
             </h2>
             <div className="mt-1 flex items-center justify-center gap-1.5 text-[13px] text-brand-muted">
               <GraduationCap className="h-3.5 w-3.5 shrink-0" />
@@ -95,7 +95,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-hairline bg-white text-brand-muted transition-colors active:bg-brand-surface-soft active:text-brand-ink"
                 aria-label="GitHub"
               >
-                <Github className="h-4 w-4" />
+                <GitBranch className="h-4 w-4" />
               </a>
             )}
 
@@ -107,7 +107,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-hairline bg-white text-brand-muted transition-colors active:bg-brand-surface-soft active:text-brand-ink"
                 aria-label="LinkedIn"
               >
-                <Linkedin className="h-4 w-4" />
+                <Link2 className="h-4 w-4" />
               </a>
             )}
 
@@ -119,7 +119,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-hairline bg-white text-brand-muted transition-colors active:bg-brand-surface-soft active:text-brand-ink"
                 aria-label="Twitter / X"
               >
-                <Twitter className="h-4 w-4" />
+                <XIcon className="h-4 w-4" />
               </a>
             )}
 
