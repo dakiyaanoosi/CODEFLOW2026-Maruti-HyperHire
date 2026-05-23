@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { X, Calendar, MapPin, DollarSign, Brain, BarChart2, Pencil, Trash2, AlertTriangle, Loader2, CheckSquare } from "lucide-react";
+import { X, Calendar, MapPin, DollarSign, Brain, BarChart2, Pencil, Trash2, AlertTriangle, Loader2, CheckSquare, Send } from "lucide-react";
 import { Job } from "@/types/job";
 import { jobService } from "@/lib/job-service";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ApplicationApplyModal } from "@/components/applications/ApplicationApplyModal";
+import { useAuthStore } from "@/store/use-auth-store";
 
 interface JobDetailsModalProps {
   job: Job | null;
@@ -24,9 +26,12 @@ export function JobDetailsModal({
   onDeleteSuccess,
   canManage = true,
 }: JobDetailsModalProps) {
+  const { user, profile } = useAuthStore();
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [applyModalOpen, setApplyModalOpen] = React.useState(false);
+  const [appliedSuccess, setAppliedSuccess] = React.useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -77,6 +82,7 @@ export function JobDetailsModal({
   };
 
   return (
+    <>
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
@@ -321,10 +327,43 @@ export function JobDetailsModal({
                   </ul>
                 </div>
               )}
+
+              {!canManage && (
+                <div className="pt-2">
+                  {appliedSuccess ? (
+                    <div className="flex items-center justify-center gap-2 rounded-[12px] bg-brand-success/10 border border-brand-success/20 px-5 py-3 text-sm font-semibold text-brand-success">
+                      Application Submitted
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setApplyModalOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white shadow-sm"
+                    >
+                      <Send className="h-4 w-4" />
+                      Apply for this Gig
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
       </div>
     </AnimatePresence>
+
+    {job && !canManage && (
+      <ApplicationApplyModal
+        job={job}
+        isOpen={applyModalOpen}
+        onClose={() => setApplyModalOpen(false)}
+        onSuccess={() => {
+          setApplyModalOpen(false);
+          setAppliedSuccess(true);
+        }}
+        studentId={user?.uid || "guest"}
+        studentName={profile?.name || user?.displayName || "Student"}
+      />
+    )}
+  </>
   );
 }

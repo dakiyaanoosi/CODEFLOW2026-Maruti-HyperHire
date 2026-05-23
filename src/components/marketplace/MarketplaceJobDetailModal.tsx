@@ -19,6 +19,8 @@ import {
 import { JobWithMatchScore } from "@/types/marketplace";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ApplicationApplyModal } from "@/components/applications/ApplicationApplyModal";
+import { useAuthStore } from "@/store/use-auth-store";
 
 interface MarketplaceJobDetailModalProps {
   job: JobWithMatchScore | null;
@@ -69,6 +71,10 @@ export function MarketplaceJobDetailModal({
   onClose,
   userSkills = [],
 }: MarketplaceJobDetailModalProps) {
+  const { user, profile } = useAuthStore();
+  const [applyModalOpen, setApplyModalOpen] = React.useState(false);
+  const [appliedSuccess, setAppliedSuccess] = React.useState(false);
+
   React.useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -111,6 +117,7 @@ export function MarketplaceJobDetailModal({
   const diff = difficultyConfig[job.difficultyLevel];
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <>
@@ -332,12 +339,20 @@ export function MarketplaceJobDetailModal({
             {/* Footer CTA */}
             <div className="shrink-0 px-6 py-4 border-t border-brand-hairline bg-white">
               <div className="flex items-center gap-3">
-                <button
-                  className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white hover:bg-brand-primary-active active:scale-[0.98] transition-all shadow-sm"
-                >
-                  <ArrowUpRight className="h-4 w-4" />
-                  Apply for this Gig
-                </button>
+                {appliedSuccess ? (
+                  <div className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-brand-success/10 border border-brand-success/20 px-5 py-3 text-sm font-semibold text-brand-success">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Application Submitted
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setApplyModalOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white hover:bg-brand-primary-active active:scale-[0.98] transition-all shadow-sm"
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                    Apply for this Gig
+                  </button>
+                )}
                 <button
                   onClick={onClose}
                   className="rounded-[12px] border border-brand-hairline bg-white px-4 py-3 text-sm font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors"
@@ -353,5 +368,21 @@ export function MarketplaceJobDetailModal({
         </>
       )}
     </AnimatePresence>
+
+    {job && (
+      <ApplicationApplyModal
+        job={job}
+        isOpen={applyModalOpen}
+        onClose={() => setApplyModalOpen(false)}
+        onSuccess={() => {
+          setApplyModalOpen(false);
+          setAppliedSuccess(true);
+        }}
+        studentId={user?.uid || "guest"}
+        studentName={profile?.name || user?.displayName || "Student"}
+        studentAvatar={undefined}
+      />
+    )}
+  </>
   );
 }

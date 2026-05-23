@@ -23,6 +23,7 @@ import {
   User,
   Building2,
   Store,
+  FileText,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
@@ -39,6 +40,7 @@ const studentNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Marketplace", href: "/marketplace", icon: Store },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
+  { name: "Applications", href: "/applications", icon: FileText },
   { name: "Portfolio", href: "/portfolio", icon: FolderOpen },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
@@ -49,6 +51,7 @@ const studentNavItems: SidebarItem[] = [
 const businessNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
+  { name: "Applications", href: "/applications", icon: FileText },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
   { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
