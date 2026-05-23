@@ -39,35 +39,56 @@ export interface ActivityAnalytics {
 }
 
 export interface BusinessProfile {
+  businessId: string;
+  ownerId: string;
   companyName: string;
   industry: Industry;
   description: string;
-  budgetRange: BudgetRange;
-  teamSize: TeamSize;
   location: string;
+  website?: string;
+  companySize: TeamSize; // Maps to teamSize
   hiringPreferences: HiringPreferences;
-  // Visual
-  isVerified: boolean;
-  logoInitials: string;
-  analytics: ActivityAnalytics;
+  budgetRange: BudgetRange;
+  logoUrl?: string;
+  verificationStatus: "Verified" | "Unverified";
+  activeJobs: number;
+  totalHires: number;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Backward compatibility fields for legacy UI components
+  isVerified?: boolean;
+  logoInitials?: string;
+  teamSize?: TeamSize; // alias
+  analytics?: ActivityAnalytics;
 }
 
 export const MOCK_BUSINESS_PROFILE: BusinessProfile = {
+  businessId: "sim_bus_nexa",
+  ownerId: "sim_user_owner",
   companyName: "NexaStack Solutions",
   industry: "Technology",
   description:
     "We build modern SaaS tools for hyperlocal businesses. Our team ships fast, iterates faster, and believes in student talent as the future of the workforce.",
   budgetRange: "$2k–$5k/mo",
+  companySize: "11–50",
   teamSize: "11–50",
   location: "Bangalore, India",
+  website: "https://nexastack.dev",
   hiringPreferences: {
     remote: true,
     partTime: true,
     fullTime: false,
     internship: true,
   },
+  logoUrl: "",
+  verificationStatus: "Verified",
   isVerified: true,
   logoInitials: "NS",
+  activeJobs: 3,
+  totalHires: 9,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
   analytics: {
     jobsPosted: 14,
     totalHires: 9,

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Globe, ExternalLink } from "lucide-react";
 import { ActivityAnalyticsCard } from "./ActivityAnalyticsCard";
 import { HiringStatisticsCard } from "./HiringStatisticsCard";
 import { BusinessProfile } from "@/types/business";
@@ -11,6 +12,18 @@ interface BusinessProfileDetailsProps {
 }
 
 export function BusinessProfileDetails({ profile }: BusinessProfileDetailsProps) {
+  // Compute analytics metrics from profile fields
+  const jobsPosted = profile.activeJobs ?? profile.analytics?.jobsPosted ?? 0;
+  const totalHires = profile.totalHires ?? profile.analytics?.totalHires ?? 0;
+  const activeListings = profile.activeJobs ?? profile.analytics?.activeListings ?? 0;
+  
+  const resolvedAnalytics = {
+    jobsPosted,
+    totalHires,
+    activeListings,
+    avgResponseHours: profile.analytics?.avgResponseHours ?? 12,
+  };
+
   return (
     <div className="space-y-4">
       {/* About */}
@@ -18,19 +31,37 @@ export function BusinessProfileDetails({ profile }: BusinessProfileDetailsProps)
         <CardHeader className="border-b border-brand-hairline pb-3">
           <CardTitle className="text-[16px]">About</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4">
-          <p className="text-[14px] leading-[1.6] text-brand-body">{profile.description}</p>
+        <CardContent className="pt-4 space-y-4">
+          <p className="text-[14px] leading-[1.6] text-brand-body whitespace-pre-wrap">
+            {profile.description || "No company description provided yet."}
+          </p>
+
+          {profile.website && (
+            <div className="pt-3 border-t border-brand-hairline flex items-center gap-2 text-[14px]">
+              <Globe className="h-4 w-4 text-brand-muted shrink-0" />
+              <span className="text-brand-muted font-medium">Website:</span>
+              <a
+                href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-link hover:underline font-semibold flex items-center gap-1"
+              >
+                {profile.website.replace(/^https?:\/\/(www\.)?/, "")}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Activity Analytics */}
-      <ActivityAnalyticsCard analytics={profile.analytics} />
+      <ActivityAnalyticsCard analytics={resolvedAnalytics} />
 
       {/* Hiring Statistics */}
       <HiringStatisticsCard
         hiringPreferences={profile.hiringPreferences}
-        totalHires={profile.analytics.totalHires}
-        jobsPosted={profile.analytics.jobsPosted}
+        totalHires={totalHires}
+        jobsPosted={jobsPosted}
       />
     </div>
   );
