@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Compass, Briefcase, Lock, Trophy } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Briefcase, Compass, Lock, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function Features() {
@@ -11,90 +10,65 @@ export function Features() {
       icon: Compass,
       title: "Hyperlocal Matchmaking",
       description: "Match with skilled students nearby. Set custom travel radii to coordinate physical or digital delivery instantly.",
-      color: "from-blue-500/20 to-cyan-500/20 text-blue-500",
+      surface: "bg-brand-peach",
     },
     {
       icon: Briefcase,
       title: "Verified Skill Portfolios",
-      description: "Browse high-definition project proofs, images, videos, and PDF case studies. Summarized automatically by local AI models.",
-      color: "from-purple-500/20 to-pink-500/20 text-purple-500",
+      description: "Browse project proofs, images, videos, and PDF case studies summarized into useful hiring context.",
+      surface: "bg-brand-mint",
     },
     {
       icon: Lock,
       title: "Milestone-Based Escrow",
-      description: "Secure agreements with automated simulated escrows. Payments lock at gig start and release instantly upon milestone approval.",
-      color: "from-emerald-500/20 to-teal-500/20 text-emerald-500",
+      description: "Secure agreements with simulated escrows that lock at gig start and release after milestone approval.",
+      surface: "bg-brand-cream",
     },
     {
       icon: Trophy,
       title: "Dynamic Trust Scores",
-      description: "Evaluate candidates using live scores based on completion ratios, response latency, deadlines, and client feedback.",
-      color: "from-amber-500/20 to-orange-500/20 text-amber-500",
+      description: "Evaluate candidates using completion ratios, response latency, deadlines, and client feedback.",
+      surface: "bg-brand-yellow",
     },
   ];
 
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 35 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
-    },
-  };
-
   return (
-    <section id="features" className="py-24 relative overflow-hidden border-b px-4 md:px-8">
-      {/* Glow backgrounds */}
-      <div className="absolute top-1/2 left-10 w-[250px] h-[250px] bg-blue-500/5 rounded-full blur-[80px] pointer-events-none -z-10" />
-      <div className="absolute bottom-10 right-10 w-[250px] h-[250px] bg-purple-500/5 rounded-full blur-[80px] pointer-events-none -z-10" />
-
-      <div className="mx-auto max-w-7xl space-y-16">
-        {/* Section Header */}
-        <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Core Architecture</h2>
-          <h3 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
-            Workforce operations, redesigned for the AI era.
-          </h3>
-          <p className="text-sm sm:text-base text-muted-foreground font-medium">
-            HyperHire provides the visual pipelines, instant contracts, and smart matching
-            to run on-demand operations with local college networks.
+    <section id="features" className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-12">
+        <div className="max-w-3xl space-y-4">
+          <h2 className="text-[32px] font-normal leading-[1.2] tracking-normal text-brand-ink md:text-[40px]">
+            Workforce operations, redesigned for local student networks.
+          </h2>
+          <p className="text-sm font-normal leading-[1.25] text-brand-body">
+            HyperHire provides visual pipelines, instant contracts, and smart matching for teams that rely on nearby college talent.
           </p>
         </div>
 
-        {/* Feature Cards Grid */}
         <motion.div
-          variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          variants={{ visible: { transition: { staggerChildren: 0.08 } } }}
+          className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4"
         >
-          {items.map((item) => {
+          {items.map((item, index) => {
             const Icon = item.icon;
             return (
-              <motion.div key={item.title} variants={cardVariants}>
-                <Card className="bg-card/40 border backdrop-blur-md hover:border-primary/20 hover:bg-card/65 transition-all duration-300 group shadow-sm select-none h-full">
-                  <CardHeader className="pb-3 flex flex-row items-center gap-4">
-                    <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shrink-0 shadow-sm border border-white/5`}>
-                      <Icon className="h-6 w-6 transition-transform group-hover:scale-110" />
+              <motion.div
+                key={item.title}
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } },
+                }}
+                className={index % 2 === 1 ? "lg:pt-10" : ""}
+              >
+                <Card className={`${item.surface} h-full rounded-[10px] p-0 ring-0`}>
+                  <CardContent className="space-y-6 p-6">
+                    <Icon className="h-8 w-8 text-brand-ink" />
+                    <div className="space-y-3">
+                      <h3 className="text-xl font-normal leading-[1.5] tracking-normal text-brand-ink">{item.title}</h3>
+                      <p className="text-sm font-normal leading-[1.25] text-brand-body">{item.description}</p>
                     </div>
-                    <div>
-                      <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors">{item.title}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm font-medium leading-relaxed text-muted-foreground">
-                      {item.description}
-                    </CardDescription>
                   </CardContent>
                 </Card>
               </motion.div>

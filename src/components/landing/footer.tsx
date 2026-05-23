@@ -1,79 +1,60 @@
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   const links = [
     {
-      title: "Product",
-      items: [
-        { name: "Features", href: "#features" },
-        { name: "AI Matching", href: "#ai-intelligence" },
-        { name: "Workflow", href: "#workflow" },
-        { name: "Workspace", href: "/dashboard" },
-      ],
+      title: "Platform",
+      items: ["Features", "AI Matching", "Workflow", "Workspace"],
+    },
+    {
+      title: "Solutions",
+      items: ["For Businesses", "For Students", "Trust & Safety", "Payments"],
     },
     {
       title: "Resources",
-      items: [
-        { name: "Documentation", href: "#" },
-        { name: "Student Guide", href: "#" },
-        { name: "Business Hub", href: "#" },
-        { name: "Trust & Safety", href: "#" },
-      ],
+      items: ["Documentation", "Student Guide", "Business Hub", "Support"],
     },
     {
       title: "Company",
-      items: [
-        { name: "About", href: "#" },
-        { name: "Blog", href: "#" },
-        { name: "Careers", href: "#" },
-        { name: "Contact", href: "#" },
-      ],
+      items: ["About", "Careers", "Contact", "Legal"],
     },
   ];
 
   return (
-    <footer className="bg-card/30 py-16 px-4 md:px-8">
+    <footer className="bg-white px-4 py-24 md:px-8">
       <div className="mx-auto max-w-7xl space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
-          {/* Brand Col */}
-          <div className="lg:col-span-2 space-y-4 text-left">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl select-none">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-6">
+          <div className="space-y-4 lg:col-span-2">
+            <Link href="/" className="flex items-center gap-2 text-xl font-medium text-brand-ink select-none">
               <Image
                 src="/hyperhire-icon-gradient.png"
                 alt="HyperHire Icon"
                 width={32}
                 height={32}
-                className="w-8 h-8 rounded-md"
+                className="h-8 w-8 rounded-[10px]"
               />
-              <span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent font-extrabold tracking-tight">
-                HyperHire
-              </span>
+              <span>HyperHire</span>
             </Link>
-            <p className="text-xs sm:text-sm text-muted-foreground font-medium max-w-sm leading-relaxed">
-              An AI-native hyperlocal workforce operating system connecting businesses with skilled student talent instantly and securely.
+            <p className="max-w-sm text-sm font-normal leading-[1.25] text-brand-body">
+              An AI-native hyperlocal workforce operating system connecting businesses with skilled student talent.
             </p>
           </div>
 
-          {/* Links Cols */}
           {links.map((col) => (
-            <div key={col.title} className="text-left space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+            <div key={col.title} className="space-y-3">
+              <h3 className="text-sm font-medium leading-[1.35] tracking-[0.16px] text-brand-ink">
                 {col.title}
-              </h4>
-              <ul className="space-y-2 text-xs sm:text-sm font-medium">
+              </h3>
+              <ul className="space-y-2">
                 {col.items.map((item) => (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {item.name}
+                  <li key={item}>
+                    <Link href="#" className="text-sm font-normal leading-[1.25] text-brand-muted">
+                      {item}
                     </Link>
                   </li>
                 ))}
@@ -82,12 +63,11 @@ export function Footer() {
           ))}
         </div>
 
-        {/* Bottom Col */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-accent/60 text-[11px] sm:text-xs text-muted-foreground font-medium">
+        <div className="flex flex-col gap-4 border-t border-brand-hairline pt-8 text-sm font-normal text-brand-muted sm:flex-row sm:items-center sm:justify-between">
           <span>&copy; {currentYear} HyperHire. All rights reserved.</span>
           <div className="flex gap-4">
-            <Link href="#" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link href="#" className="text-brand-muted">Privacy Policy</Link>
+            <Link href="#" className="text-brand-muted">Terms of Service</Link>
           </div>
         </div>
       </div>

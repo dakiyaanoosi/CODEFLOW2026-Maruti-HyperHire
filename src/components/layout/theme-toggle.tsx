@@ -17,7 +17,7 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon" className="relative h-9 w-9">
+      <Button variant="ghost" size="icon" className="relative h-10 w-10">
         <span className="sr-only">Toggle theme</span>
       </Button>
     );
@@ -29,7 +29,7 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      className="relative h-9 w-9 rounded-full overflow-hidden hover:bg-accent hover:text-accent-foreground"
+      className="relative h-10 w-10 overflow-hidden"
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       <span className="sr-only">Toggle theme</span>
@@ -43,9 +43,9 @@ export function ThemeToggle() {
           className="absolute inset-0 flex items-center justify-center"
         >
           {isDark ? (
-            <Sun className="h-[1.2rem] w-[1.2rem] text-amber-500" />
+            <Sun className="h-[1.2rem] w-[1.2rem] text-brand-mustard" />
           ) : (
-            <Moon className="h-[1.2rem] w-[1.2rem] text-slate-700" />
+            <Moon className="h-[1.2rem] w-[1.2rem] text-brand-ink" />
           )}
         </motion.div>
       </AnimatePresence>

@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUIStore } from "@/store/use-ui-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { LayoutDashboard, Briefcase, Users, Settings, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, LayoutDashboard, Settings, Users } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface SidebarItem {
@@ -23,6 +24,21 @@ const navItems: SidebarItem[] = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
+function Brand({ collapsed = false, onClick }: { collapsed?: boolean; onClick?: () => void }) {
+  return (
+    <Link href="/dashboard" className="flex items-center gap-2 text-xl font-medium text-brand-ink" onClick={onClick}>
+      <Image
+        src="/hyperhire-icon-gradient.png"
+        alt="HyperHire Icon"
+        width={32}
+        height={32}
+        className="h-8 w-8 rounded-[10px]"
+      />
+      {!collapsed && <span>HyperHire</span>}
+    </Link>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
@@ -30,32 +46,16 @@ export function Sidebar() {
   return (
     <motion.aside
       animate={{ width: isSidebarCollapsed ? 64 : 260 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+      transition={{ duration: 0.25, ease: "easeInOut" }}
       className={cn(
-        "hidden md:flex flex-col border-r bg-card/60 backdrop-blur-md h-screen sticky top-0 shrink-0 select-none overflow-hidden",
+        "hidden h-screen shrink-0 select-none overflow-hidden border-r border-brand-hairline bg-white md:flex md:flex-col",
         isSidebarCollapsed ? "w-16" : "w-[260px]"
       )}
     >
-      {/* Brand logo header */}
-      <div className="flex h-16 items-center justify-between px-4 border-b">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/20">
-            <Zap className="h-5 w-5 fill-current" />
-          </div>
-          {!isSidebarCollapsed && (
-            <motion.span
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent font-extrabold"
-            >
-              HyperHire
-            </motion.span>
-          )}
-        </Link>
+      <div className="flex h-16 items-center justify-between border-b border-brand-hairline px-4">
+        <Brand collapsed={isSidebarCollapsed} />
       </div>
 
-      {/* Nav List */}
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -65,44 +65,26 @@ export function Sidebar() {
             <Link key={item.href} href={item.href}>
               <div
                 className={cn(
-                  "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer mb-1",
+                  "mb-1 flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium leading-[1.4]",
                   isActive
-                    ? "text-primary-foreground font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                    ? "bg-brand-primary text-white"
+                    : "text-brand-muted"
                 )}
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="activeNavBg"
-                    className="absolute inset-0 bg-primary rounded-lg -z-10"
-                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  />
-                )}
-                <div className={cn("flex items-center justify-center shrink-0", isSidebarCollapsed ? "mx-auto" : "")}>
-                  <Icon className={cn("h-5 w-5 transition-transform duration-200 group-hover:scale-105", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                </div>
-                {!isSidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="truncate"
-                  >
-                    {item.name}
-                  </motion.span>
-                )}
+                <Icon className="h-5 w-5 shrink-0" />
+                {!isSidebarCollapsed && <span className="truncate">{item.name}</span>}
               </div>
             </Link>
           );
         })}
       </nav>
 
-      {/* Collapse button footer */}
-      <div className="p-3 border-t flex justify-end">
+      <div className="flex justify-end border-t border-brand-hairline p-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="h-8 w-8 hover:bg-accent rounded-md ml-auto"
+          className="h-10 w-10"
         >
           {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
@@ -121,16 +103,9 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-[280px] p-0 flex flex-col h-full bg-card">
-        <div className="px-6 border-b h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl" onClick={() => onOpenChange(false)}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/20">
-              <Zap className="h-5 w-5 fill-current" />
-            </div>
-            <span className="bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent font-extrabold">
-              HyperHire
-            </span>
-          </Link>
+      <SheetContent side="left" className="flex h-full w-[280px] flex-col bg-white p-0">
+        <div className="flex h-16 items-center border-b border-brand-hairline px-6">
+          <Brand onClick={() => onOpenChange(false)} />
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
@@ -142,10 +117,8 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
               <Link key={item.href} href={item.href} onClick={() => onOpenChange(false)}>
                 <div
                   className={cn(
-                    "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all cursor-pointer mb-1",
-                    isActive
-                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    "mb-1 flex items-center gap-3 rounded-[10px] px-3 py-3 text-sm font-medium",
+                    isActive ? "bg-brand-primary text-white" : "text-brand-muted"
                   )}
                 >
                   <Icon className="h-5 w-5" />

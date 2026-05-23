@@ -4,16 +4,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to the HyperHire workforce operating system.</p>
+        <h1 className="text-[32px] font-normal leading-[1.2] tracking-normal text-brand-ink">Dashboard</h1>
+        <p className="mt-2 text-sm font-normal leading-[1.25] text-brand-body">Welcome to the HyperHire workforce operating system.</p>
       </div>
 
-      <Card className="border-dashed">
+      <Card className="bg-white">
         <CardHeader>
           <CardTitle>Dashboard Workspace</CardTitle>
-          <CardDescription>Hyperlocal workforce operations foundation.</CardDescription>
+          <CardDescription className="text-brand-muted">Hyperlocal workforce operations foundation.</CardDescription>
         </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+        <CardContent className="h-64 flex items-center justify-center rounded-[10px] bg-brand-surface-soft text-sm text-brand-muted">
           Workspace UI and analytics will be implemented in subsequent phases.
         </CardContent>
       </Card>

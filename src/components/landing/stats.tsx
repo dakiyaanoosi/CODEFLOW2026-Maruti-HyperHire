@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { motion } from "framer-motion";
 
 export function Stats() {
@@ -21,22 +20,21 @@ export function Stats() {
   ];
 
   return (
-    <section className="py-16 bg-card/20 border-b relative overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4 md:px-8 space-y-12">
-        {/* Partners / Trusted By Ticker */}
+    <section className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-12">
         <div className="space-y-6 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-            Connecting Talent From Top Regional Institutions
+          <p className="text-sm font-medium leading-[1.35] tracking-[0.16px] text-brand-muted">
+            Connecting talent from top regional institutions
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 opacity-60">
+          <div className="grid grid-cols-2 gap-4 text-brand-muted md:grid-cols-3 lg:grid-cols-6">
             {partners.map((partner, index) => (
               <motion.span
                 key={partner}
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.05, duration: 0.5 }}
-                className="text-sm font-semibold tracking-tight text-muted-foreground hover:text-foreground transition-colors cursor-default"
+                transition={{ delay: index * 0.04, duration: 0.4 }}
+                className="text-sm font-normal leading-[1.25]"
               >
                 {partner}
               </motion.span>
@@ -44,21 +42,20 @@ export function Stats() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 pt-8 border-t border-accent/60">
+        <div className="grid gap-6 border-t border-brand-hairline pt-12 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
-              className="text-center space-y-2"
+              transition={{ delay: index * 0.08, duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
+              className="rounded-[10px] bg-brand-surface-soft p-6"
             >
-              <h3 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-foreground/75 bg-clip-text text-transparent">
+              <h3 className="text-[32px] font-normal leading-[1.2] tracking-normal text-brand-ink">
                 {stat.value}
               </h3>
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+              <p className="mt-2 text-sm font-normal leading-[1.25] text-brand-body">
                 {stat.label}
               </p>
             </motion.div>
