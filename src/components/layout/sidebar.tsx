@@ -22,6 +22,7 @@ import {
   LogOut,
   User,
   Building2,
+  Store,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
@@ -34,10 +35,20 @@ interface SidebarItem {
   badge?: string;
 }
 
-const navItems: SidebarItem[] = [
+const studentNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Marketplace", href: "/marketplace", icon: Store },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Portfolio", href: "/portfolio", icon: FolderOpen },
+  { name: "Analytics", href: "/analytics", icon: BarChart2 },
+  { name: "Messages", href: "/messages", icon: MessageSquare },
+  { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
+  { name: "My Profile", href: "/profile", icon: User },
+];
+
+const businessNavItems: SidebarItem[] = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
   { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
@@ -154,12 +165,14 @@ export function Sidebar() {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const { profile } = useAuthStore();
 
+  const navItems = profile?.role === "business" ? businessNavItems : studentNavItems;
+
   return (
     <motion.aside
       animate={{ width: isSidebarCollapsed ? 64 : 260 }}
       transition={{ duration: 0.22, ease: "easeInOut" }}
       className={cn(
-        "hidden h-screen shrink-0 select-none flex-col overflow-hidden border-r border-brand-hairline bg-white md:flex",
+        "hidden h-screen shrink-0 select-none flex-col overflow-x-hidden border-r border-brand-hairline bg-white md:flex",
         isSidebarCollapsed ? "w-16" : "w-[260px]"
       )}
     >
@@ -180,7 +193,7 @@ export function Sidebar() {
       </div>
 
       {/* Primary nav */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden p-3">
         {navItems.map((item) => (
           <NavItem
             key={item.href}
@@ -239,6 +252,8 @@ interface MobileSidebarProps {
 export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
   const pathname = usePathname();
   const { profile } = useAuthStore();
+
+  const navItems = profile?.role === "business" ? businessNavItems : studentNavItems;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

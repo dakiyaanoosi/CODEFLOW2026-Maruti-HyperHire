@@ -80,9 +80,9 @@ export function PortfolioGrid({
   return (
     <div className="space-y-6">
       {/* Search and filter toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3">
         {/* Search */}
-        <div className="relative flex-1 max-w-md">
+        <div className="relative max-w-md w-full">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
           <input
             type="text"
@@ -93,8 +93,8 @@ export function PortfolioGrid({
           />
         </div>
 
-        {/* Categories Rail */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none shrink-0">
+        {/* Categories — wrapping flex so they don't force horizontal scroll */}
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           <button
             onClick={() => setSelectedCategory("All")}
             className={cn(
