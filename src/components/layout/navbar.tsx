@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, ChevronDown, Menu, PanelRight, PanelRightClose, Search } from "lucide-react";
+import { Bell, ChevronDown, Menu, PanelRightClose, Search, Sparkles } from "lucide-react";
 import { useUIStore } from "@/store/use-ui-store";
 import { useAuthStore } from "@/store/use-auth-store";
 import { authService } from "@/lib/auth-service";
@@ -94,13 +94,15 @@ export function Navbar() {
           variant="ghost"
           size="icon"
           onClick={toggleRightPanel}
+          className={isRightPanelOpen ? "text-brand-ink" : ""}
+          title={isRightPanelOpen ? "Close AI Copilot" : "Open AI Copilot"}
         >
           {isRightPanelOpen ? (
             <PanelRightClose className="h-5 w-5 text-brand-ink" />
           ) : (
-            <PanelRight className="h-5 w-5 text-brand-muted" />
+            <Sparkles className="h-5 w-5 text-brand-muted" />
           )}
-          <span className="sr-only">Toggle Right Panel</span>
+          <span className="sr-only">Toggle AI Copilot Panel</span>
         </Button>
 
         <DropdownMenu>
