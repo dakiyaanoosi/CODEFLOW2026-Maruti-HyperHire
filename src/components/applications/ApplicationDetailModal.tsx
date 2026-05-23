@@ -8,7 +8,6 @@ import {
   Building2,
   FileText,
   MessageSquare,
-  Sparkles,
   Calendar,
   User,
 } from "lucide-react";
@@ -175,20 +174,6 @@ export function ApplicationDetailModal({
                   {application.proposalText}
                 </div>
               </div>
-
-              {application.aiEnhanced && application.aiSuggestions && (
-                <div className="rounded-[10px] bg-brand-info/5 border border-brand-info/20 overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-brand-info/10 bg-brand-info/5">
-                    <Sparkles className="h-3.5 w-3.5 text-brand-info" />
-                    <span className="text-xs font-semibold text-brand-info uppercase tracking-wider">
-                      AI Enhancement Notes
-                    </span>
-                  </div>
-                  <pre className="px-4 py-3 text-xs text-brand-body leading-relaxed font-sans whitespace-pre-wrap">
-                    {application.aiSuggestions}
-                  </pre>
-                </div>
-              )}
 
               {isBusiness && application.status === "Pending" && (
                 <div className="rounded-[12px] bg-brand-surface-dark p-5 space-y-3">

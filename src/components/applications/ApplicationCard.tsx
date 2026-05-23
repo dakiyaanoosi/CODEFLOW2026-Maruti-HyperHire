@@ -8,7 +8,6 @@ import {
   Clock,
   DollarSign,
   Building2,
-  Sparkles,
   Calendar,
 } from "lucide-react";
 
@@ -50,13 +49,6 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       <p className="mt-3 text-xs text-brand-body line-clamp-2 leading-relaxed">
         {application.coverMessage}
       </p>
-
-      {application.aiEnhanced && (
-        <div className="mt-3 flex items-center gap-1.5 rounded-[8px] bg-brand-surface-soft border border-brand-hairline/50 px-2.5 py-1.5 text-[11px] font-medium text-brand-info w-fit">
-          <Sparkles className="h-3 w-3" />
-          AI Enhanced
-        </div>
-      )}
 
       <div className="mt-auto pt-4 border-t border-brand-hairline/60 flex items-center justify-between text-xs font-semibold">
         <div className="flex items-center gap-3 text-brand-muted">

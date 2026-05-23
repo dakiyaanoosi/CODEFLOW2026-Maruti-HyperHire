@@ -7,8 +7,6 @@ import {
   MapPin,
   DollarSign,
   Flame,
-  Sparkles,
-  TrendingUp,
   Clock,
   Zap,
 } from "lucide-react";
@@ -80,13 +78,14 @@ export function MarketplaceJobCard({
   onClick,
   userSkills = [],
 }: MarketplaceJobCardProps) {
+  const [now] = React.useState(() => Date.now());
   const formattedDeadline = new Date(job.deadline).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
 
   const daysLeft = Math.ceil(
-    (new Date(job.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    (new Date(job.deadline).getTime() - now) / (1000 * 60 * 60 * 24)
   );
 
   const deadlineUrgency =
@@ -133,7 +132,7 @@ export function MarketplaceJobCard({
       onClick={onClick}
       className="group relative flex flex-col rounded-[12px] border border-brand-hairline bg-white cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-brand-border-strong"
     >
-      {/* Accent top bar based on match quality */}
+      {/* Accent top bar based on skill fit */}
       <div
         className="h-[3px] w-full transition-all duration-300"
         style={{
@@ -197,14 +196,6 @@ export function MarketplaceJobCard({
           </span>
         </div>
 
-        {/* AI Summary */}
-        {job.aiGeneratedSummary && (
-          <p className="rounded-[8px] bg-brand-surface-soft border border-brand-hairline/50 px-2.5 py-2 text-[11px] text-brand-body leading-relaxed line-clamp-2 flex items-start gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-brand-info mt-[1px]" />
-            <span>{job.aiGeneratedSummary}</span>
-          </p>
-        )}
-
         {/* Skills */}
         {job.requiredSkills.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -233,7 +224,7 @@ export function MarketplaceJobCard({
           </div>
         )}
 
-        {/* Footer: Budget, Deadline, Match Ring */}
+        {/* Footer: Budget, Deadline, Fit Ring */}
         <div className="mt-auto pt-4 border-t border-brand-hairline/60 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             {/* Budget */}
@@ -266,11 +257,11 @@ export function MarketplaceJobCard({
             </div>
           </div>
 
-          {/* AI Match Ring */}
+          {/* Skill fit ring */}
           <div className="flex flex-col items-center shrink-0">
             <MatchRing score={job.matchScore} />
             <span className="text-[8px] font-semibold text-brand-muted mt-0.5 uppercase tracking-wide">
-              Match
+              Fit
             </span>
           </div>
         </div>

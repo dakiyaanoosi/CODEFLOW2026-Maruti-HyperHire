@@ -9,7 +9,6 @@ import {
   DollarSign,
   Flame,
   Zap,
-  Sparkles,
   CheckCircle2,
   Clock,
   BarChart2,
@@ -46,7 +45,7 @@ function MatchBar({ score }: { score: number }) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-brand-muted uppercase tracking-wider">
-          AI Match Score
+          Skill Fit Score
         </span>
         <span className="text-sm font-bold" style={{ color }}>
           {score}% — {label}
@@ -74,6 +73,7 @@ export function MarketplaceJobDetailModal({
   const { user, profile } = useAuthStore();
   const [applyModalOpen, setApplyModalOpen] = React.useState(false);
   const [appliedSuccess, setAppliedSuccess] = React.useState(false);
+  const [now] = React.useState(() => Date.now());
 
   React.useEffect(() => {
     if (isOpen) {
@@ -96,7 +96,7 @@ export function MarketplaceJobDetailModal({
   });
 
   const daysLeft = Math.ceil(
-    (new Date(job.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    (new Date(job.deadline).getTime() - now) / (1000 * 60 * 60 * 24)
   );
 
   const matchedSkills = userSkills.length
@@ -235,7 +235,7 @@ export function MarketplaceJobDetailModal({
                 ))}
               </div>
 
-              {/* AI Match score bar */}
+              {/* Skill fit score bar */}
               <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft px-4 py-3.5">
                 <MatchBar score={job.matchScore} />
                 {matchedSkills.length > 0 && (
@@ -247,21 +247,6 @@ export function MarketplaceJobDetailModal({
                   </p>
                 )}
               </div>
-
-              {/* AI Summary */}
-              {job.aiGeneratedSummary && (
-                <div className="rounded-[10px] border border-brand-hairline/60 bg-brand-surface-soft px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Sparkles className="h-3.5 w-3.5 text-brand-info" />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
-                      AI Summary
-                    </span>
-                  </div>
-                  <p className="text-sm text-brand-body leading-relaxed">
-                    {job.aiGeneratedSummary}
-                  </p>
-                </div>
-              )}
 
               {/* Description */}
               <div>

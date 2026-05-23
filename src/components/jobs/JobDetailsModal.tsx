@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Calendar, MapPin, DollarSign, Brain, BarChart2, Pencil, Trash2, AlertTriangle, Loader2, CheckSquare, Send } from "lucide-react";
+import { X, Calendar, MapPin, DollarSign, BarChart2, Pencil, Trash2, AlertTriangle, Loader2, CheckSquare, Send } from "lucide-react";
 import { Job } from "@/types/job";
 import { jobService } from "@/lib/job-service";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,6 +35,7 @@ export function JobDetailsModal({
 
   React.useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowDeleteConfirm(false);
       setError(null);
       setIsDeleting(false);
@@ -50,9 +51,9 @@ export function JobDetailsModal({
       await jobService.deleteJob(job.jobId);
       onDeleteSuccess(job.jobId);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err?.message || "Failed to delete gig listing. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to delete gig listing. Please try again.");
       setIsDeleting(false);
     }
   };
@@ -68,18 +69,6 @@ export function JobDetailsModal({
     day: "numeric",
     year: "numeric",
   });
-
-  // Difficulty meter settings
-  const getDifficultyPercent = (score?: number) => {
-    if (!score) return 50; // default 50%
-    return (score / 10) * 100;
-  };
-
-  const getDifficultyMeterColor = (level: string) => {
-    if (level === "Beginner") return "bg-brand-success";
-    if (level === "Advanced") return "bg-brand-coral";
-    return "bg-brand-info";
-  };
 
   return (
     <>
@@ -233,59 +222,6 @@ export function JobDetailsModal({
                     {job.difficultyLevel}
                   </span>
                 </div>
-              </div>
-
-              {/* AI-Assisted Intelligence Section */}
-              <div className="rounded-[10px] border border-brand-info-border bg-brand-surface-soft p-4 md:p-5 space-y-4">
-                <div className="flex items-center gap-2 text-brand-info border-b border-brand-info-border/30 pb-3">
-                  <Brain className="h-5 w-5" />
-                  <h3 className="text-sm font-bold uppercase tracking-wider">AI Intelligence Insights</h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* AI summary */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">AI generated summary</span>
-                    <p className="text-xs text-brand-body leading-relaxed bg-white border border-brand-hairline/60 rounded-[8px] p-3 shadow-sm italic">
-                      "{job.aiGeneratedSummary || "No summary generated."}"
-                    </p>
-                  </div>
-
-                  {/* AI difficulty meter */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">AI difficulty estimation</span>
-                      <span className="text-xs font-bold text-brand-ink font-mono">{job.aiDifficultyScore || 0}/10 ({job.difficultyLevel})</span>
-                    </div>
-                    
-                    <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-brand-hairline/60 shadow-inner relative flex">
-                      <div
-                        className={cn("h-full rounded-full transition-all duration-500", getDifficultyMeterColor(job.difficultyLevel))}
-                        style={{ width: `${getDifficultyPercent(job.aiDifficultyScore)}%` }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-brand-muted leading-tight">
-                      Calculated difficulty maps to required talent criteria.
-                    </p>
-                  </div>
-                </div>
-
-                {/* AI Extracted Skills */}
-                {job.aiExtractedSkills && job.aiExtractedSkills.length > 0 && (
-                  <div className="pt-2.5 border-t border-brand-info-border/30 space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">AI Extracted Skill Tags</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {job.aiExtractedSkills.map((skill, idx) => (
-                        <span
-                          key={idx}
-                          className="rounded-[6px] bg-brand-info/10 text-brand-info border border-brand-info-border/40 px-2 py-0.5 text-[10px] font-bold uppercase font-mono"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Description */}

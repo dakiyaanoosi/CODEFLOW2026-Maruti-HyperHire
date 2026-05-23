@@ -8,7 +8,7 @@ export default function MessagesPage() {
           Messages
         </h1>
         <p className="mt-2 text-sm font-normal leading-[1.25] text-brand-body">
-          Real-time chat between students and businesses with AI quick replies.
+          Real-time chat between students and businesses.
         </p>
       </div>
 
@@ -18,7 +18,7 @@ export default function MessagesPage() {
         </div>
         <p className="mt-4 text-sm font-medium text-brand-ink">Real-Time Messaging</p>
         <p className="mt-1.5 max-w-xs text-center text-sm text-brand-muted">
-          Discord-inspired messaging panel with AI smart replies. Launching in Phase 5.
+          A focused messaging panel arrives in Phase 5.
         </p>
       </div>
     </div>

@@ -7,9 +7,8 @@ import { PortfolioItem } from "@/types/portfolio";
 import { PortfolioGrid } from "@/components/portfolio/PortfolioGrid";
 import { PortfolioUploadModal } from "@/components/portfolio/PortfolioUploadModal";
 import { PortfolioDetailModal } from "@/components/portfolio/PortfolioDetailModal";
-import { Plus, Check, Loader2, Sparkles, FolderKanban } from "lucide-react";
+import { Plus, Check, Loader2, FolderKanban } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
 
 function StatusToast({ message, visible }: { message: string; visible: boolean }) {
   return (
@@ -117,7 +116,7 @@ export default function PortfolioPage() {
             </h1>
             <p className="mt-1.5 text-sm text-brand-body max-w-xl leading-relaxed">
               {isStudent
-                ? "Showcase your capabilities. Upload images, videos, and PDFs of your creative deliverables to build match intelligence for local businesses."
+                ? "Showcase your capabilities. Upload images, videos, PDFs, and project links for local businesses to review."
                 : "Explore outstanding portfolios, case studies, and code repositories uploaded by students in the local marketplace."}
             </p>
           </div>

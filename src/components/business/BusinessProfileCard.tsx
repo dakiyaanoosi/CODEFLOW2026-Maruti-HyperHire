@@ -1,16 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, Users, DollarSign, Building2 } from "lucide-react";
+import { MapPin, Users, DollarSign, Building2, Camera } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BusinessVerificationBadge } from "./BusinessVerificationBadge";
 import { BusinessProfile } from "@/types/business";
 
 interface BusinessProfileCardProps {
   profile: BusinessProfile;
+  isEditing?: boolean;
+  onLogoClick?: () => void;
 }
 
-export function BusinessProfileCard({ profile }: BusinessProfileCardProps) {
+export function BusinessProfileCard({ profile, isEditing = false, onLogoClick }: BusinessProfileCardProps) {
   const logoInitials =
     profile.logoInitials ||
     (profile.companyName
@@ -30,19 +32,46 @@ export function BusinessProfileCard({ profile }: BusinessProfileCardProps) {
       <CardContent className="pt-6 space-y-5">
         {/* Logo + Name */}
         <div className="flex flex-col items-center text-center gap-3">
-          {profile.logoUrl ? (
-            <div className="relative h-20 w-20 overflow-hidden rounded-[16px] border border-brand-hairline bg-brand-surface-soft">
-              <img
-                src={profile.logoUrl}
-                alt={`${profile.companyName} logo`}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-[16px] bg-brand-ink text-2xl font-semibold text-white select-none">
-              {logoInitials}
-            </div>
-          )}
+          <div className="relative group">
+            {isEditing ? (
+              <button
+                type="button"
+                onClick={onLogoClick}
+                className="relative flex h-20 w-20 items-center justify-center rounded-[16px] overflow-hidden border border-brand-hairline bg-brand-surface-soft cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                title="Change company logo"
+              >
+                {profile.logoUrl ? (
+                  <img
+                    src={profile.logoUrl}
+                    alt={`${profile.companyName} logo`}
+                    className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-70"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white bg-brand-ink select-none transition-opacity duration-200 group-hover:opacity-70">
+                    {logoInitials}
+                  </div>
+                )}
+                {/* Camera overlay on hover */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <Camera className="h-5 w-5 text-white" />
+                </div>
+              </button>
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-[16px] overflow-hidden border border-brand-hairline bg-brand-surface-soft select-none">
+                {profile.logoUrl ? (
+                  <img
+                    src={profile.logoUrl}
+                    alt={`${profile.companyName} logo`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-2xl font-semibold text-white bg-brand-ink flex h-full w-full items-center justify-center">
+                    {logoInitials}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
           <div>
             <h2 className="text-[20px] font-medium leading-[1.5] text-brand-ink">

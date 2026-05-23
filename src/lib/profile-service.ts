@@ -108,6 +108,7 @@ export const profileService = {
       socialLinks: {},
       profileStrength: 10,
       avatarInitials: getAvatarInitials(displayName),
+      avatarUrl: "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

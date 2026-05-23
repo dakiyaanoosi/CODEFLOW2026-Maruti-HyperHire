@@ -10,6 +10,8 @@ import { Pencil, Eye, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { profileService, computeProfileStrength, getAvatarInitials } from "@/lib/profile-service";
+import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
+import { uploadFile } from "@/lib/cloudinary";
 
 type Tab = "view" | "edit";
 
@@ -40,6 +42,11 @@ export default function ProfilePage() {
   const [showToast, setShowToast] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // Avatar upload / crop state
+  const [isCropping, setIsCropping] = React.useState(false);
+  const [cropImageSrc, setCropImageSrc] = React.useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   React.useEffect(() => {
     async function loadData() {
       if (user?.uid) {
@@ -62,6 +69,7 @@ export default function ProfilePage() {
               isVerified: fetched.verificationStatus === "Verified" || (fetched as any).isVerified || false,
               profileStrength: fetched.profileStrength || 10,
               avatarInitials: fetched.avatarInitials || getAvatarInitials(fetched.name),
+              avatarUrl: fetched.avatarUrl || "",
             });
           } else {
             const seeded = await profileService.createDefaultStudentProfile(
@@ -84,6 +92,7 @@ export default function ProfilePage() {
               isVerified: seeded.verificationStatus === "Verified",
               profileStrength: seeded.profileStrength || 10,
               avatarInitials: seeded.avatarInitials || "ST",
+              avatarUrl: seeded.avatarUrl || "",
             });
           }
         } catch (error) {
@@ -95,6 +104,34 @@ export default function ProfilePage() {
     }
     loadData();
   }, [user]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCropImageSrc(reader.result as string);
+        setIsCropping(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropComplete = async (croppedFile: File) => {
+    setIsCropping(false);
+    setIsSaving(true);
+    try {
+      const uploadResult = await uploadFile(croppedFile);
+      handleChange({ avatarUrl: uploadResult.url });
+    } catch (err) {
+      console.error("Failed to upload avatar to Cloudinary:", err);
+    } finally {
+      setIsSaving(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   function handleChange(partial: Partial<StudentProfile>) {
     if (!profile) return;
@@ -112,6 +149,7 @@ export default function ProfilePage() {
         hourlyRate: updated.hourlyRate,
         portfolioLinks: updated.portfolioLinks,
         socialLinks: updated.socialLinks,
+        avatarUrl: updated.avatarUrl,
       };
       updated.profileStrength = computeProfileStrength(mappingForStrength);
       return updated;
@@ -135,6 +173,7 @@ export default function ProfilePage() {
         socialLinks: profile.socialLinks,
         trustScore: profile.trustScore,
         verificationStatus: profile.isVerified ? "Verified" : "Unverified",
+        avatarUrl: profile.avatarUrl,
       };
 
       const updated = await profileService.updateProfile(user.uid, updateData);
@@ -155,6 +194,7 @@ export default function ProfilePage() {
         isVerified: updated.verificationStatus === "Verified" || (updated as any).isVerified || false,
         profileStrength: updated.profileStrength || 10,
         avatarInitials: updated.avatarInitials || "ST",
+        avatarUrl: updated.avatarUrl || "",
       });
 
       setTab("view");
@@ -219,7 +259,11 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           {/* Left: Profile Card (always visible) */}
           <div className="lg:sticky lg:top-6 lg:self-start">
-            <ProfileCard profile={profile} />
+            <ProfileCard
+              profile={profile}
+              isEditing={tab === "edit"}
+              onAvatarClick={() => fileInputRef.current?.click()}
+            />
           </div>
 
           {/* Right: view or edit */}
@@ -276,6 +320,24 @@ export default function ProfilePage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+      />
+
+      <ImageCropperModal
+        isOpen={isCropping}
+        imageSrc={cropImageSrc}
+        onClose={() => {
+          setIsCropping(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }}
+        onCropComplete={handleCropComplete}
+      />
 
       <SaveToast visible={showToast} />
     </>

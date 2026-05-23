@@ -5,7 +5,6 @@ import {
   Search,
   X,
   SlidersHorizontal,
-  TrendingUp,
   Loader2,
   FolderOpen,
   ChevronDown,
@@ -54,7 +53,7 @@ export function MarketplaceFeed({
   // Sentinel ref for infinite scroll
   const sentinelRef = React.useRef<HTMLDivElement>(null);
 
-  // Enrich jobs with AI match scores
+  // Enrich jobs with skill fit scores
   const enrichedJobs = React.useMemo(
     () => enrichJobs(jobs, userSkills),
     [jobs, userSkills]
@@ -76,6 +75,7 @@ export function MarketplaceFeed({
 
   // Reset page when filters change
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [filters]);
 
@@ -300,7 +300,7 @@ export function MarketplaceFeed({
                 )}
                 {!hasMore && visibleJobs.length > PAGE_SIZE && (
                   <p className="text-xs text-brand-muted font-medium">
-                    You've seen all {processedJobs.length} listings
+                    You have seen all {processedJobs.length} listings
                   </p>
                 )}
               </div>

@@ -36,6 +36,7 @@ export interface StudentProfile {
   isVerified: boolean;
   profileStrength: number;
   avatarInitials: string;
+  avatarUrl?: string;
 }
 
 export const MOCK_PROFILE: StudentProfile = {
@@ -62,6 +63,7 @@ export const MOCK_PROFILE: StudentProfile = {
   isVerified: true,
   profileStrength: 82,
   avatarInitials: "SD",
+  avatarUrl: "",
 };
 
 export const EXPERIENCE_LEVELS: ExperienceLevel[] = [

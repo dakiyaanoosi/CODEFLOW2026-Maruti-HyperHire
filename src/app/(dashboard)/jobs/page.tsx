@@ -8,9 +8,8 @@ import { Job } from "@/types/job";
 import { JobDashboard } from "@/components/jobs/JobDashboard";
 import { JobFormModal } from "@/components/jobs/JobFormModal";
 import { JobDetailsModal } from "@/components/jobs/JobDetailsModal";
-import { Plus, Check, Loader2, Sparkles, Briefcase } from "lucide-react";
+import { Plus, Check, Loader2, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
 
 function StatusToast({ message, visible }: { message: string; visible: boolean }) {
   return (
@@ -122,8 +121,8 @@ export default function JobsPage() {
             </h1>
             <p className="mt-1.5 text-sm text-brand-body max-w-xl leading-relaxed">
               {isBusiness
-                ? "Configure, analyze, and manage your organization's digital task and gig postings. Run AI Assist to refine required credentials."
-                : "Explore and search active digital gigs posted by local organizations. Leverage AI matches in subsequent phases."}
+                ? "Create, publish, and manage your organization's digital task and gig postings."
+                : "Explore and search active digital gigs posted by local organizations."}
             </p>
           </div>
 

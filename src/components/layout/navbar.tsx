@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, ChevronDown, Menu, PanelRightClose, Search, Sparkles } from "lucide-react";
-import { useUIStore } from "@/store/use-ui-store";
+import { Bell, Building2, ChevronDown, LogOut, Menu, Search, User } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { authService } from "@/lib/auth-service";
 import { useRouter } from "next/navigation";
@@ -20,7 +19,6 @@ import { MobileSidebar } from "./sidebar";
 
 export function Navbar() {
   const router = useRouter();
-  const { isRightPanelOpen, toggleRightPanel } = useUIStore();
   const { user, profile, clearAuth } = useAuthStore();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -104,39 +102,46 @@ export function Navbar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleRightPanel}
-          className={isRightPanelOpen ? "text-brand-ink" : ""}
-          title={isRightPanelOpen ? "Close AI Copilot" : "Open AI Copilot"}
-        >
-          {isRightPanelOpen ? (
-            <PanelRightClose className="h-5 w-5 text-brand-ink" />
-          ) : (
-            <Sparkles className="h-5 w-5 text-brand-muted" />
-          )}
-          <span className="sr-only">Toggle AI Copilot Panel</span>
-        </Button>
-
-        <div className="flex items-center gap-1">
-          <Button 
-            variant="ghost" 
-            className="flex min-h-10 items-center justify-center rounded-full p-1 w-10 h-10"
-            onClick={handleProfileNavigation}
-            title="View Profile"
-          >
-            <Avatar className="h-8 w-8 border border-brand-hairline">
-              {user?.photoURL && (
-                <AvatarImage src={user.photoURL} alt={profile?.name || "User"} />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                className="flex h-10 items-center gap-2 rounded-[10px] px-1.5 pr-2"
+                title="Account menu"
+              >
+                <Avatar className="h-8 w-8 border border-brand-hairline">
+                  {user?.photoURL && (
+                    <AvatarImage src={user.photoURL} alt={profile?.name || "User"} />
+                  )}
+                  <AvatarFallback className={profile?.role === "business" ? "bg-brand-primary text-white" : "bg-brand-coral text-white"}>
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <ChevronDown className="h-3.5 w-3.5 text-brand-muted" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-56 rounded-[10px] border-brand-hairline bg-white">
+            <DropdownMenuLabel className="truncate">
+              {profile?.name || "Account"}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleProfileNavigation} className="gap-2">
+              {profile?.role === "business" ? (
+                <Building2 className="h-4 w-4" />
+              ) : (
+                <User className="h-4 w-4" />
               )}
-              <AvatarFallback className={profile?.role === "business" ? "bg-brand-primary text-white" : "bg-brand-coral text-white"}>
-                {userInitials}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
-
-        </div>
+              {profile?.role === "business" ? "Company Profile" : "Profile"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="gap-2 text-brand-coral">
+              <LogOut className="h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <MobileSidebar open={mobileOpen} onOpenChange={setMobileOpen} />

@@ -8,7 +8,7 @@ export default function AnalyticsPage() {
           Analytics
         </h1>
         <p className="mt-2 text-sm font-normal leading-[1.25] text-brand-body">
-          Track performance, demand heatmaps, and AI productivity insights.
+          Track marketplace performance and demand trends.
         </p>
       </div>
 
@@ -16,9 +16,9 @@ export default function AnalyticsPage() {
         <div className="grid h-14 w-14 place-items-center rounded-[12px] bg-brand-surface-soft">
           <BarChart2 className="h-6 w-6 text-brand-muted" />
         </div>
-        <p className="mt-4 text-sm font-medium text-brand-ink">AI Analytics Engine</p>
+        <p className="mt-4 text-sm font-medium text-brand-ink">Analytics Workspace</p>
         <p className="mt-1.5 max-w-xs text-center text-sm text-brand-muted">
-          Interactive charts, skill heatmaps, and AI prediction cards. Launching in Phase 4.
+          Charts, skill demand reports, and workspace metrics arrive in the next workflow phase.
         </p>
       </div>
     </div>

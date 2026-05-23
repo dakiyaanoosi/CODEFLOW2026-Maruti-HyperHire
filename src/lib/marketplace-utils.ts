@@ -1,7 +1,7 @@
 import { Job } from "@/types/job";
 import { JobWithMatchScore, MarketplaceFilters, TRENDING_CATEGORIES } from "@/types/marketplace";
 
-// Simulate AI match scoring based on user skills vs job requirements
+// Score fit based on explicit overlap between user skills and job requirements.
 export function computeMatchScore(job: Job, userSkills: string[]): number {
   if (!userSkills || userSkills.length === 0) {
     // Random plausible score if no profile skills

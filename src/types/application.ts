@@ -14,8 +14,6 @@ export interface Application {
   estimatedDeliveryDays: number;
   quotedPrice: number;
   status: ApplicationStatus;
-  aiEnhanced: boolean;
-  aiSuggestions?: string;
   createdAt: string;
   updatedAt: string;
 }

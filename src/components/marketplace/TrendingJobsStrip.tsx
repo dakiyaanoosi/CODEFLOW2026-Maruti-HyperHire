@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { TrendingUp, Flame, ArrowRight } from "lucide-react";
+import { Flame } from "lucide-react";
 import { JobWithMatchScore } from "@/types/marketplace";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -84,7 +84,7 @@ export function TrendingJobsStrip({ jobs, onJobClick }: TrendingJobsStripProps) 
                       : "#d9a441",
                 }}
               >
-                {job.matchScore}% match
+                {job.matchScore}% fit
               </div>
             </div>
           </motion.button>

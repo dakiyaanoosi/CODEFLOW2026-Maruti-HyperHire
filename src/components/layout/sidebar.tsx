@@ -15,13 +15,9 @@ import {
   FolderOpen,
   BarChart2,
   MessageSquare,
-  Sparkles,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  User,
-  Building2,
+  PanelLeftClose,
+  PanelLeftOpen,
   Store,
   FileText,
 } from "lucide-react";
@@ -39,13 +35,10 @@ interface SidebarItem {
 const studentNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Marketplace", href: "/marketplace", icon: Store },
-  { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Applications", href: "/applications", icon: FileText },
   { name: "Portfolio", href: "/portfolio", icon: FolderOpen },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
-  { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
-  { name: "My Profile", href: "/profile", icon: User },
 ];
 
 const businessNavItems: SidebarItem[] = [
@@ -54,9 +47,6 @@ const businessNavItems: SidebarItem[] = [
   { name: "Applications", href: "/applications", icon: FileText },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
-  { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
-  { name: "My Profile", href: "/profile", icon: User },
-  { name: "Company Profile", href: "/business-profile", icon: Building2 },
 ];
 
 const bottomItems: SidebarItem[] = [
@@ -101,86 +91,12 @@ function NavItem({
         )}
         {/* Tooltip when collapsed */}
         {collapsed && (
-          <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-[6px] bg-brand-ink px-2 py-1 text-xs text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+          <span className="pointer-events-none absolute left-full top-1/2 z-[60] ml-3 -translate-y-1/2 whitespace-nowrap rounded-[6px] bg-brand-ink px-2 py-1 text-xs text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100">
             {item.name}
           </span>
         )}
       </div>
     </Link>
-  );
-}
-
-function UserCard({ collapsed, profile }: { collapsed: boolean; profile: { name: string; email: string; role: string } | null }) {
-  const router = useRouter();
-  const { clearAuth } = useAuthStore();
-
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-      clearAuth();
-      router.push("/login");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const initials = profile?.name
-    ? profile.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "U";
-
-  const roleLabel = profile?.role === "student" ? "Student" : profile?.role === "business" ? "Business" : "User";
-
-  if (collapsed) {
-    return (
-      <button
-        onClick={() => {
-          if (!profile) {
-            router.push("/profile");
-            return;
-          }
-          if (profile.role?.toLowerCase() === "business") router.push("/business-profile");
-          else router.push("/profile");
-        }}
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-ink text-xs font-semibold text-white transition-opacity hover:opacity-80"
-        title={`${profile?.name || "User"} — View Profile`}
-      >
-        {initials}
-      </button>
-    );
-  }
-
-  return (
-    <div 
-      className="flex cursor-pointer items-center gap-3 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-3 hover:bg-brand-surface-soft/80 transition-colors"
-      onClick={() => {
-        if (!profile) {
-          router.push("/profile");
-          return;
-        }
-        if (profile.role?.toLowerCase() === "business") router.push("/business-profile");
-        else router.push("/profile");
-      }}
-      title="View Profile"
-    >
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-ink text-xs font-semibold text-white">
-        {initials}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-brand-ink">{profile?.name || "User"}</p>
-        <p className="truncate text-[10px] text-brand-muted capitalize">{roleLabel}</p>
-      </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleLogout();
-        }}
-        className="text-brand-muted transition-colors hover:text-brand-ink"
-        title="Log out"
-        aria-label="Log out"
-      >
-        <LogOut className="h-3.5 w-3.5" />
-      </button>
-    </div>
   );
 }
 
@@ -196,7 +112,7 @@ export function Sidebar() {
       animate={{ width: isSidebarCollapsed ? 64 : 260 }}
       transition={{ duration: 0.22, ease: "easeInOut" }}
       className={cn(
-        "hidden h-screen shrink-0 select-none flex-col overflow-x-hidden border-r border-brand-hairline bg-white md:flex",
+        "hidden h-screen shrink-0 select-none flex-col overflow-visible border-r border-brand-hairline bg-white md:flex",
         isSidebarCollapsed ? "w-16" : "w-[260px]"
       )}
     >
@@ -217,7 +133,7 @@ export function Sidebar() {
       </div>
 
       {/* Primary nav */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden p-3">
+      <nav className={cn("flex-1 space-y-0.5 p-3", isSidebarCollapsed ? "overflow-visible" : "overflow-y-auto overflow-x-hidden")}>
         {navItems.map((item) => (
           <NavItem
             key={item.href}
@@ -238,18 +154,10 @@ export function Sidebar() {
             collapsed={isSidebarCollapsed}
           />
         ))}
-
-        {/* User card */}
-        <div className={cn("pt-2", isSidebarCollapsed && "flex justify-center")}>
-          <UserCard
-            collapsed={isSidebarCollapsed}
-            profile={profile ? { name: profile.name, email: profile.email, role: profile.role } : null}
-          />
-        </div>
       </div>
 
       {/* Collapse toggle */}
-      <div className="flex justify-end border-t border-brand-hairline p-2">
+      <div className="flex justify-center border-t border-brand-hairline p-2">
         <Button
           variant="ghost"
           size="icon"
@@ -258,9 +166,9 @@ export function Sidebar() {
           aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isSidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <PanelLeftOpen className="h-[18px] w-[18px]" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <PanelLeftClose className="h-[18px] w-[18px]" />
           )}
         </Button>
       </div>
@@ -318,12 +226,6 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
               onClick={() => onOpenChange(false)}
             />
           ))}
-          <div className="pt-2">
-            <UserCard
-              collapsed={false}
-              profile={profile ? { name: profile.name, email: profile.email, role: profile.role } : null}
-            />
-          </div>
         </div>
       </SheetContent>
     </Sheet>

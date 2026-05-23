@@ -16,7 +16,7 @@ export interface MarketplaceFilters {
 }
 
 export interface JobWithMatchScore extends Job {
-  matchScore: number;       // 0-100 AI match percentage
+  matchScore: number;       // 0-100 skill-fit percentage
   isTrending: boolean;      // based on recency + category heat
   isNew: boolean;           // posted within last 48h
 }

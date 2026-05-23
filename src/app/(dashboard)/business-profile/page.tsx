@@ -10,6 +10,8 @@ import { BusinessProfileEditForm } from "@/components/business/BusinessProfileEd
 import { Pencil, Eye, Check, Loader2, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
+import { uploadFile } from "@/lib/cloudinary";
 
 type Tab = "view" | "edit";
 
@@ -42,6 +44,11 @@ export default function BusinessProfilePage() {
   const [showToast, setShowToast] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // Logo upload / crop state
+  const [isCropping, setIsCropping] = React.useState(false);
+  const [cropImageSrc, setCropImageSrc] = React.useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   React.useEffect(() => {
     async function loadData() {
       if (!user?.uid) return;
@@ -72,6 +79,34 @@ export default function BusinessProfilePage() {
     }
     loadData();
   }, [user, authProfile]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCropImageSrc(reader.result as string);
+        setIsCropping(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropComplete = async (croppedFile: File) => {
+    setIsCropping(false);
+    setIsSaving(true);
+    try {
+      const uploadResult = await uploadFile(croppedFile);
+      handleChange({ logoUrl: uploadResult.url });
+    } catch (err) {
+      console.error("Failed to upload business logo to Cloudinary:", err);
+    } finally {
+      setIsSaving(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   function handleChange(partial: Partial<BusinessProfile>) {
     setDraft((prev) => (prev ? { ...prev, ...partial } : null));
@@ -185,7 +220,11 @@ export default function BusinessProfilePage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           {/* Left Side: Business profile card */}
           <div className="lg:sticky lg:top-6 lg:self-start">
-            <BusinessProfileCard profile={displayProfile} />
+            <BusinessProfileCard
+              profile={displayProfile}
+              isEditing={tab === "edit" && isBusinessUser}
+              onLogoClick={() => fileInputRef.current?.click()}
+            />
           </div>
 
           {/* Right Side: details or edit form */}
@@ -245,6 +284,24 @@ export default function BusinessProfilePage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+      />
+
+      <ImageCropperModal
+        isOpen={isCropping}
+        imageSrc={cropImageSrc}
+        onClose={() => {
+          setIsCropping(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }}
+        onCropComplete={handleCropComplete}
+      />
 
       <SaveToast visible={showToast} />
     </>

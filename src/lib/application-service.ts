@@ -51,7 +51,6 @@ export const applicationService = {
       estimatedDeliveryDays: data.estimatedDeliveryDays,
       quotedPrice: data.quotedPrice,
       status: "Pending",
-      aiEnhanced: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -84,21 +83,6 @@ export const applicationService = {
     return apps[idx];
   },
 
-  async saveAIEnhancement(applicationId: string, enhanced: string): Promise<Application> {
-    await new Promise((r) => setTimeout(r, 200));
-    const apps = getAll();
-    const idx = apps.findIndex((a) => a.applicationId === applicationId);
-    if (idx === -1) throw new Error("Application not found.");
-    apps[idx] = {
-      ...apps[idx],
-      aiEnhanced: true,
-      aiSuggestions: enhanced,
-      updatedAt: new Date().toISOString(),
-    };
-    saveAll(apps);
-    return apps[idx];
-  },
-
   async hasApplied(jobId: string, studentId: string): Promise<boolean> {
     await new Promise((r) => setTimeout(r, 100));
     return getAll().some((a) => a.jobId === jobId && a.studentId === studentId);
@@ -121,8 +105,6 @@ export const applicationService = {
         estimatedDeliveryDays: 7,
         quotedPrice: 450,
         status: "Shortlisted",
-        aiEnhanced: true,
-        aiSuggestions: "Emphasize your TypeScript skills and mention component library experience.",
         createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
         updatedAt: new Date(Date.now() - 86400000).toISOString(),
       },
@@ -139,7 +121,6 @@ export const applicationService = {
         estimatedDeliveryDays: 5,
         quotedPrice: 280,
         status: "Pending",
-        aiEnhanced: false,
         createdAt: new Date(Date.now() - 86400000).toISOString(),
         updatedAt: new Date(Date.now() - 86400000).toISOString(),
       },

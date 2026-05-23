@@ -1,13 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { X, Sparkles, Brain, Plus, AlertCircle, CheckCircle2, Loader2, CheckSquare } from "lucide-react";
-import { ALL_CATEGORIES, WorkCategory } from "@/types/profile";
+import { X, AlertCircle, Loader2, CheckSquare } from "lucide-react";
+import { ALL_CATEGORIES } from "@/types/profile";
 import { Job, JobStatus, JobDifficulty, WorkMode } from "@/types/job";
-import { analyzeJobDescription } from "@/lib/ai-job-service";
 import { jobService } from "@/lib/job-service";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
 
 interface JobFormModalProps {
   isOpen: boolean;
@@ -43,15 +41,9 @@ export function JobFormModal({
   const [deliverables, setDeliverables] = React.useState<string[]>([]);
   const [deliverableInput, setDeliverableInput] = React.useState("");
 
-  // AI fields (stored in Firestore)
-  const [aiGeneratedSummary, setAiGeneratedSummary] = React.useState("");
-  const [aiExtractedSkills, setAiExtractedSkills] = React.useState<string[]>([]);
-  const [aiDifficultyScore, setAiDifficultyScore] = React.useState<number>(0);
   const [difficultyLevel, setDifficultyLevel] = React.useState<JobDifficulty>("Intermediate");
 
   // Status States
-  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
-  const [aiSuccess, setAiSuccess] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -59,6 +51,7 @@ export function JobFormModal({
   React.useEffect(() => {
     if (isOpen) {
       if (editJob) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTitle(editJob.title);
         setDescription(editJob.description);
         setCategory(editJob.category);
@@ -74,11 +67,7 @@ export function JobFormModal({
         
         setRequiredSkills(editJob.requiredSkills || []);
         setDeliverables(editJob.deliverables || []);
-        setAiGeneratedSummary(editJob.aiGeneratedSummary || "");
-        setAiExtractedSkills(editJob.aiExtractedSkills || []);
-        setAiDifficultyScore(editJob.aiDifficultyScore || 0);
         setDifficultyLevel(editJob.difficultyLevel || "Intermediate");
-        setAiSuccess(!!editJob.aiGeneratedSummary);
       } else {
         // Reset state for new post
         setTitle("");
@@ -94,64 +83,21 @@ export function JobFormModal({
         
         setRequiredSkills([]);
         setDeliverables([]);
-        setAiGeneratedSummary("");
-        setAiExtractedSkills([]);
-        setAiDifficultyScore(0);
         setDifficultyLevel("Intermediate");
         setSkillInput("");
         setDeliverableInput("");
-        setAiSuccess(false);
       }
       setError(null);
-      setIsAnalyzing(false);
     }
   }, [isOpen, editJob]);
 
   // Adjust default category
   React.useEffect(() => {
     if (!category && ALL_CATEGORIES.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCategory(ALL_CATEGORIES[0]);
     }
   }, [category]);
-
-  // Trigger Heuristic AI Description Analysis
-  const handleAIAnalysis = async () => {
-    if (!title.trim() || !description.trim()) {
-      setError("Please fill out the Title and Description first, so that the AI can analyze them.");
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setError(null);
-    setAiSuccess(false);
-
-    try {
-      const result = await analyzeJobDescription(title.trim(), description.trim());
-      
-      // Auto-fill form fields with AI suggestions
-      setAiGeneratedSummary(result.aiGeneratedSummary);
-      setAiExtractedSkills(result.aiExtractedSkills);
-      setAiDifficultyScore(result.aiDifficultyScore);
-      setDifficultyLevel(result.difficultyLevel);
-      setCategory(result.suggestedCategory);
-      
-      // Merge extracted skills with user's skills
-      const mergedSkills = Array.from(new Set([...requiredSkills, ...result.aiExtractedSkills]));
-      setRequiredSkills(mergedSkills);
-
-      setAiSuccess(true);
-      showSuccessFeedback();
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message || "AI Analysis failed. Please try again.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const showSuccessFeedback = () => {
-    // Scroll modal or focus tags
-  };
 
   // Required Skills tagger
   const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -222,10 +168,6 @@ export function JobFormModal({
         workMode,
         deliverables,
         status,
-        // AI fields
-        aiGeneratedSummary: aiGeneratedSummary.trim() || undefined,
-        aiExtractedSkills: aiExtractedSkills.length > 0 ? aiExtractedSkills : undefined,
-        aiDifficultyScore: aiDifficultyScore > 0 ? aiDifficultyScore : undefined,
       };
 
       let savedJob: Job;
@@ -238,9 +180,9 @@ export function JobFormModal({
 
       onSuccess(savedJob);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err?.message || "Failed to save job posting. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to save job posting. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -291,47 +233,14 @@ export function JobFormModal({
               </div>
             )}
 
-            {/* AI Assistant Banner */}
-            <div className="rounded-[10px] border border-brand-info-border bg-brand-surface-soft p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <Brain className="h-6 w-6 text-brand-info shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-brand-info flex items-center gap-1.5">
-                    AI co-pilot assistant
-                    <Sparkles className="h-3.5 w-3.5 animate-pulse text-brand-coral" />
-                  </p>
-                  <p className="text-[11px] text-brand-muted leading-relaxed mt-1">
-                    Fill title and description, then run AI Assist. We'll automatically suggest categories, extract relevant skills, write summary insights, and score difficulty.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleAIAnalysis}
-                disabled={isAnalyzing || isSaving}
-                className="flex items-center gap-1.5 rounded-[8px] bg-brand-info text-white px-4 py-2 text-xs font-semibold hover:bg-[#254fad] transition-colors shrink-0 disabled:opacity-60"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="h-3.5 w-3.5" />
-                    AI Assist
-                  </>
-                )}
-              </button>
+            <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
+                Manual gig setup
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-brand-body">
+                Add the category, skills, deliverables, budget, and deadline so students can evaluate the work clearly.
+              </p>
             </div>
-
-            {/* AI Feedback Banner */}
-            {aiSuccess && (
-              <div className="flex items-center gap-2 rounded-[6px] bg-brand-success/10 border border-brand-success/20 p-2.5 text-xs text-brand-success font-semibold">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>AI Insights updated: Auto-assigned category, difficulty, and skill tags!</span>
-              </div>
-            )}
 
             {/* Title */}
             <div className="space-y-2">
@@ -404,6 +313,23 @@ export function JobFormModal({
                   <option value="Hybrid">Hybrid</option>
                 </select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="difficulty" className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
+                Difficulty Level <span className="text-brand-coral">*</span>
+              </label>
+              <select
+                id="difficulty"
+                value={difficultyLevel}
+                onChange={(e) => setDifficultyLevel(e.target.value as JobDifficulty)}
+                className="w-full h-11 px-3 text-sm bg-white rounded-[6px] border border-brand-hairline outline-none focus:border-brand-info-border"
+                required
+              >
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
             </div>
 
             {/* Budget / Deadline Row */}
@@ -529,20 +455,6 @@ export function JobFormModal({
               )}
             </div>
 
-            {/* Custom AI Fields Display (for feedback) */}
-            {aiSuccess && (
-              <div className="rounded-[8px] border border-brand-hairline p-3 bg-brand-surface-soft/50 space-y-2 text-xs">
-                <span className="font-semibold text-brand-muted">AI Configured Settings:</span>
-                <div className="grid grid-cols-2 gap-2 text-brand-body">
-                  <div>
-                    <span className="text-brand-muted">Est. Difficulty:</span> {aiDifficultyScore}/10 ({difficultyLevel})
-                  </div>
-                  <div>
-                    <span className="text-brand-muted">Category Match:</span> {category}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer controls */}
@@ -560,7 +472,7 @@ export function JobFormModal({
               <button
                 type="button"
                 onClick={() => handleSave("Draft")}
-                disabled={isSaving || isAnalyzing}
+                disabled={isSaving}
                 className="rounded-[8px] border border-brand-hairline bg-white px-4 py-2 text-sm font-medium text-brand-ink hover:bg-brand-surface-soft transition-colors disabled:opacity-60"
               >
                 Save as Draft
@@ -568,7 +480,7 @@ export function JobFormModal({
               <button
                 type="button"
                 onClick={() => handleSave("Published")}
-                disabled={isSaving || isAnalyzing}
+                disabled={isSaving}
                 className="flex items-center gap-2 rounded-[12px] bg-brand-ink px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary-active transition-colors disabled:opacity-60"
               >
                 {isSaving ? (

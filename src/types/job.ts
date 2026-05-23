@@ -18,11 +18,10 @@ export interface Job {
   workMode: WorkMode;
   deliverables: string[];
   status: JobStatus;
-  
-  // AI-Assisted fields (optional/computed by simulated AI engine)
+  // Legacy optional fields kept for previously saved demo listings.
   aiGeneratedSummary?: string;
   aiExtractedSkills?: string[];
-  aiDifficultyScore?: number; // 1-10 estimation
+  aiDifficultyScore?: number;
   
   createdAt: string;
   updatedAt: string;

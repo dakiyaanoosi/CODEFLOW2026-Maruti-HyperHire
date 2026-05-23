@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Briefcase, Calendar, MapPin, DollarSign, Brain, BarChart2 } from "lucide-react";
+import { Briefcase, Calendar, MapPin, DollarSign, BarChart2 } from "lucide-react";
 import { Job } from "@/types/job";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -82,17 +82,9 @@ export function JobCard({ job, onClick }: JobCardProps) {
         </span>
       </div>
 
-      {/* AI Summary Snip (if available) */}
-      {job.aiGeneratedSummary ? (
-        <p className="mt-3 rounded-[8px] bg-brand-surface-soft border border-brand-hairline/40 p-2.5 text-xs text-brand-body flex items-start gap-2 line-clamp-2 leading-relaxed">
-          <Brain className="h-4 w-4 shrink-0 text-brand-info mt-0.5" />
-          <span>{job.aiGeneratedSummary}</span>
-        </p>
-      ) : (
-        <p className="mt-3 text-xs text-brand-body line-clamp-2 leading-relaxed">
-          {job.description}
-        </p>
-      )}
+      <p className="mt-3 text-xs text-brand-body line-clamp-2 leading-relaxed">
+        {job.description}
+      </p>
 
       {/* Skills tags */}
       {job.requiredSkills && job.requiredSkills.length > 0 && (

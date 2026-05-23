@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Upload } from "lucide-react";
-import { uploadFile } from "@/lib/cloudinary";
 import {
   BusinessProfile,
   ALL_INDUSTRIES,
@@ -109,38 +107,6 @@ export function BusinessProfileEditForm({
   profile,
   onChange,
 }: BusinessProfileEditFormProps) {
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
-  const [uploadError, setUploadError] = React.useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Please select a valid image file (PNG, JPG, WebP, GIF).");
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadError(null);
-
-    try {
-      const result = await uploadFile(file, (progress) => {
-        setUploadProgress(progress);
-      });
-      onChange({ logoUrl: result.url });
-    } catch (err: any) {
-      console.error(err);
-      setUploadError("Logo upload failed. Please try again.");
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(null);
-    }
-  };
-
   const prefLabels: { key: keyof typeof profile.hiringPreferences; label: string }[] = [
     { key: "remote", label: "Remote" },
     { key: "partTime", label: "Part-time" },
@@ -157,17 +123,6 @@ export function BusinessProfileEditForm({
     });
   }
 
-  const logoInitials =
-    profile.logoInitials ||
-    (profile.companyName
-      ? profile.companyName
-          .split(" ")
-          .map((w) => w[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase()
-      : "CO");
-
   return (
     <div className="space-y-4">
       {/* Basic Info */}
@@ -176,52 +131,7 @@ export function BusinessProfileEditForm({
           <CardTitle className="text-[16px]">Company Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
-          {/* Logo Upload Zone */}
-          <div className="space-y-1.5">
-            <label className="block text-[13px] font-medium text-brand-body">Company Logo</label>
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border border-brand-hairline bg-brand-surface-soft text-xl font-semibold text-brand-ink">
-                {profile.logoUrl ? (
-                  <img src={profile.logoUrl} alt="Logo preview" className="h-full w-full object-cover" />
-                ) : (
-                  logoInitials
-                )}
-              </div>
-              <div className="flex-1 space-y-1">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleLogoUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="flex items-center gap-1.5 rounded-[8px] border border-brand-hairline bg-white px-3.5 py-2 text-xs font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors disabled:opacity-60"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Uploading ({uploadProgress}%)
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-3.5 w-3.5" />
-                      Upload Logo
-                    </>
-                  )}
-                </button>
-                {uploadError && (
-                  <p className="text-[11px] font-medium text-red-600">{uploadError}</p>
-                )}
-                <p className="text-[11px] text-brand-muted">
-                  Supports PNG, JPG or WebP. Hosted on Cloudinary.
-                </p>
-              </div>
-            </div>
-          </div>
+
 
           <InputField
             label="Company Name"

@@ -30,6 +30,7 @@ export interface UserProfile {
   verificationStatus?: "Verified" | "Unverified";
   profileStrength?: number;
   avatarInitials?: string;
+  avatarUrl?: string;
 }
 
 interface AuthState {
