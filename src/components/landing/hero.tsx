@@ -8,8 +8,8 @@ import { motion } from "framer-motion";
 
 export function Hero() {
   return (
-    <section className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
-      <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+    <section className="border-b border-brand-hairline bg-white px-4 py-12 md:py-16 md:px-8">
+      <div className="mx-auto grid max-w-7xl gap-6 lg:gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}

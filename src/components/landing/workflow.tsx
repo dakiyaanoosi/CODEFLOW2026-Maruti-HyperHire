@@ -37,8 +37,8 @@ export function Workflow() {
   const currentStep = steps[activeStep - 1];
 
   return (
-    <section id="workflow" className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-12">
+    <section id="workflow" className="border-b border-brand-hairline bg-white px-4 py-12 md:py-16 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="space-y-4">
             <h2 className="text-[32px] font-normal leading-[1.2] tracking-normal text-brand-ink md:text-[40px]">

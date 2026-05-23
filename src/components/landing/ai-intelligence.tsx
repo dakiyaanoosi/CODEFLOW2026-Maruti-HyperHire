@@ -31,7 +31,7 @@ export function AIIntelligence() {
   ];
 
   return (
-    <section id="ai-intelligence" className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
+    <section id="ai-intelligence" className="border-b border-brand-hairline bg-white px-4 py-12 md:py-16 md:px-8">
       <div className="mx-auto max-w-7xl">
         <Card className="rounded-[12px] bg-brand-forest p-0 text-white ring-0">
           <CardContent className="grid gap-10 p-8 md:p-12 lg:grid-cols-[0.8fr_1.2fr]">

@@ -33,8 +33,8 @@ export function Features() {
   ];
 
   return (
-    <section id="features" className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-12">
+    <section id="features" className="border-b border-brand-hairline bg-white px-4 py-12 md:py-16 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <div className="max-w-3xl space-y-4">
           <h2 className="text-[32px] font-normal leading-[1.2] tracking-normal text-brand-ink md:text-[40px]">
             Workforce operations, redesigned for local student networks.

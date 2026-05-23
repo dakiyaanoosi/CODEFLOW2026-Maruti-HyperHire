@@ -43,6 +43,20 @@ export function Navbar() {
         .slice(0, 2)
     : "U";
 
+  const handleProfileNavigation = () => {
+    if (!profile) {
+      router.push("/profile"); // Fallback if still loading
+      return;
+    }
+    // Route to business profile if role is business (case-insensitive check just in case)
+    if (profile.role?.toLowerCase() === "business") {
+      router.push("/business-profile");
+    } else {
+      // Default to student profile
+      router.push("/profile");
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-brand-hairline bg-white px-4 md:px-6 select-none">
       <div className="flex items-center gap-3">
@@ -105,34 +119,24 @@ export function Navbar() {
           <span className="sr-only">Toggle AI Copilot Panel</span>
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" className="flex min-h-10 items-center gap-2 rounded-full p-1 pl-2">
-                <Avatar className="h-7 w-7 border border-brand-hairline">
-                  {user?.photoURL && (
-                    <AvatarImage src={user.photoURL} alt={profile?.name || "User"} />
-                  )}
-                  <AvatarFallback>{userInitials}</AvatarFallback>
-                </Avatar>
-                <ChevronDown className="hidden h-4 w-4 text-brand-muted sm:block" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-56 rounded-[10px] border-brand-hairline bg-white">
-            <DropdownMenuLabel className="flex flex-col text-left">
-              <span className="font-semibold text-brand-ink">{profile?.name || "User"}</span>
-              <span className="text-xs text-brand-muted font-normal truncate">{profile?.email || ""}</span>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer">Profile Settings</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">Billing & Subscription</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleLogout}>
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <Button 
+            variant="ghost" 
+            className="flex min-h-10 items-center justify-center rounded-full p-1 w-10 h-10"
+            onClick={handleProfileNavigation}
+            title="View Profile"
+          >
+            <Avatar className="h-8 w-8 border border-brand-hairline">
+              {user?.photoURL && (
+                <AvatarImage src={user.photoURL} alt={profile?.name || "User"} />
+              )}
+              <AvatarFallback className={profile?.role === "business" ? "bg-brand-primary text-white" : "bg-brand-coral text-white"}>
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+
+        </div>
       </div>
 
       <MobileSidebar open={mobileOpen} onOpenChange={setMobileOpen} />

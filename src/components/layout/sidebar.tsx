@@ -133,9 +133,16 @@ function UserCard({ collapsed, profile }: { collapsed: boolean; profile: { name:
   if (collapsed) {
     return (
       <button
-        onClick={handleLogout}
+        onClick={() => {
+          if (!profile) {
+            router.push("/profile");
+            return;
+          }
+          if (profile.role?.toLowerCase() === "business") router.push("/business-profile");
+          else router.push("/profile");
+        }}
         className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-ink text-xs font-semibold text-white transition-opacity hover:opacity-80"
-        title={`${profile?.name || "User"} — Log out`}
+        title={`${profile?.name || "User"} — View Profile`}
       >
         {initials}
       </button>
@@ -143,7 +150,18 @@ function UserCard({ collapsed, profile }: { collapsed: boolean; profile: { name:
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-3">
+    <div 
+      className="flex cursor-pointer items-center gap-3 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-3 hover:bg-brand-surface-soft/80 transition-colors"
+      onClick={() => {
+        if (!profile) {
+          router.push("/profile");
+          return;
+        }
+        if (profile.role?.toLowerCase() === "business") router.push("/business-profile");
+        else router.push("/profile");
+      }}
+      title="View Profile"
+    >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-ink text-xs font-semibold text-white">
         {initials}
       </div>
@@ -152,7 +170,10 @@ function UserCard({ collapsed, profile }: { collapsed: boolean; profile: { name:
         <p className="truncate text-[10px] text-brand-muted capitalize">{roleLabel}</p>
       </div>
       <button
-        onClick={handleLogout}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleLogout();
+        }}
         className="text-brand-muted transition-colors hover:text-brand-ink"
         title="Log out"
         aria-label="Log out"

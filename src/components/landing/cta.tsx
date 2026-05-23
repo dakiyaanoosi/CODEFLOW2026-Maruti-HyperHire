@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 
 export function CTA() {
   return (
-    <section className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
+    <section className="border-b border-brand-hairline bg-white px-4 py-12 md:py-16 md:px-8">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 18 }}

@@ -20,8 +20,8 @@ export function Stats() {
   ];
 
   return (
-    <section className="border-b border-brand-hairline bg-white px-4 py-24 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-12">
+    <section className="border-b border-brand-hairline bg-white px-4 py-12 md:py-16 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <div className="space-y-6 text-center">
           <p className="text-sm font-medium leading-[1.35] tracking-[0.16px] text-brand-muted">
             Connecting talent from top regional institutions

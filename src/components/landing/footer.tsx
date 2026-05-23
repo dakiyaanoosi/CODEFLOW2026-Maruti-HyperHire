@@ -26,8 +26,8 @@ export function Footer() {
   ];
 
   return (
-    <footer className="bg-white px-4 py-24 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-12">
+    <footer className="bg-white px-4 py-12 md:py-16 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-6">
           <div className="space-y-4 lg:col-span-2">
             <Link href="/" className="flex items-center gap-2 text-xl font-medium text-brand-ink select-none">
