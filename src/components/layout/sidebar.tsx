@@ -21,6 +21,7 @@ import {
   ChevronRight,
   LogOut,
   User,
+  Building2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
@@ -41,6 +42,7 @@ const navItems: SidebarItem[] = [
   { name: "Messages", href: "/messages", icon: MessageSquare },
   { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
   { name: "My Profile", href: "/profile", icon: User },
+  { name: "Company Profile", href: "/business-profile", icon: Building2 },
 ];
 
 const bottomItems: SidebarItem[] = [
