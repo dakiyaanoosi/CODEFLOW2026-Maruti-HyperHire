@@ -31,7 +31,7 @@ interface ApplicationApplyModalProps {
   studentAvatar?: string;
 }
 
-const DELIVERY_OPTIONS = [3, 5, 7, 10, 14, 21, 30];
+const DELIVERY_OPTIONS = [1, 2, 3, 5, 7, 10, 14, 21, 30];
 
 export function ApplicationApplyModal({
   job,
@@ -72,10 +72,10 @@ export function ApplicationApplyModal({
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.coverMessage.trim() || form.coverMessage.trim().length < 50)
-      errs.coverMessage = "Cover message must be at least 50 characters.";
-    if (!form.proposalText.trim() || form.proposalText.trim().length < 80)
-      errs.proposalText = "Proposal must be at least 80 characters.";
+    if (!form.coverMessage.trim() || form.coverMessage.trim().length < 15)
+      errs.coverMessage = "Cover message must be at least 15 characters.";
+    if (!form.proposalText.trim() || form.proposalText.trim().length < 30)
+      errs.proposalText = "Proposal must be at least 30 characters.";
     if (form.quotedPrice <= 0)
       errs.quotedPrice = "Please enter a valid price quote.";
     return errs;
