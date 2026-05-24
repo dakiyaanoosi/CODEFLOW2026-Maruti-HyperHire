@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { applicationService } from "@/lib/application-service";
 import { Application } from "@/types/application";
 import { ApplicationDashboard } from "@/components/applications/ApplicationDashboard";
@@ -30,6 +31,7 @@ function StatusToast({ message, visible }: { message: string; visible: boolean }
 
 export default function ApplicationsPage() {
   const { user, profile } = useAuthStore();
+  const { setContext } = useHyperAIStore();
   const [applications, setApplications] = React.useState<Application[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedApp, setSelectedApp] = React.useState<Application | null>(null);
@@ -62,6 +64,17 @@ export default function ApplicationsPage() {
     }
     fetchApplications();
   }, [user, profile, isBusiness]);
+
+  // ── HyperAI context injection ──────────────────────────────────────────────
+  // Push the first pending application into assistant context on load.
+  React.useEffect(() => {
+    if (applications.length === 0) return;
+    const active = applications.find((a) => a.status === "Pending") ?? applications[0];
+    setContext({ activeApplication: active });
+    return () => setContext({ activeApplication: null });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applications.length]);
+
 
   if (!user || !profile) {
     return (

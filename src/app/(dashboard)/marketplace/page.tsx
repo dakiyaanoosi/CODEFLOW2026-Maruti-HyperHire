@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { jobService } from "@/lib/job-service";
 import { Job } from "@/types/job";
 import { generateMockJobs } from "@/lib/marketplace-utils";
@@ -12,6 +13,7 @@ import { aiService } from "@/services/ai/service";
 
 export default function MarketplacePage() {
   const { user, profile } = useAuthStore();
+  const { setContext } = useHyperAIStore();
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAIActive, setIsAIActive] = React.useState(false);
@@ -54,6 +56,23 @@ export default function MarketplacePage() {
             
             setJobs(matchedJobs);
             setIsAIActive(true);
+
+            // ── HyperAI context injection ────────────────────────────────
+            // Push student profile + portfolio + top match recommendation
+            const topMatch = aiRes.ranked_jobs[0];
+            const topJob = matchedJobs.find(j => j.jobId === topMatch?.job_id);
+            setContext({
+              activeProfile: profile,
+              activePortfolio: portfolios,
+              activeJob: topJob ?? null,
+              recommendationState: topMatch ? {
+                match_percentage: topMatch.match_percentage,
+                confidence_score: topMatch.confidence_score,
+                breakdown: topMatch.breakdown,
+                reasoning: topMatch.reasoning,
+              } : null,
+            });
+
           } catch (aiErr) {
             console.warn("FastAPI AI Engine not accessible, using fallback skill match.", aiErr);
             setJobs(activeJobs);

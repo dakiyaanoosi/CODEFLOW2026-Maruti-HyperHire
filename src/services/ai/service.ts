@@ -5,7 +5,9 @@ import {
   MatchResponse,
   RecommendResponse,
   ScoreResponse,
-  EmbedResponse
+  EmbedResponse,
+  ChatRequest,
+  ChatResponse,
 } from "./types";
 import { Job } from "@/types/job";
 import { StudentProfile } from "@/types/profile";
@@ -141,5 +143,16 @@ export const aiService = {
       method: "POST",
       body: JSON.stringify({ title, description, category, tags }),
     });
-  }
+  },
+
+  /**
+   * HyperAI contextual chat. Sends a message with full platform context
+   * and receives an AI response with suggestions, quick actions, and reasoning highlights.
+   */
+  async chatWithAssistant(request: ChatRequest): Promise<ChatResponse> {
+    return aiFetch<ChatResponse>("/chat", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
 };

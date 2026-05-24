@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { useBusinessProfileStore } from "@/store/use-business-profile-store";
 import { jobService } from "@/lib/job-service";
 import { Job } from "@/types/job";
@@ -32,6 +33,7 @@ function StatusToast({ message, visible }: { message: string; visible: boolean }
 
 export default function JobsPage() {
   const { user, profile } = useAuthStore();
+  const { setContext } = useHyperAIStore();
   const businessProfile = useBusinessProfileStore((state) => state.profile);
 
   // Gigs state
@@ -76,6 +78,16 @@ export default function JobsPage() {
     }
     fetchJobs();
   }, [user, profile]);
+
+  // ── HyperAI context injection: push first published job when list loads ──
+  React.useEffect(() => {
+    if (jobs.length === 0) return;
+    const firstPublished = jobs.find((j) => j.status === "Published") ?? jobs[0];
+    setContext({ activeJob: firstPublished });
+    return () => setContext({ activeJob: null });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs.length]);
+
 
   if (!user || !profile) {
     return (
@@ -148,7 +160,11 @@ export default function JobsPage() {
         <JobDashboard
           jobs={jobs}
           isLoading={isLoading}
-          onCardClick={(job) => setSelectedDetailJob(job)}
+          onCardClick={(job) => {
+            setSelectedDetailJob(job);
+            // ── HyperAI context injection: push clicked job into assistant context
+            setContext({ activeJob: job });
+          }}
           onAddClick={() => {
             setSelectedEditJob(null);
             setIsFormOpen(true);

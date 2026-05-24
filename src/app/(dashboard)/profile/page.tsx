@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useAuthStore, UserProfile } from "@/store/use-auth-store";
+import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { ProfileCard } from "@/components/profile/ProfileCard";
 import { ProfileDetails } from "@/components/profile/ProfileDetails";
 import { ProfileEditForm } from "@/components/profile/ProfileEditForm";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { profileService, computeProfileStrength, getAvatarInitials } from "@/lib/profile-service";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
 import { uploadFile } from "@/lib/cloudinary";
+import { portfolioService } from "@/lib/portfolio-service";
 
 type Tab = "view" | "edit";
 
@@ -36,11 +38,34 @@ function SaveToast({ visible }: { visible: boolean }) {
 
 export default function ProfilePage() {
   const { user, profile: authProfile, setProfile: setAuthProfile } = useAuthStore();
+  const { setContext } = useHyperAIStore();
   const [profile, setProfile] = React.useState<StudentProfile | null>(null);
   const [tab, setTab] = React.useState<Tab>("view");
   const [isSaving, setIsSaving] = React.useState(false);
   const [showToast, setShowToast] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // ── HyperAI context injection ──────────────────────────────────────────────
+  // Push the student profile + portfolio into HyperAI whenever they load or change.
+  React.useEffect(() => {
+    if (!user?.uid || !profile) return;
+
+    let cancelled = false;
+    portfolioService.getPortfolios(user.uid).then((portfolios) => {
+      if (!cancelled) {
+        setContext({ activeProfile: profile, activePortfolio: portfolios });
+      }
+    }).catch(() => {
+      if (!cancelled) setContext({ activeProfile: profile });
+    });
+
+    return () => {
+      cancelled = true;
+      setContext({ activeProfile: null, activePortfolio: null });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.name, profile?.skills?.length, profile?.trustScore, user?.uid]);
+
 
   // Avatar upload / crop state
   const [isCropping, setIsCropping] = React.useState(false);

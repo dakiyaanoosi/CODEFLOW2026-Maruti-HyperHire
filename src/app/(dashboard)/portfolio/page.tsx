@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
+import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { portfolioService } from "@/lib/portfolio-service";
 import { PortfolioItem } from "@/types/portfolio";
 import { PortfolioGrid } from "@/components/portfolio/PortfolioGrid";
@@ -31,6 +32,7 @@ function StatusToast({ message, visible }: { message: string; visible: boolean }
 
 export default function PortfolioPage() {
   const { user, profile } = useAuthStore();
+  const { setContext } = useHyperAIStore();
   
   // Portfolios state
   const [items, setItems] = React.useState<PortfolioItem[]>([]);
@@ -70,6 +72,18 @@ export default function PortfolioPage() {
     }
     loadPortfolios();
   }, [user, profile]);
+
+  // ── HyperAI context injection ──────────────────────────────────────────────
+  React.useEffect(() => {
+    if (!profile || items.length === 0) return;
+    setContext({
+      activeProfile: profile,
+      activePortfolio: items,
+    });
+    return () => setContext({ activePortfolio: null });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, profile?.name]);
+
 
   if (!user || !profile) {
     return (

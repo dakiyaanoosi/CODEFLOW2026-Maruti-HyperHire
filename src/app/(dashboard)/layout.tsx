@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/use-auth-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
+import { HyperAI } from "@/components/ai/hyperai";
 import { Loader2 } from "lucide-react";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -50,6 +52,9 @@ export default function DashboardLayout({
           </div>
         </main>
       </div>
+
+      {/* HyperAI — Global AI Assistant, persistent across all dashboard pages */}
+      <HyperAI />
     </div>
   );
 }

@@ -81,3 +81,29 @@ export interface EmbedRequest {
 export interface EmbedResponse {
   embeddings: number[][];
 }
+
+// ─── HyperAI Chat Types ────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  history: ChatMessage[];
+  pageContext: string | null;
+  userRole: "student" | "business" | null;
+  activeJob: any | null;
+  activeProfile: any | null;
+  activePortfolio: any[] | null;
+  activeApplication: any | null;
+  recommendationState: any | null;
+}
+
+export interface ChatResponse {
+  response: string;
+  suggestions: string[];
+  quickActions: string[];
+  reasoningHighlights: Record<string, any> | null;
+}

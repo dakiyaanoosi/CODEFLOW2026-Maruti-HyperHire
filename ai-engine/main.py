@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.matching import router as matching_router
+from routes.chat import router as chat_router
 from model import get_model
 import logging
 
@@ -44,5 +45,6 @@ def read_root():
         "model": "all-MiniLM-L6-v2"
     }
 
-# Register API Router
+# Register API Routers
 app.include_router(matching_router, tags=["Matching"])
+app.include_router(chat_router, tags=["HyperAI Chat"])
