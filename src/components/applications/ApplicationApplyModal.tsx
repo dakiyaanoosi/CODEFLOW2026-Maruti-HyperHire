@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { X, Loader2, Send, Clock, DollarSign, FileText, MessageSquare, AlertCircle } from "lucide-react";
+import { X, Loader2, Send, Clock, DollarSign, FileText, MessageSquare, AlertCircle, Sparkles } from "lucide-react";
 import { Job } from "@/types/job";
 import { ApplicationFormData } from "@/types/application";
 import { applicationService } from "@/lib/application-service";
+import { enhanceApplicationPitch } from "@/lib/ai-job-service";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,46 @@ export function ApplicationApplyModal({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+  
+  const [isEnhancing, setIsEnhancing] = React.useState(false);
+  const [tone, setTone] = React.useState<"Professional" | "Conversational">("Professional");
+  const [upsellMsg, setUpsellMsg] = React.useState<string | null>(null);
+
+  const handleEnhance = async () => {
+    if (!job) return;
+    if (!form.coverMessage.trim() && !form.proposalText.trim()) {
+      setError("Please add at least some text to enhance.");
+      return;
+    }
+    
+    setIsEnhancing(true);
+    setError("");
+    try {
+      const result = await enhanceApplicationPitch({
+        coverMessage: form.coverMessage,
+        proposalText: form.proposalText,
+        tone,
+        jobTitle: job.title,
+        jobDescription: job.description
+      });
+      
+      setForm(f => ({
+        ...f,
+        coverMessage: result.enhancedCoverMessage,
+        proposalText: result.enhancedProposalText,
+        estimatedDeliveryDays: result.recommendedDays || f.estimatedDeliveryDays,
+        quotedPrice: result.recommendedPrice || f.quotedPrice
+      }));
+      
+      if (result.upsellSuggestion) {
+        setUpsellMsg(result.upsellSuggestion);
+      }
+    } catch (err: unknown) {
+      setError("AI Enhancement failed. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
 
   React.useEffect(() => {
     if (isOpen && job) {
@@ -50,6 +91,7 @@ export function ApplicationApplyModal({
       });
       setError("");
       setFieldErrors({});
+      setUpsellMsg(null);
     }
   }, [isOpen, job]);
 
@@ -152,9 +194,45 @@ export function ApplicationApplyModal({
                 </div>
               </div>
 
-              <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-4 text-xs leading-relaxed text-brand-body">
-                Include your relevant experience, concrete deliverables, timeline, and any portfolio links the business should review.
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-4 text-xs leading-relaxed text-brand-body">
+                <span>
+                  Include your relevant experience, concrete deliverables, timeline, and any portfolio links the business should review.
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={tone}
+                    onChange={(e) => setTone(e.target.value as "Professional" | "Conversational")}
+                    className="h-8 rounded-[6px] border border-brand-hairline bg-white px-2 text-xs font-medium text-brand-ink outline-none"
+                    disabled={isEnhancing}
+                  >
+                    <option value="Professional">Professional</option>
+                    <option value="Conversational">Conversational</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleEnhance}
+                    disabled={isEnhancing}
+                    className="flex h-8 items-center gap-1.5 rounded-[6px] border border-brand-primary/30 bg-brand-primary/10 px-3 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-primary/15 disabled:opacity-50"
+                  >
+                    {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    AI Enhance
+                  </button>
+                </div>
               </div>
+
+              {upsellMsg && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-2.5 rounded-[10px] border border-brand-mint/40 bg-brand-mint/5 p-4 text-sm text-brand-success shadow-sm"
+                >
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-success" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-brand-success uppercase tracking-wider text-[11px]">AI Upsell Suggestion</p>
+                    <p className="text-brand-body font-medium italic text-xs leading-relaxed">"{upsellMsg}"</p>
+                  </div>
+                </motion.div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-brand-ink">

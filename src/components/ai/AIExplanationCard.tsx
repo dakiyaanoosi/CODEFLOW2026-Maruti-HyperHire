@@ -22,9 +22,7 @@ export function AIExplanationCard({
 
   return (
     <div className="rounded-[12px] border border-brand-ink/10 bg-brand-cream/15 p-5 space-y-4 shadow-sm relative overflow-hidden">
-      {/* Decorative background gradients */}
-      <div className="absolute top-0 right-0 -mt-6 -mr-6 w-24 h-24 rounded-full bg-brand-peach/10 blur-xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-24 h-24 rounded-full bg-brand-yellow/10 blur-xl pointer-events-none" />
+
 
       {/* Header */}
       <div className="flex items-center gap-2">

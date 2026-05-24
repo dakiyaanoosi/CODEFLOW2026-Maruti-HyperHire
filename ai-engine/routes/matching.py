@@ -10,6 +10,10 @@ from schemas import (
     RecommendResponse,
     JobScoreResponse,
     ScoreBreakdown,
+    PortfolioSummarizeRequest,
+    PortfolioSummarizeResponse,
+    ApplicationEnhanceRequest,
+    ApplicationEnhanceResponse,
 )
 from utils import get_embeddings
 from matcher import compute_score_and_reasoning
@@ -146,4 +150,87 @@ def recommend_endpoint(request: RecommendRequest):
         )
     except Exception as e:
         logger.exception("Error in /recommend endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/portfolio/summarize", response_model=PortfolioSummarizeResponse)
+def portfolio_summarize_endpoint(request: PortfolioSummarizeRequest):
+    """
+    Generates a professional AI summary for a portfolio item based on its details.
+    """
+    try:
+        desc = request.description.strip()
+        # Clean description sentences
+        sentences = [s.strip() for s in desc.split('.') if s.strip()]
+        
+        key_points = []
+        for s in sentences:
+            s_lower = s.lower()
+            if any(keyword in s_lower for keyword in ["implement", "build", "creat", "develop", "design", "integrat", "launch", "optim", "deliv", "wrote", "us"]):
+                if len(s) > 15 and len(s) < 150:
+                    key_points.append(s)
+                    
+        if not key_points:
+            key_points = sentences[:2]
+        else:
+            key_points = key_points[:2]
+            
+        key_points_str = ". ".join(key_points)
+        if key_points_str and not key_points_str.endswith('.'):
+            key_points_str += '.'
+            
+        tags_str = ", ".join(request.tags) if request.tags else ""
+        tech_stack_clause = f" utilizing {tags_str}" if tags_str else ""
+        
+        summary = (
+            f"This is a {request.category} project titled '{request.title}'{tech_stack_clause}. "
+            f"The project showcases practical hands-on execution: {key_points_str} "
+            f"It demonstrates strong problem-solving capabilities, focus on high-quality delivery, and optimization."
+        )
+        
+        return PortfolioSummarizeResponse(summary=summary)
+    except Exception as e:
+        logger.exception("Error in /portfolio/summarize endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/application/enhance", response_model=ApplicationEnhanceResponse)
+def application_enhance_endpoint(request: ApplicationEnhanceRequest):
+    """
+    Simulates an AI Smart Pitch Assistant that rewrites the cover letter and proposal.
+    In a production system, this would call an LLM. Here we use rule-based expansion to demonstrate the UX.
+    """
+    try:
+        # Rule-based generation for demonstration
+        tone_prefix = "Hey there! " if request.tone.lower() == "conversational" else "Dear Hiring Team, "
+        
+        enhanced_cover = f"{tone_prefix}I am very interested in the '{request.jobTitle}' role. Based on your description, I am confident my skills align perfectly with what you're looking for. {request.coverMessage.strip()} I'm ready to dive in and deliver high-quality results."
+        
+        enhanced_proposal = f"### Approach & Methodology\nI have carefully reviewed the requirements for '{request.jobTitle}'. My proposed approach:\n\n1. **Discovery & Alignment**: Understand the exact scope and target audience.\n2. **Execution**: {request.proposalText.strip()}\n3. **Review & Handover**: Deliver the final assets and provide any necessary support.\n\nI can start immediately and will ensure regular communication throughout the project."
+
+        # Simple rule-based suggestion for demonstration
+        # In a real app, the LLM would extract/suggest this based on the job description
+        desc_lower = request.jobDescription.lower()
+        
+        upsell = None
+        days = 7
+        if "design" in desc_lower or "ui" in desc_lower:
+            upsell = "Offer to include a mini style guide or 2 extra revision rounds for a 15% premium."
+            days = 5
+        elif "develop" in desc_lower or "api" in desc_lower or "backend" in desc_lower:
+            upsell = "Offer to include basic API documentation or unit tests as a quality guarantee."
+            days = 10
+        elif "video" in desc_lower or "edit" in desc_lower:
+            upsell = "Offer to provide raw project files or a short teaser clip for social media."
+            days = 4
+        else:
+            upsell = "Offer expedited delivery (2 days faster) for a small rush fee."
+
+        return ApplicationEnhanceResponse(
+            enhancedCoverMessage=enhanced_cover,
+            enhancedProposalText=enhanced_proposal,
+            recommendedPrice=None, # Leave price logic to UI, or we can suggest one here. Let's leave None to not override budget if not confident.
+            recommendedDays=days,
+            upsellSuggestion=upsell
+        )
+    except Exception as e:
+        logger.exception("Error in /application/enhance endpoint")
         raise HTTPException(status_code=500, detail=str(e))

@@ -12,6 +12,7 @@ export interface PortfolioItem {
   mediaUrl: string;
   thumbnailUrl?: string;
   tags: string[]; // skill or custom tags
+  aiSummary?: string; // AI generated portfolio summary
   createdAt: string;
   updatedAt: string;
 }

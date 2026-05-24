@@ -207,3 +207,40 @@ export async function analyzeJobDescription(
     suggestedCategory,
   };
 }
+
+export interface ApplicationEnhanceParams {
+  coverMessage: string;
+  proposalText: string;
+  tone: string;
+  jobTitle: string;
+  jobDescription: string;
+}
+
+export interface ApplicationEnhanceResult {
+  enhancedCoverMessage: string;
+  enhancedProposalText: string;
+  recommendedPrice?: number | null;
+  recommendedDays?: number | null;
+  upsellSuggestion?: string | null;
+}
+
+export async function enhanceApplicationPitch(params: ApplicationEnhanceParams): Promise<ApplicationEnhanceResult> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_AI_API_URL || "http://127.0.0.1:8000";
+    const res = await fetch(`${apiUrl}/application/enhance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      throw new Error(`AI Engine Error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error("Enhance Application API failed:", err);
+    throw err;
+  }
+}

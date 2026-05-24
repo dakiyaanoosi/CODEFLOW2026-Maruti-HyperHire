@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Calendar, Folder, ExternalLink, Pencil, Trash2, AlertTriangle, FileText, Loader2 } from "lucide-react";
+import { X, Calendar, Folder, ExternalLink, Pencil, Trash2, AlertTriangle, FileText, Loader2, Sparkles } from "lucide-react";
 import { PortfolioItem } from "@/types/portfolio";
 import { portfolioService } from "@/lib/portfolio-service";
 import { motion, AnimatePresence } from "framer-motion";
@@ -105,8 +105,8 @@ export function PortfolioDetailModal({
         );
       case "link":
         return (
-          <div className="w-full border-b border-brand-hairline bg-gradient-to-tr from-brand-ink to-[#41454d] p-10 flex flex-col items-center justify-center text-center text-white gap-4">
-            <div className="rounded-full bg-white/20 p-4 backdrop-blur-md">
+          <div className="w-full border-b border-brand-hairline bg-brand-ink p-10 flex flex-col items-center justify-center text-center text-white gap-4">
+            <div className="rounded-full bg-white/20 p-4">
               <FileText className="h-8 w-8" />
             </div>
             <div className="space-y-1.5 max-w-md">
@@ -140,7 +140,7 @@ export function PortfolioDetailModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-brand-ink/40 backdrop-blur-sm"
+          className="absolute inset-0 bg-brand-ink/40"
         />
 
         {/* Modal Container */}
@@ -257,6 +257,19 @@ export function PortfolioDetailModal({
               )}
 
               <div className="border-t border-brand-hairline/80" />
+
+              {/* AI Generated Summary */}
+              {item.aiSummary && (
+                <div className="rounded-[10px] border border-brand-mint/40 bg-brand-mint/5 p-4 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-brand-success font-semibold">
+                    <Sparkles className="h-4 w-4 text-brand-success shrink-0" />
+                    <span className="text-xs uppercase tracking-wider">AI Portfolio Summary</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-brand-body font-medium italic">
+                    "{item.aiSummary}"
+                  </p>
+                </div>
+              )}
 
               {/* Description */}
               <div className="space-y-2">

@@ -13,6 +13,7 @@ interface PortfolioCardProps {
 
 export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
   const [imageError, setImageError] = React.useState(false);
+  const [isHovered, setIsHovered] = React.useState(false);
 
   // Parse hostname for link types
   const getDisplayLink = (url: string) => {
@@ -28,7 +29,7 @@ export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
   const renderThumbnail = () => {
     const defaultPlaceholder = (icon: React.ReactNode, bgClass: string) => (
       <div className={cn("flex h-full w-full flex-col items-center justify-center gap-3 p-4 text-center", bgClass)}>
-        <div className="rounded-full bg-white/20 p-3 backdrop-blur-sm text-white">
+        <div className="rounded-full bg-white/20 p-3 text-white">
           {icon}
         </div>
         <span className="text-xs font-semibold text-white/90 tracking-wide uppercase font-mono">
@@ -47,8 +48,8 @@ export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-ink/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-            <span className="text-xs text-white font-medium bg-brand-ink/60 backdrop-blur-md px-2.5 py-1 rounded-[6px]">
+          <div className="absolute inset-0 bg-brand-ink/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+            <span className="text-xs text-white font-medium bg-brand-ink px-2.5 py-1 rounded-[6px]">
               View Project
             </span>
           </div>
@@ -58,40 +59,66 @@ export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
 
     if (item.mediaType === "video") {
       return (
-        <div className="relative h-full w-full overflow-hidden">
-          {item.thumbnailUrl && !imageError ? (
-            <img
-              src={item.thumbnailUrl}
-              alt={item.title}
-              onError={() => setImageError(true)}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        <div className="relative h-full w-full overflow-hidden bg-black">
+          {isHovered ? (
+            <video
+              src={item.mediaUrl}
+              poster={item.thumbnailUrl}
+              muted
+              loop
+              autoPlay
+              playsInline
+              className="h-full w-full object-cover"
             />
           ) : (
-            defaultPlaceholder(<Film className="h-6 w-6" />, "bg-gradient-to-tr from-[#aa2d00] to-[#fcab79]")
+            <>
+              {item.thumbnailUrl && !imageError ? (
+                <img
+                  src={item.thumbnailUrl}
+                  alt={item.title}
+                  onError={() => setImageError(true)}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              ) : (
+                defaultPlaceholder(<Film className="h-6 w-6" />, "bg-brand-coral")
+              )}
+              {/* Play Icon Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full bg-white/90 p-3 shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <svg className="h-5 w-5 text-brand-ink fill-current" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            </>
           )}
-          {/* Play Icon Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="rounded-full bg-white/90 p-3 shadow-md group-hover:scale-110 transition-transform duration-300">
-              <svg className="h-5 w-5 text-brand-ink fill-current" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-          </div>
         </div>
       );
     }
 
     if (item.mediaType === "pdf") {
-      return defaultPlaceholder(
-        <FileText className="h-6 w-6" />,
-        "bg-gradient-to-tr from-[#0a2e0e] to-[#a8d8c4]"
+      return (
+        <div className="relative h-full w-full overflow-hidden bg-white">
+          {isHovered ? (
+            <iframe
+              src={`${item.mediaUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+              className="h-full w-full border-none pointer-events-none scale-[1.05]"
+              title={item.title}
+            />
+          ) : (
+            defaultPlaceholder(
+              <FileText className="h-6 w-6" />,
+              "bg-brand-forest"
+            )
+          )}
+        </div>
       );
     }
 
     if (item.mediaType === "link") {
       return (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-tr from-brand-ink to-[#41454d] p-4 text-center">
-          <div className="rounded-full bg-white/20 p-3 backdrop-blur-sm text-white">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-brand-ink p-4 text-center">
+          <div className="rounded-full bg-white/20 p-3 text-white">
             <Link2 className="h-6 w-6" />
           </div>
           <div className="space-y-1">
@@ -110,7 +137,7 @@ export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
     // Default image placeholder
     return defaultPlaceholder(
       <Folder className="h-6 w-6" />,
-      "bg-gradient-to-tr from-[#1d1f25] to-[#9297a0]"
+      "bg-brand-surface-dark"
     );
   };
 
@@ -127,6 +154,8 @@ export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.28, ease: "easeOut" }}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="group flex flex-col overflow-hidden rounded-[12px] border border-brand-hairline bg-white shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
     >
       {/* Thumbnail section */}
@@ -134,7 +163,7 @@ export function PortfolioCard({ item, onClick }: PortfolioCardProps) {
         {renderThumbnail()}
         
         {/* Category Badge */}
-        <span className="absolute left-3 top-3 rounded-[6px] bg-white/90 backdrop-blur-sm px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm border border-brand-hairline/40">
+        <span className="absolute left-3 top-3 rounded-[6px] bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm border border-brand-hairline/40">
           {item.category}
         </span>
       </div>

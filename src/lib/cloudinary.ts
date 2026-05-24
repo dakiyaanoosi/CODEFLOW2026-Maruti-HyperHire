@@ -52,8 +52,9 @@ export async function uploadFile(
       resourceType = "image";
     } else if (file.type.startsWith("video/")) {
       resourceType = "video";
-    } else if (file.type === "application/pdf") {
-      resourceType = "image"; // Cloudinary renders PDFs as images if wanted, or raw. Let's use image/raw.
+    } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      resourceType = "image"; // We must use 'image' so Cloudinary can generate thumbnails. BUT we need to ensure it's not a restricted format. Wait, let's use 'auto' and see.
+      resourceType = "auto";
     }
     
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;

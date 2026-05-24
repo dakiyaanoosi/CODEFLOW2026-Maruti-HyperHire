@@ -130,7 +130,7 @@ export function MarketplaceJobDetailModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-40 bg-brand-ink/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-brand-ink/40"
             onClick={onClose}
           />
 

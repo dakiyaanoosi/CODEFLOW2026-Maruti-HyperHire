@@ -126,5 +126,20 @@ export const aiService = {
       method: "POST",
       body: JSON.stringify({ texts }),
     });
+  },
+
+  /**
+   * Generates a professional AI summary for a portfolio project.
+   */
+  async summarizePortfolioItem(
+    title: string,
+    description: string,
+    category: string,
+    tags: string[]
+  ): Promise<{ summary: string }> {
+    return aiFetch<{ summary: string }>("/portfolio/summarize", {
+      method: "POST",
+      body: JSON.stringify({ title, description, category, tags }),
+    });
   }
 };

@@ -75,7 +75,7 @@ export function AIInsightsWidget() {
     suggestions.push("Profile optimized! Your profile has high semantic indexing. Refreshing the dashboard will dynamically match active jobs.");
   }
 
-  const trendingSkills = studProfile.skills.includes("React") 
+  const trendingSkills = studProfile.skills?.includes("React") 
     ? ["Next.js", "Framer Motion", "Tailwind CSS"]
     : ["Figma", "UI Design", "Adobe Premier"];
 
@@ -106,7 +106,7 @@ export function AIInsightsWidget() {
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-brand-muted">Demand trend tips</p>
           <p className="text-[11px] text-brand-body leading-relaxed mt-1">
-            Jobs in <span className="font-semibold text-brand-ink">{studProfile.preferredCategories[0] || "Web Development"}</span> are trending. Consider adding <span className="font-semibold text-brand-ink">{trendingSkills.slice(0, 2).join(" or ")}</span> to your profile skills.
+            Jobs in <span className="font-semibold text-brand-ink">{studProfile.preferredCategories?.[0] || "Web Development"}</span> are trending. Consider adding <span className="font-semibold text-brand-ink">{trendingSkills.slice(0, 2).join(" or ")}</span> to your profile skills.
           </p>
         </div>
       </div>

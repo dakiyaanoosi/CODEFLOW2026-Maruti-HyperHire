@@ -121,3 +121,26 @@ class RecommendRequest(BaseModel):
 class RecommendResponse(BaseModel):
     candidate_id: str
     ranked_jobs: List[JobScoreResponse]
+
+class PortfolioSummarizeRequest(BaseModel):
+    title: str
+    description: str
+    category: str
+    tags: Optional[List[str]] = []
+
+class PortfolioSummarizeResponse(BaseModel):
+    summary: str
+
+class ApplicationEnhanceRequest(BaseModel):
+    coverMessage: str
+    proposalText: str
+    tone: str
+    jobTitle: str
+    jobDescription: str
+
+class ApplicationEnhanceResponse(BaseModel):
+    enhancedCoverMessage: str
+    enhancedProposalText: str
+    recommendedPrice: Optional[float] = None
+    recommendedDays: Optional[int] = None
+    upsellSuggestion: Optional[str] = None
