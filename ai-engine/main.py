@@ -98,18 +98,9 @@ def startup_event():
     logger.info(
         "Starting HyperHire AI Engine..."
     )
-
-    try:
-        get_model()
-
-        logger.info(
-            "Model loaded successfully."
-        )
-
-    except Exception as e:
-        logger.error(
-            f"Model loading failed: {e}"
-        )
+    logger.info(
+        "AI model will be lazy-loaded on the first embedding/matching request."
+    )
 
 
 # =========================

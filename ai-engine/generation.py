@@ -5,6 +5,13 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 
 SKILL_CATALOG = {
     "React": ["react", "jsx", "frontend", "front-end", "component"],
