@@ -1,6 +1,6 @@
 import { WorkflowTask } from "@/types/workflow";
 
-const AI_API_URL = process.env.NEXT_PUBLIC_AI_API_URL || "http://127.0.0.1:8000";
+const AI_API_URL = process.env.NEXT_PUBLIC_AI_API_URL || "https://hyperhire-ai-engine.onrender.com";
 
 export interface WorkflowAnalysisResult {
   complexity: "Low" | "Medium" | "High";

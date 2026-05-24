@@ -226,7 +226,7 @@ export interface ApplicationEnhanceResult {
 
 export async function enhanceApplicationPitch(params: ApplicationEnhanceParams): Promise<ApplicationEnhanceResult> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_AI_API_URL || "http://127.0.0.1:8000";
+    const apiUrl = process.env.NEXT_PUBLIC_AI_API_URL || "https://hyperhire-ai-engine.onrender.com";
     const res = await fetch(`${apiUrl}/application/enhance`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

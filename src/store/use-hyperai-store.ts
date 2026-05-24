@@ -151,7 +151,7 @@ export const useHyperAIStore = create<HyperAIState>((set, get) => ({
           {
             role: "assistant",
             content:
-              "I'm having trouble connecting to the HyperHire AI Engine. Make sure the FastAPI server is running on port 8000 (`uvicorn main:app --reload` in the `ai-engine` directory).",
+              "I'm having trouble connecting to the HyperHire AI Engine. Please verify your internet connection, make sure the AI service is running, or check if the local FastAPI server is running if you are in development mode.",
           },
         ],
         isLoading: false,

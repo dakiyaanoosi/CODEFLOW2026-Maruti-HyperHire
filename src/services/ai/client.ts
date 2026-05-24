@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_AI_API_URL || "http://127.0.0.1:8000";
+const BASE_URL = process.env.NEXT_PUBLIC_AI_API_URL || "https://hyperhire-ai-engine.onrender.com";
 
 export async function aiFetch<T>(endpoint: string, options: RequestInit = {}, fallbackValue?: T): Promise<T> {
   // Normalize slash
