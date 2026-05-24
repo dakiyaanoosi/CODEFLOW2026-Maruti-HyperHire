@@ -157,7 +157,7 @@ export default function BusinessProfilePage() {
     );
   }
 
-  const isBusinessUser = authProfile?.role === "business";
+  const isBusinessUser = authProfile?.role?.toLowerCase() === "business";
   const displayProfile = tab === "edit" && draft ? draft : profile;
 
   return (
