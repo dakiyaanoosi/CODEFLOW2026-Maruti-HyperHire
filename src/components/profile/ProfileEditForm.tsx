@@ -4,7 +4,7 @@ import * as React from "react";
 import { Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SkillTag, CategoryTag } from "./SkillTag";
+import { SkillTag } from "./SkillTag";
 import { StudentProfile, EXPERIENCE_LEVELS, ALL_CATEGORIES, ExperienceLevel, WorkCategory } from "@/types/profile";
 
 interface ProfileEditFormProps {
@@ -69,6 +69,27 @@ function TextAreaField({
 export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
   const [newSkill, setNewSkill] = React.useState("");
   const [newPortfolio, setNewPortfolio] = React.useState("");
+  const availabilityOptions = [
+    "5 hrs/week",
+    "10 hrs/week",
+    "15 hrs/week",
+    "20 hrs/week",
+    "25 hrs/week",
+    "30 hrs/week",
+    "40 hrs/week",
+  ];
+  const suggestedSkills = [
+    "React",
+    "TypeScript",
+    "JavaScript",
+    "Node.js",
+    "Next.js",
+    "Tailwind CSS",
+    "Python",
+    "PostgreSQL",
+    "UI/UX",
+    "Figma",
+  ];
 
   function addSkill() {
     const trimmed = newSkill.trim();
@@ -162,6 +183,21 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
             onChange={(v) => onChange({ availability: v })}
             placeholder="e.g. 20 hrs/week"
           />
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-medium text-brand-body">Choose Availability (hrs/week)</label>
+            <select
+              value={profile.availability}
+              onChange={(e) => onChange({ availability: e.target.value })}
+              className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-4 text-[14px] text-brand-ink outline-none focus:border-brand-info-border focus:ring-2 focus:ring-brand-info/20 transition-all"
+            >
+              <option value="">Select availability</option>
+              {availabilityOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <InputField
             label="Hourly Rate (USD)"
@@ -178,6 +214,28 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
           <CardTitle className="text-[16px]">Skills</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-3">
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-medium text-brand-body">Choose Skills</label>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const selected = e.target.value;
+                if (!selected) return;
+                if (!profile.skills.includes(selected)) {
+                  onChange({ skills: [...profile.skills, selected] });
+                }
+                e.currentTarget.value = "";
+              }}
+              className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-4 text-[14px] text-brand-ink outline-none focus:border-brand-info-border focus:ring-2 focus:ring-brand-info/20 transition-all"
+            >
+              <option value="">Select a skill</option>
+              {suggestedSkills.map((skill) => (
+                <option key={skill} value={skill}>
+                  {skill}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-wrap gap-2">
             {profile.skills.map((skill) => (
               <SkillTag key={skill} label={skill} onRemove={() => removeSkill(skill)} />

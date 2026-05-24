@@ -6,10 +6,11 @@ import { jobService } from "@/lib/job-service";
 import { portfolioService } from "@/lib/portfolio-service";
 import { aiService } from "@/services/ai/service";
 import { JobScoreResponse } from "@/services/ai/types";
+import { StudentProfile } from "@/types/profile";
 import { AISkeletonLoader } from "./AISkeletonLoader";
 import { AIExplanationCard } from "./AIExplanationCard";
 import { AIMatchVisualization } from "./AIMatchVisualization";
-import { Briefcase, ArrowRight, Sparkles, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Briefcase, Sparkles, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 export function StudentAIRecommendations() {
   const { user, profile } = useAuthStore();
@@ -24,6 +25,27 @@ export function StudentAIRecommendations() {
       setLoading(true);
       setError(null);
       try {
+        const toStudentProfile = (): StudentProfile | null => {
+          if (!profile || profile.role !== "student") return null;
+          return {
+            name: profile.name,
+            college: profile.college ?? "",
+            bio: profile.bio ?? "",
+            skills: profile.skills ?? [],
+            experienceLevel: profile.experienceLevel ?? "Beginner",
+            availability: profile.availability ?? "",
+            preferredCategories: profile.preferredCategories ?? [],
+            hourlyRate: profile.hourlyRate ?? 0,
+            portfolioLinks: profile.portfolioLinks ?? [],
+            socialLinks: profile.socialLinks ?? {},
+            trustScore: profile.trustScore ?? 0,
+            isVerified: profile.verificationStatus === "Verified",
+            profileStrength: profile.profileStrength ?? 0,
+            avatarInitials: profile.avatarInitials ?? profile.name.slice(0, 2).toUpperCase(),
+            avatarUrl: profile.avatarUrl ?? "",
+          };
+        };
+
         const portfolios = await portfolioService.getPortfolios(user.uid);
         const jobs = await jobService.getJobs(undefined, true);
         
@@ -32,14 +54,20 @@ export function StudentAIRecommendations() {
           return;
         }
 
+        const studentProfile = toStudentProfile();
+        if (!studentProfile) {
+          setRecommendations([]);
+          return;
+        }
+
         const res = await aiService.recommendJobsForStudent({
           id: user.uid,
-          profile: profile as any,
+          profile: studentProfile,
           portfolios,
         }, jobs);
         
         setRecommendations(res.ranked_jobs);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("AI recommendations fetch error:", err);
         setError("Could not connect to the AI matching server. Make sure the backend AI service is online.");
       } finally {
@@ -121,13 +149,7 @@ export function StudentAIRecommendations() {
               {!isExpanded && (
                 <div className="flex items-center justify-between text-[11px] text-brand-muted">
                   <p className="truncate pr-4 max-w-[70%]">{rec.reasoning}</p>
-                  <button
-                    onClick={() => setExpandedIndex(idx)}
-                    className="text-brand-link font-semibold hover:underline shrink-0 flex items-center gap-0.5 cursor-pointer"
-                  >
-                    Inspect Breakdown
-                    <ArrowRight className="h-3 w-3" />
-                  </button>
+                  <span className="text-brand-muted/80 shrink-0">Use the chevron to view details</span>
                 </div>
               )}
 
