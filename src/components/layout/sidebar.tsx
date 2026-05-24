@@ -21,6 +21,7 @@ import {
   Store,
   FileText,
   Kanban,
+  Wallet,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
@@ -39,6 +40,7 @@ const studentNavItems: SidebarItem[] = [
   { name: "Applications", href: "/applications", icon: FileText },
   { name: "Workflow", href: "/kanban", icon: Kanban },
   { name: "Portfolio", href: "/portfolio", icon: FolderOpen },
+  { name: "Earnings", href: "/earnings", icon: Wallet },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
 ];
@@ -49,6 +51,7 @@ const businessNavItems: SidebarItem[] = [
   { name: "Applications", href: "/applications", icon: FileText },
   { name: "Workflow", href: "/kanban", icon: Kanban },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
+  { name: "Earnings", href: "/earnings", icon: Wallet },
   { name: "Messages", href: "/messages", icon: MessageSquare },
 ];
 
