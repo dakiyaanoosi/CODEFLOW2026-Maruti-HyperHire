@@ -9,7 +9,10 @@ import {
   Clock,
   XCircle,
   Star,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
+import Link from "next/link";
 import { Application, ApplicationStatus } from "@/types/application";
 import { ApplicationCard } from "./ApplicationCard";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,7 +25,7 @@ interface ApplicationDashboardProps {
   isBusiness?: boolean;
 }
 
-const ALL_STATUSES: ApplicationStatus[] = ["Pending", "Shortlisted", "Accepted", "Rejected"];
+const ALL_STATUSES: ApplicationStatus[] = ["submitted", "shortlisted", "accepted", "rejected"];
 
 export function ApplicationDashboard({
   applications,
@@ -36,10 +39,10 @@ export function ApplicationDashboard({
   const stats = React.useMemo(() => {
     return {
       total: applications.length,
-      pending: applications.filter((a) => a.status === "Pending").length,
-      shortlisted: applications.filter((a) => a.status === "Shortlisted").length,
-      accepted: applications.filter((a) => a.status === "Accepted").length,
-      rejected: applications.filter((a) => a.status === "Rejected").length,
+      pending: applications.filter((a) => a.status === "submitted").length,
+      shortlisted: applications.filter((a) => a.status === "shortlisted").length,
+      accepted: applications.filter((a) => a.status === "accepted").length,
+      rejected: applications.filter((a) => a.status === "rejected").length,
     };
   }, [applications]);
 
@@ -49,7 +52,7 @@ export function ApplicationDashboard({
         search.trim() === "" ||
         a.jobTitle.toLowerCase().includes(search.toLowerCase()) ||
         a.companyName.toLowerCase().includes(search.toLowerCase()) ||
-        a.coverMessage.toLowerCase().includes(search.toLowerCase()) ||
+        a.coverLetter.toLowerCase().includes(search.toLowerCase()) ||
         a.studentName.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = selectedStatus === "All" || a.status === selectedStatus;
       return matchesSearch && matchesStatus;
@@ -64,25 +67,25 @@ export function ApplicationDashboard({
       color: "text-brand-ink",
     },
     {
-      label: "Pending",
+      label: "submitted",
       value: stats.pending,
       icon: Clock,
       color: "text-brand-muted",
     },
     {
-      label: "Shortlisted",
+      label: "shortlisted",
       value: stats.shortlisted,
       icon: Star,
       color: "text-[#a07000]",
     },
     {
-      label: "Accepted",
+      label: "accepted",
       value: stats.accepted,
       icon: CheckCircle2,
       color: "text-brand-success",
     },
     {
-      label: "Rejected",
+      label: "rejected",
       value: stats.rejected,
       icon: XCircle,
       color: "text-brand-coral",
@@ -187,23 +190,38 @@ export function ApplicationDashboard({
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col items-center justify-center rounded-[12px] border border-brand-hairline bg-white py-20 px-4 text-center shadow-sm"
         >
-          <div className="grid h-14 w-14 place-items-center rounded-[12px] bg-brand-surface-soft text-brand-muted border border-brand-hairline/40">
-            <FolderOpen className="h-6 w-6" />
+          <div className="grid h-16 w-16 place-items-center rounded-full bg-brand-surface-soft text-brand-muted border border-brand-hairline/40 shadow-inner">
+            <FolderOpen className="h-7 w-7" />
           </div>
-          <h3 className="mt-4 text-sm font-semibold text-brand-ink">
+          <h3 className="mt-5 text-base font-semibold text-brand-ink">
             {applications.length === 0
               ? isBusiness
                 ? "No applications received yet"
                 : "No applications submitted yet"
               : "No matching applications found"}
           </h3>
-          <p className="mt-1.5 max-w-xs text-xs text-brand-muted leading-relaxed font-medium">
+          <p className="mt-2 max-w-sm text-sm text-brand-muted leading-relaxed font-medium">
             {applications.length === 0
               ? isBusiness
-                ? "Applications from students will appear here once they apply to your gig listings."
-                : "Browse the marketplace and apply to gigs to see your applications here."
+                ? "Once students apply to your jobs, you'll see their AI-enhanced pitches, proposed budgets, and match scores here."
+                : "Your job application journey starts here. Our AI will help match you with the best opportunities."
               : "Try adjusting your search terms or status filter."}
           </p>
+          {applications.length === 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+              <Link
+                href={isBusiness ? "/jobs/create" : "/marketplace"}
+                className="flex items-center gap-2 rounded-[10px] bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-primary/90 transition-colors"
+              >
+                {isBusiness ? "Post a New Job" : "Browse Marketplace"}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button className="flex items-center gap-2 rounded-[10px] border border-brand-hairline bg-white px-5 py-2.5 text-sm font-semibold text-brand-ink shadow-sm hover:bg-brand-surface-soft transition-colors">
+                <Sparkles className="h-4 w-4 text-brand-secondary" />
+                {isBusiness ? "AI Market Insights" : "Get AI Recommendations"}
+              </button>
+            </div>
+          )}
           {applications.length > 0 && (
             <button
               onClick={() => {

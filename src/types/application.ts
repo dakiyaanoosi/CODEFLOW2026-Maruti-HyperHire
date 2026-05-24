@@ -1,4 +1,4 @@
-export type ApplicationStatus = "Pending" | "Shortlisted" | "Accepted" | "Rejected";
+export type ApplicationStatus = "submitted" | "shortlisted" | "accepted" | "rejected" | "in_progress" | "completed";
 
 export interface Application {
   applicationId: string;
@@ -9,18 +9,28 @@ export interface Application {
   studentId: string;
   studentName: string;
   studentAvatar?: string;
-  coverMessage: string;
+  
+  // Application Data
+  coverLetter: string;
   proposalText: string;
   estimatedDeliveryDays: number;
-  quotedPrice: number;
+  proposedBudget: number;
+  
+  // AI Metadata
+  aiPitch?: string;
+  aiMatchScore?: number;
+  aiMatchConfidence?: number;
+  aiMatchExplanation?: string;
+  aiSemanticCompatibility?: any;
+
   status: ApplicationStatus;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ApplicationFormData {
-  coverMessage: string;
+  coverLetter: string;
   proposalText: string;
   estimatedDeliveryDays: number;
-  quotedPrice: number;
+  proposedBudget: number;
 }

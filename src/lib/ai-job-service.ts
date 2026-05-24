@@ -209,7 +209,7 @@ export async function analyzeJobDescription(
 }
 
 export interface ApplicationEnhanceParams {
-  coverMessage: string;
+  coverLetter: string;
   proposalText: string;
   tone: string;
   jobTitle: string;

@@ -47,14 +47,14 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       </div>
 
       <p className="mt-3 text-xs text-brand-body line-clamp-2 leading-relaxed">
-        {application.coverMessage}
+        {application.coverLetter}
       </p>
 
       <div className="mt-auto pt-4 border-t border-brand-hairline/60 flex items-center justify-between text-xs font-semibold">
         <div className="flex items-center gap-3 text-brand-muted">
           <span className="flex items-center gap-1">
             <DollarSign className="h-3.5 w-3.5" />
-            ${application.quotedPrice.toLocaleString()}
+            ${application.proposedBudget.toLocaleString()}
           </span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />

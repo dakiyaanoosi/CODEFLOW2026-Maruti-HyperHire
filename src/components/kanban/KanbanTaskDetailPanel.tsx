@@ -247,7 +247,7 @@ export function KanbanTaskDetailPanel({
               {/* Quick stats */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { icon: DollarSign, label: "Quoted", value: `$${task.quotedPrice.toLocaleString()}` },
+                  { icon: DollarSign, label: "Quoted", value: `$${task.proposedBudget.toLocaleString()}` },
                   {
                     icon: isOverdue ? Building2 : Clock,
                     label: "Deadline",

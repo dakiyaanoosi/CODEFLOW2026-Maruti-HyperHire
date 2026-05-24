@@ -35,7 +35,7 @@ export function KanbanColumn({
       ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length)
       : 0;
 
-  const totalValue = tasks.reduce((s, t) => s + t.quotedPrice, 0);
+  const totalValue = tasks.reduce((s, t) => s + t.proposedBudget, 0);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

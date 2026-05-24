@@ -150,7 +150,7 @@ export function KanbanTaskCard({
           <div className="flex items-center gap-2.5">
             <span className="flex items-center gap-0.5 text-[11px] font-semibold text-brand-ink">
               <DollarSign className="h-3 w-3 text-brand-muted" />
-              {task.quotedPrice.toLocaleString()}
+              {task.proposedBudget.toLocaleString()}
             </span>
             <span
               className={cn(

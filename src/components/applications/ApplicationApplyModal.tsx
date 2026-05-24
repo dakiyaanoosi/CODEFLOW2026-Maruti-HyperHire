@@ -31,10 +31,10 @@ export function ApplicationApplyModal({
   studentAvatar,
 }: ApplicationApplyModalProps) {
   const [form, setForm] = React.useState<ApplicationFormData>({
-    coverMessage: "",
+    coverLetter: "",
     proposalText: "",
     estimatedDeliveryDays: 7,
-    quotedPrice: 0,
+    proposedBudget: 0,
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -46,7 +46,7 @@ export function ApplicationApplyModal({
 
   const handleEnhance = async () => {
     if (!job) return;
-    if (!form.coverMessage.trim() && !form.proposalText.trim()) {
+    if (!form.coverLetter.trim() && !form.proposalText.trim()) {
       setError("Please add at least some text to enhance.");
       return;
     }
@@ -55,7 +55,7 @@ export function ApplicationApplyModal({
     setError("");
     try {
       const result = await enhanceApplicationPitch({
-        coverMessage: form.coverMessage,
+        coverLetter: form.coverLetter,
         proposalText: form.proposalText,
         tone,
         jobTitle: job.title,
@@ -64,10 +64,10 @@ export function ApplicationApplyModal({
       
       setForm(f => ({
         ...f,
-        coverMessage: result.enhancedCoverMessage,
+        coverLetter: result.enhancedCoverMessage,
         proposalText: result.enhancedProposalText,
         estimatedDeliveryDays: result.recommendedDays || f.estimatedDeliveryDays,
-        quotedPrice: result.recommendedPrice || f.quotedPrice
+        proposedBudget: result.recommendedPrice || f.proposedBudget
       }));
       
       if (result.upsellSuggestion) {
@@ -84,10 +84,10 @@ export function ApplicationApplyModal({
     if (isOpen && job) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
-        coverMessage: "",
+        coverLetter: "",
         proposalText: "",
         estimatedDeliveryDays: 7,
-        quotedPrice: job.budget ? Math.round(job.budget * 0.9) : 0,
+        proposedBudget: job.budget ? Math.round(job.budget * 0.9) : 0,
       });
       setError("");
       setFieldErrors({});
@@ -97,14 +97,14 @@ export function ApplicationApplyModal({
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.coverMessage.trim() || form.coverMessage.trim().length < 15) {
-      errs.coverMessage = "Cover message must be at least 15 characters.";
+    if (!form.coverLetter.trim() || form.coverLetter.trim().length < 15) {
+      errs.coverLetter = "Cover message must be at least 15 characters.";
     }
     if (!form.proposalText.trim() || form.proposalText.trim().length < 30) {
       errs.proposalText = "Proposal must be at least 30 characters.";
     }
-    if (form.quotedPrice <= 0) {
-      errs.quotedPrice = "Please enter a valid price quote.";
+    if (form.proposedBudget <= 0) {
+      errs.proposedBudget = "Please enter a valid price quote.";
     }
     return errs;
   };
@@ -240,17 +240,17 @@ export function ApplicationApplyModal({
                   Cover Message
                 </label>
                 <textarea
-                  value={form.coverMessage}
-                  onChange={(e) => setForm((f) => ({ ...f, coverMessage: e.target.value }))}
+                  value={form.coverLetter}
+                  onChange={(e) => setForm((f) => ({ ...f, coverLetter: e.target.value }))}
                   placeholder="Introduce yourself and why you're a strong fit for this gig..."
                   rows={3}
                   className={cn(
                     "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-brand-muted focus:border-brand-info-border",
-                    fieldErrors.coverMessage ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
+                    fieldErrors.coverLetter ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
                   )}
                 />
-                {fieldErrors.coverMessage && <p className="text-xs text-red-600">{fieldErrors.coverMessage}</p>}
-                <p className="text-xs text-brand-muted">{form.coverMessage.length} characters</p>
+                {fieldErrors.coverLetter && <p className="text-xs text-red-600">{fieldErrors.coverLetter}</p>}
+                <p className="text-xs text-brand-muted">{form.coverLetter.length} characters</p>
               </div>
 
               <div className="space-y-1.5">
@@ -299,15 +299,15 @@ export function ApplicationApplyModal({
                     <input
                       type="number"
                       min={1}
-                      value={form.quotedPrice}
-                      onChange={(e) => setForm((f) => ({ ...f, quotedPrice: Number(e.target.value) }))}
+                      value={form.proposedBudget}
+                      onChange={(e) => setForm((f) => ({ ...f, proposedBudget: Number(e.target.value) }))}
                       className={cn(
                         "h-11 w-full rounded-[6px] border pl-7 pr-4 text-sm text-brand-ink outline-none focus:border-brand-info-border",
-                        fieldErrors.quotedPrice ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
+                        fieldErrors.proposedBudget ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
                       )}
                     />
                   </div>
-                  {fieldErrors.quotedPrice && <p className="text-xs text-red-600">{fieldErrors.quotedPrice}</p>}
+                  {fieldErrors.proposedBudget && <p className="text-xs text-red-600">{fieldErrors.proposedBudget}</p>}
                 </div>
               </div>
             </div>

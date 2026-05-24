@@ -10,21 +10,29 @@ interface ApplicationStatusBadgeProps {
 }
 
 const CONFIG: Record<ApplicationStatus, { label: string; className: string }> = {
-  Pending: {
-    label: "Pending",
+  submitted: {
+    label: "submitted",
     className: "bg-brand-surface-strong text-brand-muted border-brand-hairline",
   },
-  Shortlisted: {
-    label: "Shortlisted",
+  shortlisted: {
+    label: "shortlisted",
     className: "bg-[#f4d35e]/20 text-[#a07000] border-[#f4d35e]/50",
   },
-  Accepted: {
-    label: "Accepted",
+  accepted: {
+    label: "accepted",
     className: "bg-brand-success/10 text-brand-success border-brand-success/20",
   },
-  Rejected: {
-    label: "Rejected",
+  rejected: {
+    label: "rejected",
     className: "bg-brand-coral/10 text-brand-coral border-brand-coral/20",
+  },
+  in_progress: {
+    label: "in progress",
+    className: "bg-brand-info/10 text-brand-info border-brand-info/20",
+  },
+  completed: {
+    label: "completed",
+    className: "bg-brand-secondary/10 text-brand-secondary border-brand-secondary/20",
   },
 };
 

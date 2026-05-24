@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // 1. Users
+    // Anyone can read a user profile. Only the owner can create/update.
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false; // Soft deletes preferred
+    }
+
+    // 2. Businesses
+    // Anyone can read a business profile. Only the owner can create/update.
+    match /businesses/{businessId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isOwner(businessId);
+      allow delete: if false;
+    }
+
+    // 3. Jobs
+    // Anyone can read jobs. Only authenticated users can create. Only the owner can update.
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.businessId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.businessId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.businessId == request.auth.uid;
+    }
+
+    // 4. Applications
+    // Students can read their own applications. Businesses can read applications for their jobs.
+    // Students can create applications. 
+    // Businesses can update application status.
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.businessId == request.auth.uid
+      );
+      
+      // Creating requires the user to be the student
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      
+      // Updating: Students can update their own (before accepted?), Businesses can update status
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid) ||
+        (resource.data.businessId == request.auth.uid)
+      );
+      
+      allow delete: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+    }
+
+    // 5. Conversations / Messages (Future-ready)
+    // Users can read/write conversations they are participants in.
+    match /conversations/{conversationId} {
+      allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participantIds;
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow create: if isAuthenticated() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+          request.resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // 6. Tasks / Kanban (Future-ready)
+    // Access restricted to participants of the job/application (business and student).
+    match /tasks/{taskId} {
+      allow read, update: if isAuthenticated() && (
+        resource.data.assigneeId == request.auth.uid ||
+        resource.data.creatorId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid
+      );
+      allow create: if isAuthenticated();
+      allow delete: if isAuthenticated() && (
+        resource.data.creatorId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
+      );
+    }
+
+    // 7. Notifications (Future-ready)
+    // Users can only read and manage their own notifications.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated(); // The system/functions usually create these, but clients might trigger some
+    }
+  }
+}

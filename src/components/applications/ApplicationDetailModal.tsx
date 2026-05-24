@@ -8,8 +8,9 @@ import {
   Building2,
   FileText,
   MessageSquare,
-  Calendar,
   User,
+  Sparkles,
+  Bot
 } from "lucide-react";
 import { Application, ApplicationStatus } from "@/types/application";
 import { ApplicationStatusBadge } from "./ApplicationStatusBadge";
@@ -27,17 +28,17 @@ interface ApplicationDetailModalProps {
 
 const STATUS_ACTIONS: { status: ApplicationStatus; label: string; className: string }[] = [
   {
-    status: "Shortlisted",
+    status: "shortlisted",
     label: "Shortlist",
     className: "bg-[#f4d35e]/20 text-[#a07000] border-[#f4d35e]/50 border",
   },
   {
-    status: "Accepted",
+    status: "accepted",
     label: "Accept",
     className: "bg-brand-success/10 text-brand-success border-brand-success/20 border",
   },
   {
-    status: "Rejected",
+    status: "rejected",
     label: "Reject",
     className: "bg-brand-coral/10 text-brand-coral border-brand-coral/20 border",
   },
@@ -117,7 +118,7 @@ export function ApplicationDetailModal({
                   {
                     icon: DollarSign,
                     label: "Quoted Price",
-                    value: `$${application.quotedPrice.toLocaleString()}`,
+                    value: `$${application.proposedBudget.toLocaleString()}`,
                   },
                   {
                     icon: Clock,
@@ -161,7 +162,7 @@ export function ApplicationDetailModal({
                   Cover Message
                 </h3>
                 <div className="rounded-[10px] bg-brand-surface-soft border border-brand-hairline p-4 text-sm text-brand-body leading-relaxed">
-                  {application.coverMessage}
+                  {application.coverLetter}
                 </div>
               </div>
 
@@ -175,7 +176,48 @@ export function ApplicationDetailModal({
                 </div>
               </div>
 
-              {isBusiness && application.status === "Pending" && (
+              {(application.aiMatchScore || application.aiMatchExplanation || application.aiPitch) && (
+                <div className="space-y-3 pt-2">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold text-brand-ink">
+                    <Sparkles className="h-4 w-4 text-brand-secondary" />
+                    AI Insights & Analysis
+                  </h3>
+                  <div className="rounded-[10px] bg-brand-surface-soft border border-brand-secondary/30 p-4 space-y-4 shadow-sm">
+                    {application.aiMatchScore !== undefined && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-brand-ink flex items-center gap-2">
+                          <Bot className="h-4 w-4 text-brand-secondary" />
+                          Match Score
+                        </span>
+                        <span className={cn(
+                          "px-2 py-1 rounded-[6px] text-xs font-bold",
+                          application.aiMatchScore >= 80 ? "bg-brand-success/10 text-brand-success" :
+                          application.aiMatchScore >= 50 ? "bg-[#f4d35e]/20 text-[#a07000]" :
+                          "bg-brand-coral/10 text-brand-coral"
+                        )}>
+                          {application.aiMatchScore}%
+                        </span>
+                      </div>
+                    )}
+                    
+                    {application.aiMatchExplanation && (
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-brand-muted">Explanation</span>
+                        <p className="text-sm text-brand-body leading-relaxed">{application.aiMatchExplanation}</p>
+                      </div>
+                    )}
+                    
+                    {application.aiPitch && (
+                      <div className="space-y-1.5 border-t border-brand-hairline pt-3 mt-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-brand-muted">AI Enhanced Pitch</span>
+                        <p className="text-sm text-brand-body leading-relaxed italic">{application.aiPitch}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isBusiness && application.status === "submitted" && (
                 <div className="rounded-[12px] bg-brand-surface-dark p-5 space-y-3">
                   <p className="text-sm font-medium text-white">Review Application</p>
                   <p className="text-xs text-white/60 leading-relaxed">
@@ -199,7 +241,7 @@ export function ApplicationDetailModal({
                 </div>
               )}
 
-              {isBusiness && application.status !== "Pending" && (
+              {isBusiness && application.status !== "submitted" && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
                     Change Status

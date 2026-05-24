@@ -10,7 +10,7 @@ interface KanbanStatsBarProps {
 }
 
 export function KanbanStatsBar({ tasks }: KanbanStatsBarProps) {
-  const totalValue = tasks.reduce((s, t) => s + t.quotedPrice, 0);
+  const totalValue = tasks.reduce((s, t) => s + t.proposedBudget, 0);
   const completed = tasks.filter((t) => t.stage === "Completed" || t.stage === "Paid").length;
   const inFlight = tasks.filter((t) => t.stage === "In Progress" || t.stage === "Revision").length;
   const overdue = tasks.filter(

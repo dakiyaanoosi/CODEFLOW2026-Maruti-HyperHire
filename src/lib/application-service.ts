@@ -1,24 +1,24 @@
 import { Application, ApplicationFormData, ApplicationStatus } from "@/types/application";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  updateDoc,
+  serverTimestamp,
+  orderBy
+} from "firebase/firestore";
+import { kanbanService } from "@/lib/kanban-service";
 
 function generateId(): string {
   return `app_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const STORAGE_KEY = "hyperhire_applications";
-
-function getAll(): Application[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveAll(apps: Application[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
-}
+const COLLECTION_NAME = "applications";
 
 export const applicationService = {
   async submitApplication(
@@ -29,16 +29,28 @@ export const applicationService = {
     businessId: string,
     studentId: string,
     studentName: string,
-    studentAvatar?: string
+    studentAvatar?: string,
+    aiMetadata?: any
   ): Promise<Application> {
-    await new Promise((r) => setTimeout(r, 600));
-    const apps = getAll();
-    const existing = apps.find(
-      (a) => a.jobId === jobId && a.studentId === studentId
+    if (!db) throw new Error("Firestore is not initialized.");
+
+    // Check if application already exists
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("jobId", "==", jobId),
+      where("studentId", "==", studentId)
     );
-    if (existing) throw new Error("You have already applied to this job.");
-    const app: Application = {
-      applicationId: generateId(),
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      throw new Error("You have already applied to this job.");
+    }
+
+    const appId = generateId();
+    const appRef = doc(db, COLLECTION_NAME, appId);
+    const now = new Date().toISOString();
+
+    const newApp: Application = {
+      applicationId: appId,
       jobId,
       jobTitle,
       companyName,
@@ -46,85 +58,111 @@ export const applicationService = {
       studentId,
       studentName,
       studentAvatar,
-      coverMessage: data.coverMessage,
+      coverLetter: data.coverLetter,
       proposalText: data.proposalText,
       estimatedDeliveryDays: data.estimatedDeliveryDays,
-      quotedPrice: data.quotedPrice,
-      status: "Pending",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      proposedBudget: data.proposedBudget,
+      status: "submitted",
+      createdAt: now,
+      updatedAt: now,
+      ...aiMetadata
     };
-    saveAll([app, ...apps]);
-    return app;
+
+    await setDoc(appRef, newApp);
+    return newApp;
   },
 
   async getApplicationsByStudent(studentId: string): Promise<Application[]> {
-    await new Promise((r) => setTimeout(r, 400));
-    return getAll().filter((a) => a.studentId === studentId);
-  },
-
-  async getApplicationsByJob(jobId: string): Promise<Application[]> {
-    await new Promise((r) => setTimeout(r, 400));
-    return getAll().filter((a) => a.jobId === jobId);
+    if (!db) return [];
+    try {
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where("studentId", "==", studentId)
+      );
+      const snapshot = await getDocs(q);
+      const apps = snapshot.docs.map(doc => doc.data() as Application);
+      return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   },
 
   async getApplicationsByBusiness(businessId: string): Promise<Application[]> {
-    await new Promise((r) => setTimeout(r, 400));
-    return getAll().filter((a) => a.businessId === businessId);
+    if (!db) return [];
+    try {
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where("businessId", "==", businessId)
+      );
+      const snapshot = await getDocs(q);
+      const apps = snapshot.docs.map(doc => doc.data() as Application);
+      return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async getApplicationsByJob(jobId: string): Promise<Application[]> {
+    if (!db) return [];
+    try {
+      const q = query(
+        collection(db, COLLECTION_NAME),
+        where("jobId", "==", jobId)
+      );
+      const snapshot = await getDocs(q);
+      const apps = snapshot.docs.map(doc => doc.data() as Application);
+      return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   },
 
   async updateStatus(applicationId: string, status: ApplicationStatus): Promise<Application> {
-    await new Promise((r) => setTimeout(r, 300));
-    const apps = getAll();
-    const idx = apps.findIndex((a) => a.applicationId === applicationId);
-    if (idx === -1) throw new Error("Application not found.");
-    apps[idx] = { ...apps[idx], status, updatedAt: new Date().toISOString() };
-    saveAll(apps);
-    return apps[idx];
+    if (!db) throw new Error("Firestore is not initialized.");
+    
+    const appRef = doc(db, COLLECTION_NAME, applicationId);
+    const snapshot = await getDoc(appRef);
+    
+    if (!snapshot.exists()) {
+      throw new Error("Application not found.");
+    }
+    
+    const now = new Date().toISOString();
+    await updateDoc(appRef, {
+      status,
+      updatedAt: now
+    });
+    
+    const updatedApp = { ...snapshot.data(), status, updatedAt: now } as Application;
+    
+    // Acceptance Workflow
+    if (status === "accepted") {
+      try {
+        kanbanService.createFromApplication(updatedApp);
+      } catch (e) {
+        console.error("Error creating Kanban task during acceptance workflow", e);
+      }
+    }
+
+    return updatedApp;
   },
 
   async hasApplied(jobId: string, studentId: string): Promise<boolean> {
-    await new Promise((r) => setTimeout(r, 100));
-    return getAll().some((a) => a.jobId === jobId && a.studentId === studentId);
+    if (!db) return false;
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("jobId", "==", jobId),
+      where("studentId", "==", studentId)
+    );
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
   },
 
+  // Stub to fulfill any old interface needs temporarily, but functionally does nothing.
   async seedSampleData(businessId: string, studentId: string): Promise<void> {
-    const apps = getAll();
-    if (apps.length > 0) return;
-    const samples: Application[] = [
-      {
-        applicationId: "app_sample_1",
-        jobId: "job_sample_1",
-        jobTitle: "React Dashboard UI",
-        companyName: "TechCorp",
-        businessId,
-        studentId,
-        studentName: "Alex Johnson",
-        coverMessage: "I have 2 years of React experience and have built 3 dashboards.",
-        proposalText: "I will deliver a clean, responsive dashboard using React and Tailwind.",
-        estimatedDeliveryDays: 7,
-        quotedPrice: 450,
-        status: "Shortlisted",
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        applicationId: "app_sample_2",
-        jobId: "job_sample_2",
-        jobTitle: "Logo Design Package",
-        companyName: "Startup Inc",
-        businessId,
-        studentId: "other_student",
-        studentName: "Maya Patel",
-        coverMessage: "I specialize in brand identity and minimalist design.",
-        proposalText: "Will deliver 3 logo concepts plus final files in all formats.",
-        estimatedDeliveryDays: 5,
-        quotedPrice: 280,
-        status: "Pending",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-    ];
-    saveAll(samples);
-  },
+    return;
+  }
 };

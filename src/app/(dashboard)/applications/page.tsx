@@ -69,7 +69,7 @@ export default function ApplicationsPage() {
   // Push the first pending application into assistant context on load.
   React.useEffect(() => {
     if (applications.length === 0) return;
-    const active = applications.find((a) => a.status === "Pending") ?? applications[0];
+    const active = applications.find((a) => a.status === "submitted") ?? applications[0];
     setContext({ activeApplication: active });
     return () => setContext({ activeApplication: null });
   // eslint-disable-next-line react-hooks/exhaustive-deps

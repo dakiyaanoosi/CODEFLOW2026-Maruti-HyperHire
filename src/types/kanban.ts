@@ -34,7 +34,7 @@ export interface KanbanTask {
   stage: KanbanStage;
   priority: "Low" | "Medium" | "High";
   dueDate: string;
-  quotedPrice: number;
+  proposedBudget: number;
   estimatedDeliveryDays: number;
 
   // Progress 0–100
