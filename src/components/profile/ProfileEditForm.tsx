@@ -69,6 +69,8 @@ function TextAreaField({
 export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
   const [newSkill, setNewSkill] = React.useState("");
   const [newPortfolio, setNewPortfolio] = React.useState("");
+  const [showCustomAvailability, setShowCustomAvailability] = React.useState(false);
+
   const availabilityOptions = [
     "5 hrs/week",
     "10 hrs/week",
@@ -77,29 +79,20 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
     "25 hrs/week",
     "30 hrs/week",
     "40 hrs/week",
+    "Other",
   ];
-  const suggestedSkills = [
-    "React",
-    "TypeScript",
-    "JavaScript",
-    "Node.js",
-    "Next.js",
-    "Tailwind CSS",
-    "Python",
-    "PostgreSQL",
-    "UI/UX",
-    "Figma",
-  ];
+
+  // Determine if the current availability value is a custom (non-preset) value
+  const presetValues = availabilityOptions.slice(0, -1);
+  const isCustomAvailability =
+    showCustomAvailability ||
+    (!!profile.availability && !presetValues.includes(profile.availability));
 
   function addSkill() {
     const trimmed = newSkill.trim();
     if (!trimmed || profile.skills.includes(trimmed)) return;
     onChange({ skills: [...profile.skills, trimmed] });
     setNewSkill("");
-  }
-
-  function removeSkill(skill: string) {
-    onChange({ skills: profile.skills.filter((s) => s !== skill) });
   }
 
   function toggleCategory(cat: WorkCategory) {
@@ -177,17 +170,20 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
             </div>
           </div>
 
-          <InputField
-            label="Availability"
-            value={profile.availability}
-            onChange={(v) => onChange({ availability: v })}
-            placeholder="e.g. 20 hrs/week"
-          />
           <div className="space-y-1.5">
-            <label className="block text-[13px] font-medium text-brand-body">Choose Availability (hrs/week)</label>
+            <label className="block text-[13px] font-medium text-brand-body">Availability (hrs/week)</label>
             <select
-              value={profile.availability}
-              onChange={(e) => onChange({ availability: e.target.value })}
+              value={isCustomAvailability ? "Other" : (profile.availability || "")}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "Other") {
+                  setShowCustomAvailability(true);
+                  onChange({ availability: "" });
+                } else {
+                  setShowCustomAvailability(false);
+                  onChange({ availability: val });
+                }
+              }}
               className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-4 text-[14px] text-brand-ink outline-none focus:border-brand-info-border focus:ring-2 focus:ring-brand-info/20 transition-all"
             >
               <option value="">Select availability</option>
@@ -197,6 +193,15 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
                 </option>
               ))}
             </select>
+            {isCustomAvailability && (
+              <input
+                type="text"
+                value={profile.availability}
+                onChange={(e) => onChange({ availability: e.target.value })}
+                placeholder="e.g. 12 hrs/week"
+                className="mt-2 h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-4 text-[14px] text-brand-ink placeholder:text-brand-border-strong outline-none focus:border-brand-info-border focus:ring-2 focus:ring-brand-info/20 transition-all"
+              />
+            )}
           </div>
 
           <InputField
@@ -215,7 +220,7 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
         </CardHeader>
         <CardContent className="pt-4 space-y-3">
           <div className="space-y-1.5">
-            <label className="block text-[13px] font-medium text-brand-body">Choose Skills</label>
+            <label className="block text-[13px] font-medium text-brand-body">Choose from common skills</label>
             <select
               defaultValue=""
               onChange={(e) => {
@@ -228,17 +233,52 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
               }}
               className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-4 text-[14px] text-brand-ink outline-none focus:border-brand-info-border focus:ring-2 focus:ring-brand-info/20 transition-all"
             >
-              <option value="">Select a skill</option>
-              {suggestedSkills.map((skill) => (
-                <option key={skill} value={skill}>
-                  {skill}
-                </option>
-              ))}
+              <option value="">Select a skill to add</option>
+              <optgroup label="Frontend">
+                {["React", "Next.js", "Vue.js", "Angular", "Svelte", "TypeScript", "JavaScript", "HTML/CSS", "Tailwind CSS", "Sass/SCSS", "Framer Motion"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Backend">
+                {["Node.js", "Express.js", "NestJS", "Django", "FastAPI", "Flask", "Spring Boot", "Ruby on Rails", "Laravel", "Go", "Rust"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Mobile">
+                {["React Native", "Flutter", "Swift", "Kotlin"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Database">
+                {["PostgreSQL", "MySQL", "MongoDB", "Redis", "Supabase", "Firebase"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="DevOps / Cloud">
+                {["Docker", "Kubernetes", "AWS", "GCP", "Azure", "CI/CD", "Linux"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="AI / Data">
+                {["Python", "Machine Learning", "TensorFlow", "PyTorch", "Pandas", "NumPy", "Data Analysis", "SQL"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Design">
+                {["UI/UX", "Figma", "Adobe XD", "Illustrator", "Photoshop"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Other">
+                {["GraphQL", "REST APIs", "WebSockets", "Git", "Agile/Scrum", "Technical Writing"].map((s) => (
+                  <option key={s} value={s} disabled={profile.skills.includes(s)}>{s}{profile.skills.includes(s) ? " ✓" : ""}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
           <div className="flex flex-wrap gap-2">
             {profile.skills.map((skill) => (
-              <SkillTag key={skill} label={skill} onRemove={() => removeSkill(skill)} />
+              <SkillTag key={skill} label={skill} onRemove={() => onChange({ skills: profile.skills.filter((s) => s !== skill) })} />
             ))}
           </div>
           <div className="flex gap-2">
@@ -247,7 +287,7 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
               value={newSkill}
               onChange={(e) => setNewSkill(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addSkill()}
-              placeholder="Add a skill..."
+              placeholder="Or type a custom skill and press Enter..."
               className="h-9 flex-1 rounded-[6px] border border-brand-hairline bg-white px-3 text-[13px] text-brand-ink placeholder:text-brand-border-strong outline-none focus:border-brand-info-border focus:ring-2 focus:ring-brand-info/20 transition-all"
             />
             <Button variant="outline" size="sm" onClick={addSkill}>
