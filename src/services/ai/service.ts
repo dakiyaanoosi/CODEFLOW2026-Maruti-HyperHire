@@ -83,10 +83,14 @@ export const aiService = {
     if (candidates.length === 0) {
       return { job_id: job.jobId, ranked_candidates: [] };
     }
-    return aiFetch<MatchResponse>("/match", {
-      method: "POST",
-      body: JSON.stringify({ job, candidates, weights }),
-    });
+    return aiFetch<MatchResponse>(
+      "/match",
+      {
+        method: "POST",
+        body: JSON.stringify({ job, candidates, weights }),
+      },
+      { job_id: job.jobId, ranked_candidates: [] } // graceful fallback
+    );
   },
 
   /**
@@ -100,10 +104,14 @@ export const aiService = {
     if (jobs.length === 0) {
       return { candidate_id: candidate.id, ranked_jobs: [] };
     }
-    return aiFetch<RecommendResponse>("/recommend", {
-      method: "POST",
-      body: JSON.stringify({ candidate, jobs, weights }),
-    });
+    return aiFetch<RecommendResponse>(
+      "/recommend",
+      {
+        method: "POST",
+        body: JSON.stringify({ candidate, jobs, weights }),
+      },
+      { candidate_id: candidate.id, ranked_jobs: [] } // graceful fallback
+    );
   },
 
   /**

@@ -248,7 +248,11 @@ app.include_router(
     tags=["Chat"]
 )
 
+from routes.analytics import (
+    router as analytics_router
+)
+
 app.include_router(
-    workflow_router,
-    tags=["Workflow"]
+    analytics_router,
+    tags=["Analytics"]
 )
