@@ -1,5 +1,4 @@
 "use client";
-
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,18 +21,17 @@ import {
   FileText,
   Kanban,
   Wallet,
+  Shield,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
 import { useRouter } from "next/navigation";
-
 interface SidebarItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }
-
 const studentNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Marketplace", href: "/marketplace", icon: Store },
@@ -41,10 +39,10 @@ const studentNavItems: SidebarItem[] = [
   { name: "Workflow", href: "/kanban", icon: Kanban },
   { name: "Portfolio", href: "/portfolio", icon: FolderOpen },
   { name: "Earnings", href: "/earnings", icon: Wallet },
+  { name: "Escrow", href: "/escrow", icon: Shield },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
 ];
-
 const businessNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
@@ -52,13 +50,12 @@ const businessNavItems: SidebarItem[] = [
   { name: "Workflow", href: "/kanban", icon: Kanban },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Earnings", href: "/earnings", icon: Wallet },
+  { name: "Escrow", href: "/escrow", icon: Shield },
   { name: "Messages", href: "/messages", icon: MessageSquare },
 ];
-
 const bottomItems: SidebarItem[] = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
-
 function NavItem({
   item,
   isActive,
@@ -95,7 +92,7 @@ function NavItem({
             {item.badge}
           </span>
         )}
-        {/* Tooltip when collapsed */}
+        {}
         {collapsed && (
           <span className="pointer-events-none absolute left-full top-1/2 z-[60] ml-3 -translate-y-1/2 whitespace-nowrap rounded-[6px] bg-brand-ink px-2 py-1 text-xs text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100">
             {item.name}
@@ -105,14 +102,11 @@ function NavItem({
     </Link>
   );
 }
-
 export function Sidebar() {
   const pathname = usePathname();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const { profile } = useAuthStore();
-
   const navItems = profile?.role === "business" ? businessNavItems : studentNavItems;
-
   return (
     <motion.aside
       animate={{ width: isSidebarCollapsed ? 64 : 260 }}
@@ -122,7 +116,7 @@ export function Sidebar() {
         isSidebarCollapsed ? "w-16" : "w-[260px]"
       )}
     >
-      {/* Brand header */}
+      {}
       <div className="flex h-16 items-center justify-between border-b border-brand-hairline px-4">
         <Link href="/dashboard" className="flex items-center gap-2.5 text-brand-ink">
           <Image
@@ -137,8 +131,7 @@ export function Sidebar() {
           )}
         </Link>
       </div>
-
-      {/* Primary nav */}
+      {}
       <nav className={cn("flex-1 space-y-0.5 p-3", isSidebarCollapsed ? "overflow-visible" : "overflow-y-auto overflow-x-hidden")}>
         {navItems.map((item) => (
           <NavItem
@@ -149,8 +142,7 @@ export function Sidebar() {
           />
         ))}
       </nav>
-
-      {/* Bottom nav (Settings) */}
+      {}
       <div className="space-y-0.5 border-t border-brand-hairline p-3">
         {bottomItems.map((item) => (
           <NavItem
@@ -161,8 +153,7 @@ export function Sidebar() {
           />
         ))}
       </div>
-
-      {/* Collapse toggle */}
+      {}
       <div
         className={cn(
           "flex border-t border-brand-hairline p-2",
@@ -186,22 +177,18 @@ export function Sidebar() {
     </motion.aside>
   );
 }
-
 interface MobileSidebarProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
 export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
   const pathname = usePathname();
   const { profile } = useAuthStore();
-
   const navItems = profile?.role === "business" ? businessNavItems : studentNavItems;
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="flex h-full w-[280px] flex-col bg-white p-0">
-        {/* Brand */}
+        {}
         <div className="flex h-16 items-center gap-2.5 border-b border-brand-hairline px-5">
           <Image
             src="/hyperhire-icon-gradient.png"
@@ -212,8 +199,7 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
           />
           <span className="text-sm font-semibold text-brand-ink">HyperHire</span>
         </div>
-
-        {/* Primary nav */}
+        {}
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           {navItems.map((item) => (
             <NavItem
@@ -225,8 +211,7 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
             />
           ))}
         </nav>
-
-        {/* Bottom */}
+        {}
         <div className="space-y-0.5 border-t border-brand-hairline p-3">
           {bottomItems.map((item) => (
             <NavItem

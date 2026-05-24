@@ -45,7 +45,7 @@ export function EarningsStatCard({
         <p className="text-xs font-medium uppercase tracking-[0.16px] text-brand-muted leading-[1.35]">
           {label}
         </p>
-        <p className="mt-1 text-[28px] font-normal leading-[1.2] text-brand-ink">
+       <p className="mt-1 text-[20px] font-normal leading-[1.2] text-brand-ink break-all">
           {value}
         </p>
         {sub && (
