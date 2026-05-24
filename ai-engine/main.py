@@ -16,6 +16,10 @@ from routes.chat import (
     router as chat_router
 )
 
+from routes.workflow import (
+    router as workflow_router
+)
+
 from model import get_model
 
 from security.auth import (
@@ -44,8 +48,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="HyperHire AI Engine",
-    description="Dedicated FastAPI microservice for AI matching.",
-    version="2.0.0"
+    description="Dedicated FastAPI microservice for AI matching and Workflow Intelligence.",
+    version="2.1.0"
 )
 
 
@@ -242,4 +246,9 @@ app.include_router(
 app.include_router(
     chat_router,
     tags=["Chat"]
+)
+
+app.include_router(
+    workflow_router,
+    tags=["Workflow"]
 )

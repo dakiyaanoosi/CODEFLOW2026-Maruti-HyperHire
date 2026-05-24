@@ -1,0 +1,269 @@
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  writeBatch,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "./firebase";
+import {
+  Workflow,
+  WorkflowColumn,
+  WorkflowTask,
+  WorkflowActivity,
+  WorkflowActivityType,
+} from "@/types/workflow";
+import { Application } from "@/types/application";
+
+const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Completed"];
+
+export const workflowService = {
+  /**
+   * Creates a full workflow workspace from an accepted application.
+   * Auto-provisions columns and an initial kickoff task.
+   */
+  async createWorkflowFromApplication(app: Application): Promise<string> {
+    const batch = writeBatch(db!);
+    const workflowId = `wf_${app.applicationId}`;
+    
+    const workflowRef = doc(db!, "workflows", workflowId);
+    
+    // 1. Create Workflow
+    const newWorkflow: Workflow = {
+      workflowId,
+      jobId: app.jobId,
+      applicationId: app.applicationId,
+      studentId: app.studentId,
+      businessId: app.businessId,
+      status: "active",
+      progress: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      jobTitle: app.jobTitle,
+      studentName: app.studentName,
+      businessName: app.companyName,
+    };
+    batch.set(workflowRef, newWorkflow);
+
+    // 2. Create Columns
+    const columnRefs = DEFAULT_COLUMNS.map((colName, index) => {
+      const colId = `col_${workflowId}_${index}`;
+      const colRef = doc(db!, "workflowColumns", colId);
+      const newCol: WorkflowColumn = {
+        columnId: colId,
+        workflowId,
+        name: colName,
+        order: index,
+        studentId: app.studentId,
+        businessId: app.businessId,
+        createdAt: new Date().toISOString(),
+      };
+      batch.set(colRef, newCol);
+      return colId;
+    });
+
+    const todoColumnId = columnRefs[0];
+
+    // 3. Create Kickoff Task
+    const taskId = `task_${Date.now()}_kickoff`;
+    const taskRef = doc(db!, "workflowTasks", taskId);
+    const newTask: WorkflowTask = {
+      taskId,
+      workflowId,
+      columnId: todoColumnId,
+      title: "Project Kickoff & Requirements Review",
+      description: "Review the initial job requirements and set up milestones.",
+      priority: "High",
+      assigneeId: app.studentId,
+      attachments: [],
+      aiSuggestions: [],
+      status: "active",
+      studentId: app.studentId,
+      businessId: app.businessId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    batch.set(taskRef, newTask);
+
+    // 4. Log Creation Activity
+    const activityId = `act_${Date.now()}`;
+    const activityRef = doc(db!, "workflowActivity", activityId);
+    const newActivity: WorkflowActivity = {
+      activityId,
+      workflowId,
+      type: "workflow_created",
+      message: "Workspace automatically provisioned from accepted application.",
+      actorId: app.businessId,
+      actorName: app.companyName,
+      studentId: app.studentId,
+      businessId: app.businessId,
+      createdAt: new Date().toISOString(),
+    };
+    batch.set(activityRef, newActivity);
+
+    await batch.commit();
+    return workflowId;
+  },
+
+  /**
+   * Listen to all active workflows for a specific user (student or business).
+   */
+  subscribeToUserWorkflows(
+    userId: string,
+    role: "student" | "business",
+    onUpdate: (workflows: Workflow[]) => void
+  ) {
+    const q = query(
+      collection(db!, "workflows"),
+      where(role === "student" ? "studentId" : "businessId", "==", userId)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const results: Workflow[] = [];
+      snapshot.forEach((docSnap) => results.push(docSnap.data() as Workflow));
+      // Sort in memory by updatedAt descending
+      results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      onUpdate(results);
+    });
+  },
+
+  /**
+   * Fetch a single workflow by ID.
+   */
+  async getWorkflow(workflowId: string): Promise<Workflow | null> {
+    const docSnap = await getDoc(doc(db!, "workflows", workflowId));
+    return docSnap.exists() ? (docSnap.data() as Workflow) : null;
+  },
+
+  /**
+   * Listen to columns for a workflow.
+   */
+  subscribeToColumns(workflowId: string, onUpdate: (columns: WorkflowColumn[]) => void) {
+    const q = query(
+      collection(db!, "workflowColumns"),
+      where("workflowId", "==", workflowId),
+      orderBy("order", "asc")
+    );
+    return onSnapshot(q, (snapshot) => {
+      const results: WorkflowColumn[] = [];
+      snapshot.forEach((docSnap) => results.push(docSnap.data() as WorkflowColumn));
+      onUpdate(results);
+    });
+  },
+
+  /**
+   * Listen to tasks for a workflow.
+   */
+  subscribeToTasks(workflowId: string, onUpdate: (tasks: WorkflowTask[]) => void) {
+    const q = query(
+      collection(db!, "workflowTasks"),
+      where("workflowId", "==", workflowId)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const results: WorkflowTask[] = [];
+      snapshot.forEach((docSnap) => results.push(docSnap.data() as WorkflowTask));
+      onUpdate(results);
+    });
+  },
+
+  /**
+   * Listen to activity feed.
+   */
+  subscribeToActivity(workflowId: string, onUpdate: (activities: WorkflowActivity[]) => void) {
+    const q = query(
+      collection(db!, "workflowActivity"),
+      where("workflowId", "==", workflowId),
+      orderBy("createdAt", "desc")
+    );
+    return onSnapshot(q, (snapshot) => {
+      const results: WorkflowActivity[] = [];
+      snapshot.forEach((docSnap) => results.push(docSnap.data() as WorkflowActivity));
+      onUpdate(results);
+    });
+  },
+
+  /**
+   * Move a task to a new column. Logs the activity automatically.
+   */
+  async moveTask(
+    workflowId: string,
+    taskId: string,
+    newColumnId: string,
+    newColumnName: string,
+    actorId: string,
+    actorName: string,
+    studentId: string,
+    businessId: string
+  ) {
+    const batch = writeBatch(db!);
+
+    const taskRef = doc(db!, "workflowTasks", taskId);
+    batch.update(taskRef, {
+      columnId: newColumnId,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const activityId = `act_${Date.now()}`;
+    const activityRef = doc(db!, "workflowActivity", activityId);
+    batch.set(activityRef, {
+      activityId,
+      workflowId,
+      taskId,
+      type: "task_moved",
+      message: `Moved task to ${newColumnName}`,
+      actorId,
+      actorName,
+      studentId,
+      businessId,
+      createdAt: new Date().toISOString(),
+    });
+
+    await batch.commit();
+  },
+
+  /**
+   * Add a new task.
+   */
+  async addTask(task: Omit<WorkflowTask, "taskId" | "createdAt" | "updatedAt">) {
+    const taskId = `task_${Date.now()}`;
+    const taskRef = doc(db!, "workflowTasks", taskId);
+    
+    await setDoc(taskRef, {
+      ...task,
+      taskId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  /**
+   * Update an existing task.
+   */
+  async updateTask(taskId: string, updates: Partial<WorkflowTask>) {
+    const taskRef = doc(db!, "workflowTasks", taskId);
+    await updateDoc(taskRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  /**
+   * Log custom activity (e.g., attachment uploaded).
+   */
+  async logActivity(activity: Omit<WorkflowActivity, "activityId" | "createdAt">) {
+    const activityId = `act_${Date.now()}`;
+    const activityRef = doc(db!, "workflowActivity", activityId);
+    await setDoc(activityRef, {
+      ...activity,
+      activityId,
+      createdAt: new Date().toISOString(),
+    });
+  }
+};

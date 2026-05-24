@@ -73,20 +73,31 @@ service cloud.firestore {
       }
     }
 
-    // 6. Tasks / Kanban (Future-ready)
-    // Access restricted to participants of the job/application (business and student).
-    match /tasks/{taskId} {
-      allow read, update: if isAuthenticated() && (
-        resource.data.assigneeId == request.auth.uid ||
-        resource.data.creatorId == request.auth.uid ||
-        resource.data.businessId == request.auth.uid ||
-        resource.data.studentId == request.auth.uid
-      );
-      allow create: if isAuthenticated();
-      allow delete: if isAuthenticated() && (
-        resource.data.creatorId == request.auth.uid ||
-        resource.data.businessId == request.auth.uid
-      );
+    // 6. Workflows (Execution System)
+    // Access restricted to participants of the workflow (business and student).
+    // The data model enforces that studentId and businessId are present on all workflow-related docs.
+    match /workflows/{workflowId} {
+      allow read, update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
+      allow delete: if false; // Soft delete / archive preferred
+    }
+
+    match /workflowColumns/{columnId} {
+      allow read, update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
+      allow delete: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+    }
+
+    match /workflowTasks/{taskId} {
+      allow read, update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
+      allow delete: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+    }
+
+    match /workflowActivity/{activityId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
+      allow update, delete: if false; // Activity logs are immutable
     }
 
     // 7. Notifications (Future-ready)

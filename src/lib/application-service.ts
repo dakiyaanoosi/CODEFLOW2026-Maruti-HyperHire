@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   orderBy
 } from "firebase/firestore";
-import { kanbanService } from "@/lib/kanban-service";
+import { workflowService } from "@/lib/workflow-service";
 import { messageService } from "@/lib/message-service";
 
 function generateId(): string {
@@ -150,9 +150,9 @@ export const applicationService = {
 
     if (status === "accepted") {
       try {
-        kanbanService.createFromApplication(updatedApp);
+        await workflowService.createWorkflowFromApplication(updatedApp);
       } catch (e) {
-        console.error("Error creating Kanban task during acceptance workflow", e);
+        console.error("Error creating Workflow Workspace during acceptance workflow", e);
       }
     }
 
