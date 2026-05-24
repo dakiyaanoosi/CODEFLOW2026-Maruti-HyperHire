@@ -17,6 +17,7 @@ import {
 import { Conversation, Message, AttachmentType } from "@/types/message";
 import { Application } from "@/types/application";
 import { getInitials } from "./message-utils";
+import { notificationService } from "./notification-service";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -116,6 +117,26 @@ export const messageService = {
     }
 
     await batch.commit();
+
+    // Trigger notification to the other participant(s)
+    if (convSnapshot.exists()) {
+      const convData = convSnapshot.data() as Conversation;
+      const recipientIds = convData.participantIds.filter(id => id !== senderId);
+      
+      for (const recipientId of recipientIds) {
+        const senderName = convData.participantNames[senderId] || "Someone";
+        await notificationService.createNotification({
+          userId: recipientId,
+          type: "message",
+          title: attachmentUrl ? "New Attachment" : "New Message",
+          description: attachmentUrl ? `${senderName} sent an attachment.` : `${senderName} sent you a message.`,
+          relatedEntityId: conversationId,
+          relatedEntityType: "message",
+          actionUrl: "/messages"
+        });
+      }
+    }
+
     return message;
   },
 

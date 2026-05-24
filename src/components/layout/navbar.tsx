@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, Building2, ChevronDown, LogOut, Menu, Search, User } from "lucide-react";
+import { Building2, ChevronDown, LogOut, Menu, Search, User } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { authService } from "@/lib/auth-service";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileSidebar } from "./sidebar";
+import { NotificationCenter } from "./NotificationCenter";
 
 export function Navbar() {
   const router = useRouter();
@@ -83,24 +84,7 @@ export function Navbar() {
           <Search className="h-5 w-5" />
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-coral" />
-                <span className="sr-only">Notifications</span>
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-80 rounded-[10px] border-brand-hairline bg-white">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="p-4 text-center text-sm text-brand-muted">
-              No new notifications.
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationCenter />
 
         <DropdownMenu>
           <DropdownMenuTrigger

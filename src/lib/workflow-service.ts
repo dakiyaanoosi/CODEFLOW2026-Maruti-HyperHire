@@ -21,6 +21,7 @@ import {
   WorkflowActivityType,
 } from "@/types/workflow";
 import { Application } from "@/types/application";
+import { notificationService } from "@/lib/notification-service";
 
 const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Completed"];
 
@@ -226,6 +227,18 @@ export const workflowService = {
     });
 
     await batch.commit();
+
+    // Trigger notification to the OTHER user
+    const recipientId = actorId === studentId ? businessId : studentId;
+    await notificationService.createNotification({
+      userId: recipientId,
+      type: "workflow",
+      title: "Task Moved",
+      description: `${actorName} moved a task to ${newColumnName}`,
+      relatedEntityId: workflowId,
+      relatedEntityType: "workflow",
+      actionUrl: `/workflows/${workflowId}`
+    });
   },
 
   /**
@@ -265,5 +278,19 @@ export const workflowService = {
       activityId,
       createdAt: new Date().toISOString(),
     });
+
+    // Determine if it's an attachment upload to trigger a specific notification
+    if (activity.type === "attachment_uploaded") {
+      const recipientId = activity.actorId === activity.studentId ? activity.businessId : activity.studentId;
+      await notificationService.createNotification({
+        userId: recipientId,
+        type: "success",
+        title: "New File Uploaded",
+        description: activity.message,
+        relatedEntityId: activity.workflowId,
+        relatedEntityType: "workflow",
+        actionUrl: `/workflows/${activity.workflowId}`
+      });
+    }
   }
 };

@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { workflowService } from "@/lib/workflow-service";
 import { messageService } from "@/lib/message-service";
+import { notificationService } from "@/lib/notification-service";
 
 function generateId(): string {
   return `app_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -70,6 +71,18 @@ export const applicationService = {
     };
 
     await setDoc(appRef, newApp);
+    
+    // Trigger notification to business
+    await notificationService.createNotification({
+      userId: businessId,
+      type: "application",
+      title: "New Application Received",
+      description: `${studentName} has applied to your gig "${jobTitle}".`,
+      relatedEntityId: appId,
+      relatedEntityType: "application",
+      actionUrl: "/applications"
+    });
+
     return newApp;
   },
 
@@ -155,6 +168,31 @@ export const applicationService = {
         console.error("Error creating Workflow Workspace during acceptance workflow", e);
       }
     }
+
+    // Trigger notification to student
+    let notifTitle = "Application Updated";
+    let notifType: "success" | "warning" | "info" = "info";
+    
+    if (status === "accepted") {
+      notifTitle = "Application Accepted! 🎉";
+      notifType = "success";
+    } else if (status === "rejected") {
+      notifTitle = "Application Declined";
+      notifType = "warning";
+    } else if (status === "shortlisted") {
+      notifTitle = "You've been shortlisted!";
+      notifType = "success";
+    }
+
+    await notificationService.createNotification({
+      userId: updatedApp.studentId,
+      type: notifType,
+      title: notifTitle,
+      description: `Your application for "${updatedApp.jobTitle}" has been ${status}.`,
+      relatedEntityId: applicationId,
+      relatedEntityType: "application",
+      actionUrl: "/applications"
+    });
 
     return updatedApp;
   },
