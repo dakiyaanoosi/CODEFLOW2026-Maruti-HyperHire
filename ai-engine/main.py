@@ -274,3 +274,12 @@ app.include_router(
     context_router,
     tags=["HyperAI Context Engine"]
 )
+
+from routes.optimization import (
+    router as optimization_router
+)
+
+app.include_router(
+    optimization_router,
+    tags=["HyperAI Optimization Engine"]
+)

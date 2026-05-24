@@ -6,6 +6,9 @@ import { Job } from "@/types/job";
 import { ApplicationFormData } from "@/types/application";
 import { applicationService } from "@/lib/application-service";
 import { enhanceApplicationPitch } from "@/lib/ai-job-service";
+import { useProposalOptimization } from "@/lib/hyperai/optimization-service";
+import { OptimizationPanel } from "@/components/ai/hyperai/OptimizationPanel";
+import { useAuthStore } from "@/store/use-auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +46,16 @@ export function ApplicationApplyModal({
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [tone, setTone] = React.useState<"Professional" | "Conversational">("Professional");
   const [upsellMsg, setUpsellMsg] = React.useState<string | null>(null);
+
+  const { profile } = useAuthStore();
+  const trustScore = profile?.trustScore || 80;
+
+  const { analysis, isAnalyzing } = useProposalOptimization(
+    form.proposalText, 
+    job?.description || "", 
+    job?.requiredSkills || [], 
+    trustScore
+  );
 
   const handleEnhance = async () => {
     if (!job) return;
@@ -270,6 +283,9 @@ export function ApplicationApplyModal({
                 />
                 {fieldErrors.proposalText && <p className="text-xs text-red-600">{fieldErrors.proposalText}</p>}
                 <p className="text-xs text-brand-muted">{form.proposalText.length} characters</p>
+                
+                {/* HyperAI Strategic Proposal Coach */}
+                <OptimizationPanel analysis={analysis} isAnalyzing={isAnalyzing} type="proposal" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
