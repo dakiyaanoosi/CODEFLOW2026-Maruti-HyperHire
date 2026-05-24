@@ -20,6 +20,7 @@ import {
   PanelLeftOpen,
   Store,
   FileText,
+  Kanban,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
@@ -36,6 +37,7 @@ const studentNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Marketplace", href: "/marketplace", icon: Store },
   { name: "Applications", href: "/applications", icon: FileText },
+  { name: "Workflow", href: "/kanban", icon: Kanban },
   { name: "Portfolio", href: "/portfolio", icon: FolderOpen },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
@@ -45,6 +47,7 @@ const businessNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Applications", href: "/applications", icon: FileText },
+  { name: "Workflow", href: "/kanban", icon: Kanban },
   { name: "Analytics", href: "/analytics", icon: BarChart2 },
   { name: "Messages", href: "/messages", icon: MessageSquare },
 ];
