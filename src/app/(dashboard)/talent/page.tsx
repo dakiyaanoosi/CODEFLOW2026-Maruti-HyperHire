@@ -1,22 +1,27 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
 
-export default function TalentPage() {
+import * as React from "react";
+import { TalentDiscoveryDashboard } from "@/components/talent/TalentDiscoveryDashboard";
+import { useAuthStore } from "@/store/use-auth-store";
+import { useRouter } from "next/navigation";
+
+export default function TalentDiscoveryPage() {
+  const { user, profile } = useAuthStore();
+  const router = useRouter();
+
+  // If a student tries to navigate here, we can either block them or let them view their competition.
+  // For now, we will allow it, but in a real app we might redirect if not a business.
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-[32px] font-normal leading-[1.2] tracking-normal text-brand-ink">Talent Pool</h1>
-        <p className="mt-2 text-sm font-normal leading-[1.25] text-brand-body">Browse and connect with skilled student talent.</p>
+    <div className="w-full max-w-[1200px] mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-semibold text-brand-ink tracking-tight">Semantic Talent Discovery</h1>
+        <p className="text-sm text-brand-body">
+          Explore the workforce graph using natural language. HyperAI will identify the most strategically aligned talent.
+        </p>
       </div>
 
-      <Card className="bg-white">
-        <CardHeader>
-          <CardTitle>Student Talent Profiles</CardTitle>
-          <CardDescription className="text-brand-muted">Hyperlocal student network matching.</CardDescription>
-        </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center rounded-[10px] bg-brand-surface-soft text-sm text-brand-muted">
-          Talent search, verified skill profiles, and messaging will be implemented in subsequent phases.
-        </CardContent>
-      </Card>
+      <TalentDiscoveryDashboard />
     </div>
   );
 }

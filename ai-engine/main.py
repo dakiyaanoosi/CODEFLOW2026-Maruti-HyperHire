@@ -283,3 +283,12 @@ app.include_router(
     optimization_router,
     tags=["HyperAI Optimization Engine"]
 )
+
+from routes.talent import (
+    router as talent_router
+)
+
+app.include_router(
+    talent_router,
+    tags=["HyperHire Talent Discovery"]
+)

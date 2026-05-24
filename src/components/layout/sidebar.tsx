@@ -22,6 +22,8 @@ import {
   Kanban,
   Wallet,
   Shield,
+  Search,
+  Users
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authService } from "@/lib/auth-service";
@@ -45,6 +47,7 @@ const studentNavItems: SidebarItem[] = [
 ];
 const businessNavItems: SidebarItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Talent Discovery", href: "/talent", icon: Users },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Applications", href: "/applications", icon: FileText },
   { name: "Workflow", href: "/workflows", icon: Kanban },
