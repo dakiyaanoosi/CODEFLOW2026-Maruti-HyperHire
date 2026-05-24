@@ -1,6 +1,18 @@
-import type { EscrowTransaction, EscrowSummary } from "@/types/escrow";
-// ─── In-memory store (resets on page refresh — demo only) ────────────────────
+import type { EscrowTransaction, EscrowSummary, EscrowStatus } from "@/types/escrow";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  writeBatch 
+} from "firebase/firestore";
+
 const now = () => new Date().toISOString();
+
 const SEED_TRANSACTIONS: EscrowTransaction[] = [
   {
     escrowId: "esc_001",
@@ -109,13 +121,42 @@ const SEED_TRANSACTIONS: EscrowTransaction[] = [
     ],
   },
 ];
-// Clone so mutations don't affect the original seed
+
+// Local memory fallback store
 let _store: EscrowTransaction[] = SEED_TRANSACTIONS.map((t) => ({ ...t, timeline: [...t.timeline] }));
-// ─── Read helpers ─────────────────────────────────────────────────────────────
-export async function getEscrowSummary(_uid: string, role: "student" | "business"): Promise<EscrowSummary> {
-  const txns = role === "business"
-    ? _store.filter((t) => t.businessId === _uid || true)  
-    : _store.filter((t) => t.studentId === _uid || true);  
+
+// Clean object helper
+function cleanData(data: any) {
+  const clean: any = {};
+  Object.keys(data).forEach((key) => {
+    if (data[key] !== undefined) {
+      clean[key] = data[key];
+    }
+  });
+  return clean;
+}
+
+// Seed function
+async function seedEscrowsIfEmpty() {
+  if (!isFirebaseConfigured || !db) return;
+  try {
+    const snap = await getDocs(collection(db, "escrows"));
+    if (snap.empty) {
+      const batch = writeBatch(db);
+      SEED_TRANSACTIONS.forEach((t) => {
+        const ref = doc(db!, "escrows", t.escrowId);
+        batch.set(ref, cleanData(t));
+      });
+      await batch.commit();
+      console.log("[Escrow Service] Seeded default transactions to Firestore.");
+    }
+  } catch (e) {
+    console.error("Failed to seed escrows to Firestore:", e);
+  }
+}
+
+// Helper to compile summary from a list of transactions
+function compileSummary(txns: EscrowTransaction[]): EscrowSummary {
   return {
     totalFunded:     txns.reduce((s, t) => s + t.amount, 0),
     totalReleased:   txns.filter((t) => t.status === "released").reduce((s, t) => s + t.netPayout, 0),
@@ -124,52 +165,147 @@ export async function getEscrowSummary(_uid: string, role: "student" | "business
     transactions:    txns,
   };
 }
+
+// ─── Read helpers ─────────────────────────────────────────────────────────────
+export async function getEscrowSummary(_uid: string, role: "student" | "business"): Promise<EscrowSummary> {
+  if (isFirebaseConfigured && db) {
+    try {
+      await seedEscrowsIfEmpty();
+      const colRef = collection(db, "escrows");
+      const q = query(
+        colRef,
+        where(role === "business" ? "businessId" : "studentId", "==", _uid)
+      );
+      const snap = await getDocs(q);
+      const txns: EscrowTransaction[] = [];
+      snap.forEach((d) => {
+        txns.push(d.data() as EscrowTransaction);
+      });
+      // Sort in memory by updatedAt descending
+      txns.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      return compileSummary(txns);
+    } catch (error) {
+      console.error("Firestore getEscrowSummary error, falling back to memory:", error);
+    }
+  }
+  
+  // Memory/Local storage fallback
+  const txns = role === "business"
+    ? _store.filter((t) => t.businessId === _uid)  
+    : _store.filter((t) => t.studentId === _uid);  
+  return compileSummary(txns);
+}
+
 export async function getEscrowById(escrowId: string): Promise<EscrowTransaction | null> {
+  if (isFirebaseConfigured && db) {
+    try {
+      const docRef = doc(db, "escrows", escrowId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return snap.data() as EscrowTransaction;
+      }
+      return null;
+    } catch (error) {
+      console.error("Firestore getEscrowById error:", error);
+    }
+  }
   return _store.find((t) => t.escrowId === escrowId) ?? null;
 }
+
 // ─── Mutations ────────────────────────────────────────────────────────────────
 export async function approveEscrow(escrowId: string, note: string): Promise<EscrowTransaction> {
-  const idx = _store.findIndex((t) => t.escrowId === escrowId);
-  if (idx === -1) throw new Error("Escrow not found");
   const ts = now();
-  _store[idx] = {
-    ..._store[idx],
-    status: "approved",
+  const current = await getEscrowById(escrowId);
+  if (!current) throw new Error("Escrow not found");
+
+  const updated: EscrowTransaction = {
+    ...current,
+    status: "approved" as EscrowStatus,
     approvalNote: note,
     updatedAt: ts,
-    timeline: [..._store[idx].timeline, { type: "approved", timestamp: ts, note }],
+    timeline: [...current.timeline, { type: "approved", timestamp: ts, note }],
   };
-  return { ..._store[idx] };
-}
-export async function releaseEscrow(escrowId: string): Promise<EscrowTransaction> {
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const docRef = doc(db, "escrows", escrowId);
+      await setDoc(docRef, cleanData(updated), { merge: true });
+      return updated;
+    } catch (error) {
+      console.error("Firestore approveEscrow error, saving to memory:", error);
+    }
+  }
+
   const idx = _store.findIndex((t) => t.escrowId === escrowId);
-  if (idx === -1) throw new Error("Escrow not found");
-  if (_store[idx].status !== "approved") throw new Error("Escrow must be approved before release");
+  if (idx !== -1) {
+    _store[idx] = updated;
+  }
+  return updated;
+}
+
+export async function releaseEscrow(escrowId: string): Promise<EscrowTransaction> {
   const ts = now();
-  _store[idx] = {
-    ..._store[idx],
-    status: "released",
+  const current = await getEscrowById(escrowId);
+  if (!current) throw new Error("Escrow not found");
+  if (current.status !== "approved") throw new Error("Escrow must be approved before release");
+
+  const updated: EscrowTransaction = {
+    ...current,
+    status: "released" as EscrowStatus,
     updatedAt: ts,
     timeline: [
-      ..._store[idx].timeline,
+      ...current.timeline,
       { type: "released", timestamp: ts, note: "Funds transferred to student wallet." },
     ],
   };
-  return { ..._store[idx] };
-}
-export async function submitWork(escrowId: string, note: string): Promise<EscrowTransaction> {
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const docRef = doc(db, "escrows", escrowId);
+      await setDoc(docRef, cleanData(updated), { merge: true });
+      return updated;
+    } catch (error) {
+      console.error("Firestore releaseEscrow error, saving to memory:", error);
+    }
+  }
+
   const idx = _store.findIndex((t) => t.escrowId === escrowId);
-  if (idx === -1) throw new Error("Escrow not found");
+  if (idx !== -1) {
+    _store[idx] = updated;
+  }
+  return updated;
+}
+
+export async function submitWork(escrowId: string, note: string): Promise<EscrowTransaction> {
   const ts = now();
-  _store[idx] = {
-    ..._store[idx],
-    status: "in_review",
+  const current = await getEscrowById(escrowId);
+  if (!current) throw new Error("Escrow not found");
+
+  const updated: EscrowTransaction = {
+    ...current,
+    status: "in_review" as EscrowStatus,
     submissionNote: note,
     updatedAt: ts,
     timeline: [
-      ..._store[idx].timeline,
+      ...current.timeline,
       { type: "submitted", timestamp: ts, note },
     ],
   };
-  return { ..._store[idx] };
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const docRef = doc(db, "escrows", escrowId);
+      await setDoc(docRef, cleanData(updated), { merge: true });
+      return updated;
+    } catch (error) {
+      console.error("Firestore submitWork error, saving to memory:", error);
+    }
+  }
+
+  const idx = _store.findIndex((t) => t.escrowId === escrowId);
+  if (idx !== -1) {
+    _store[idx] = updated;
+  }
+  return updated;
 }
+
