@@ -9,7 +9,7 @@ import os
 import jwt
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from passlib.context import CryptContext
 
@@ -170,7 +170,7 @@ class UserClaims:
 # =========================
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
 
     token = credentials.credentials
