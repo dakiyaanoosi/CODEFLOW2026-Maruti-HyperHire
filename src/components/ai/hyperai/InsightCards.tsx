@@ -40,24 +40,24 @@ function classifySeverity(text: string): Severity {
 const SEVERITY_STYLES = {
   critical: {
     border: "border-l-brand-coral",
-    bg: "bg-brand-peach/8",
-    iconBg: "bg-brand-coral/10 text-brand-coral",
+    bg: "bg-white",
+    iconBg: "bg-brand-surface-soft text-brand-coral",
     Icon: AlertTriangle,
     label: "Critical",
     labelColor: "text-brand-coral",
   },
   warning: {
     border: "border-l-brand-mustard",
-    bg: "bg-brand-yellow/8",
-    iconBg: "bg-brand-yellow/20 text-brand-mustard",
+    bg: "bg-white",
+    iconBg: "bg-brand-surface-soft text-brand-mustard",
     Icon: Zap,
     label: "Improve",
     labelColor: "text-brand-mustard",
   },
   tip: {
     border: "border-l-brand-mint",
-    bg: "bg-brand-mint/8",
-    iconBg: "bg-brand-mint/20 text-brand-success",
+    bg: "bg-white",
+    iconBg: "bg-brand-surface-soft text-brand-success",
     Icon: Lightbulb,
     label: "Tip",
     labelColor: "text-brand-success",
@@ -74,8 +74,8 @@ export function InsightCards() {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <Info className="h-3 w-3 text-brand-muted/60" />
-        <p className="text-[9px] font-bold uppercase tracking-widest text-brand-muted/70">
+        <Info className="h-3 w-3 text-brand-muted" />
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
           AI Insights
         </p>
       </div>
@@ -102,11 +102,11 @@ export function InsightCards() {
               {/* Content */}
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-[9px] font-bold uppercase tracking-wider ${s.labelColor}`}>
+                  <span className={`text-[9px] font-semibold uppercase tracking-wider ${s.labelColor}`}>
                     {s.label}
                   </span>
                 </div>
-                <p className="text-[11px] font-medium leading-[1.45] text-brand-body">
+                <p className="text-[11px] font-normal leading-[1.45] text-brand-body">
                   {suggestion}
                 </p>
               </div>

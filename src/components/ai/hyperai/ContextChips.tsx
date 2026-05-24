@@ -18,20 +18,20 @@ function ContextChip({ label, value, icon: Icon, onClear }: ChipProps) {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className="flex items-center gap-1.5 rounded-[6px] border border-brand-hairline bg-white px-2 py-1 shadow-xs shrink-0"
+      className="flex shrink-0 items-center gap-1.5 rounded-[6px] border border-brand-hairline bg-white px-2 py-1"
     >
       <Icon className="h-3 w-3 text-brand-muted shrink-0" />
       <div className="flex items-center gap-1 min-w-0">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-brand-muted shrink-0">
+        <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-brand-muted">
           {label}:
         </span>
-        <span className="text-[10px] font-semibold text-brand-ink truncate max-w-[80px]">
+        <span className="max-w-[80px] truncate text-[10px] font-medium text-brand-ink">
           {value}
         </span>
       </div>
       <button
         onClick={onClear}
-        className="text-brand-muted hover:text-brand-ink transition-colors shrink-0 cursor-pointer"
+        className="shrink-0 text-brand-muted transition-colors hover:text-brand-ink cursor-pointer"
         aria-label={`Clear ${label} context`}
       >
         <X className="h-2.5 w-2.5" />
@@ -51,8 +51,8 @@ export function ContextChips() {
   return (
     <div className="shrink-0 border-b border-brand-hairline bg-brand-surface-soft px-4 py-2">
       <div className="flex items-center gap-1 mb-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-brand-mint animate-pulse" />
-        <span className="text-[9px] font-bold uppercase tracking-wider text-brand-muted">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-success" />
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-brand-muted">
           Active Context
         </span>
       </div>

@@ -39,10 +39,10 @@ const ACTION_CONFIG: Record<string, ActionConfig> = {
 };
 
 const COLOR_MAP = {
-  mint:   { bg: "bg-brand-mint/15",   border: "border-brand-mint/25",   icon: "text-brand-success",  text: "text-brand-ink" },
-  peach:  { bg: "bg-brand-peach/10",  border: "border-brand-peach/30",  icon: "text-brand-coral",    text: "text-brand-ink" },
-  yellow: { bg: "bg-brand-yellow/10", border: "border-brand-yellow/30", icon: "text-brand-mustard",  text: "text-brand-ink" },
-  ink:    { bg: "bg-brand-ink/5",     border: "border-brand-hairline",  icon: "text-brand-muted",    text: "text-brand-ink" },
+  mint:   { accent: "border-l-brand-success", icon: "text-brand-success", text: "text-brand-ink" },
+  peach:  { accent: "border-l-brand-coral", icon: "text-brand-coral", text: "text-brand-ink" },
+  yellow: { accent: "border-l-brand-mustard", icon: "text-brand-mustard", text: "text-brand-ink" },
+  ink:    { accent: "border-l-brand-ink", icon: "text-brand-muted", text: "text-brand-ink" },
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ export function QuickActions() {
 
   return (
     <div className="space-y-2">
-      <p className="text-[9px] font-bold uppercase tracking-widest text-brand-muted/70">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
         Quick Actions
       </p>
 
@@ -74,21 +74,21 @@ export function QuickActions() {
               transition={{ duration: 0.18, delay: idx * 0.05 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => sendMessage(action)}
-              className={`group flex w-full items-center gap-2.5 rounded-[8px] border px-3 py-2.5 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${colors.bg} ${colors.border}`}
+              className={`group flex w-full items-center gap-2.5 rounded-[8px] border border-l-4 border-brand-hairline bg-white px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer ${colors.accent}`}
             >
               {/* Icon container */}
-              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] border ${colors.border} bg-white/60`}>
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] border border-brand-hairline bg-brand-surface-soft">
                 <Icon className={`h-3 w-3 ${colors.icon}`} />
               </div>
 
               {/* Label */}
-              <span className={`flex-1 text-[11px] font-semibold leading-none ${colors.text}`}>
+              <span className={`flex-1 text-[11px] font-medium leading-none ${colors.text}`}>
                 {action}
               </span>
 
               {/* Chevron */}
               <ChevronRight
-                className={`h-3.5 w-3.5 shrink-0 opacity-30 transition-transform group-hover:translate-x-0.5 group-hover:opacity-70 ${colors.icon}`}
+                className={`h-3.5 w-3.5 shrink-0 opacity-50 ${colors.icon}`}
               />
             </motion.button>
           );

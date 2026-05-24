@@ -8,7 +8,6 @@ import { InsightCards } from "./InsightCards";
 import { QuickActions } from "./QuickActions";
 import { ContextStatusBar } from "./ContextStatusBar";
 import {
-  Sparkles,
   Trash2,
   X,
   SendHorizontal,
@@ -23,7 +22,6 @@ export function AssistantPanel() {
     sendMessage,
     clearHistory,
     isLoading,
-    userRole,
   } = useHyperAIStore();
   const { profile } = useAuthStore();
   const [inputVal, setInputVal] = React.useState("");
@@ -63,7 +61,7 @@ export function AssistantPanel() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={closeAssistant}
-            className="fixed inset-0 z-40 bg-brand-ink/20 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-brand-ink/20"
           />
 
           {/* Panel */}
@@ -72,34 +70,32 @@ export function AssistantPanel() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 260, mass: 0.8 }}
-            className="fixed top-0 right-0 z-50 flex h-screen w-full max-w-[440px] flex-col border-l border-brand-hairline bg-white shadow-2xl"
+            className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[440px] flex-col border-l border-brand-hairline bg-white"
           >
             {/* ── Header ─────────────────────────────────────── */}
-            <div className="shrink-0 bg-brand-ink px-5 py-4">
+            <div className="shrink-0 bg-brand-ink px-5 py-4 text-white">
               <div className="flex items-start justify-between">
                 {/* Brand identity */}
                 <div className="flex items-center gap-3">
                   {/* AI icon */}
-                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10">
-                    <BrainCircuit className="h-4.5 w-4.5 text-brand-mint" />
-                    {/* Pulse ring */}
-                    <span className="absolute inset-0 animate-ping rounded-full bg-brand-mint/20 opacity-75" />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10">
+                    <BrainCircuit className="h-4 w-4 text-white" />
                   </div>
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-semibold text-white leading-none tracking-tight">
+                      <h2 className="text-sm font-medium leading-none">
                         HyperAI
                       </h2>
                       {/* Live badge */}
-                      <span className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-brand-mint animate-pulse" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-brand-mint">
+                      <span className="flex items-center gap-1 rounded-[6px] bg-white/10 px-2 py-0.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand-mint" />
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-white/75">
                           Live
                         </span>
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[10px] font-medium text-white/50 uppercase tracking-wider">
+                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-white/55">
                       {roleName}
                     </p>
                   </div>
@@ -110,13 +106,13 @@ export function AssistantPanel() {
                   <button
                     onClick={clearHistory}
                     title="Reset conversation"
-                    className="flex h-8 w-8 items-center justify-center rounded-[8px] text-white/50 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
+                    className="flex h-8 w-8 items-center justify-center rounded-[6px] text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={closeAssistant}
-                    className="flex h-8 w-8 items-center justify-center rounded-[8px] text-white/50 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
+                    className="flex h-8 w-8 items-center justify-center rounded-[6px] text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -124,7 +120,7 @@ export function AssistantPanel() {
               </div>
 
               {/* Role capabilities sub-line */}
-              <p className="mt-3 text-[11px] text-white/35 font-medium leading-none">
+              <p className="mt-3 text-[11px] font-medium leading-none text-white/45">
                 {roleSub}
               </p>
             </div>
@@ -136,7 +132,7 @@ export function AssistantPanel() {
             <ChatArea />
 
             {/* ── Bottom Tray: Insights + Quick Actions ───────── */}
-            <div className="shrink-0 border-t border-brand-hairline bg-brand-surface-soft/70 px-4 py-3.5 space-y-3.5 max-h-[260px] overflow-y-auto">
+            <div className="shrink-0 max-h-[260px] space-y-3.5 overflow-y-auto border-t border-brand-hairline bg-brand-surface-soft px-4 py-3.5">
               <InsightCards />
               <QuickActions />
             </div>
@@ -145,7 +141,6 @@ export function AssistantPanel() {
             <div className="shrink-0 border-t border-brand-hairline bg-white px-4 py-3.5">
               <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
                 <div className="relative flex-1">
-                  <Sparkles className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-brand-muted/60" />
                   <input
                     ref={inputRef}
                     id="hyperai-input"
@@ -154,7 +149,7 @@ export function AssistantPanel() {
                     onChange={(e) => setInputVal(e.target.value)}
                     disabled={isLoading}
                     placeholder={inputPlaceholder}
-                    className="w-full rounded-[8px] border border-brand-hairline bg-brand-surface-soft py-2.5 pl-8 pr-3 text-xs text-brand-ink placeholder:text-brand-muted/70 focus:border-brand-border-strong focus:bg-white focus:outline-none disabled:opacity-50 transition-colors"
+                    className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-4 text-sm text-brand-ink placeholder:text-brand-muted focus:border-brand-info-border focus:outline-none disabled:opacity-50"
                   />
                 </div>
 
@@ -162,14 +157,14 @@ export function AssistantPanel() {
                   type="submit"
                   id="hyperai-send-btn"
                   disabled={!inputVal.trim() || isLoading}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-brand-ink text-white shadow-sm transition-colors hover:bg-brand-primary-active disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-brand-ink text-white transition-colors hover:bg-brand-primary-active disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   <SendHorizontal className="h-3.5 w-3.5" />
                 </button>
               </form>
 
               {/* Footer attribution */}
-              <p className="mt-2 text-center text-[9px] font-medium uppercase tracking-widest text-brand-muted/50">
+              <p className="mt-2 text-center text-[10px] font-medium uppercase tracking-wider text-brand-muted">
                 Powered by HyperHire AI Engine
               </p>
             </div>

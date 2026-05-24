@@ -29,10 +29,10 @@ function ScoreBar({ label, value, colorClass }: ScoreBarProps) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-brand-muted leading-none">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-brand-muted leading-none">
           {label}
         </span>
-        <span className="text-[10px] font-black text-brand-ink leading-none">
+        <span className="text-[10px] font-medium text-brand-ink leading-none">
           {value}
         </span>
       </div>
@@ -65,8 +65,8 @@ export function ScoreBreakdownCard({ highlights }: ScoreBreakdownCardProps) {
     >
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-brand-hairline px-3 py-2 bg-brand-surface-strong/60">
-        <div className="h-2 w-2 rounded-full bg-brand-mint animate-pulse" />
-        <span className="text-[9px] font-black uppercase tracking-wider text-brand-ink">
+        <div className="h-2 w-2 rounded-full bg-brand-success" />
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-brand-ink">
           AI Score Breakdown
         </span>
       </div>

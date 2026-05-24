@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useHyperAIStore } from "@/store/use-hyperai-store";
-import { Sparkles, User, Cpu } from "lucide-react";
+import { BrainCircuit, User, Cpu } from "lucide-react";
 import { SemanticBadge } from "./SemanticBadge";
 
 // ─── Markdown Renderer ──────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ function parseMarkdown(text: string): React.ReactNode {
         nodes.push(
           <pre
             key={`code-${i}`}
-            className="my-2 overflow-x-auto rounded-[8px] bg-brand-ink px-3 py-2.5 font-mono text-[10px] leading-relaxed text-white"
+          className="my-2 overflow-x-auto rounded-[6px] bg-brand-ink px-3 py-2.5 font-mono text-[10px] leading-relaxed text-white"
           >
             <code>{codeLines.join("\n")}</code>
           </pre>
@@ -83,7 +83,7 @@ function parseMarkdown(text: string): React.ReactNode {
 
     if (line.startsWith("### ")) {
       nodes.push(
-        <h4 key={i} className="mt-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-brand-ink">
+        <h4 key={i} className="mt-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-brand-ink">
           {renderInline(line.slice(4))}
         </h4>
       );
@@ -175,10 +175,10 @@ function ReasoningCard({ highlights }: { highlights: Record<string, any> }) {
   };
 
   return (
-    <div className="rounded-[10px] border border-brand-hairline bg-white p-3 space-y-2.5 shadow-xs">
+    <div className="space-y-2.5 rounded-[10px] border border-brand-hairline bg-white p-3">
       <div className="flex items-center gap-1.5">
         <Cpu className="h-3.5 w-3.5 text-brand-muted" />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
           AI Reasoning
         </span>
       </div>
@@ -210,7 +210,7 @@ export function ChatArea() {
   }, [history, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <div className="flex-1 space-y-4 overflow-y-auto bg-white px-4 py-4">
       {history.map((msg, idx) => {
         const isUser = msg.role === "user";
         const isLastAI = !isUser && idx === history.length - 1;
@@ -222,20 +222,20 @@ export function ChatArea() {
           >
             {/* AI Avatar */}
             {!isUser && (
-              <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-ink border border-brand-ink/20 shadow-sm">
-                <Sparkles className="h-3.5 w-3.5 text-brand-mint" />
+              <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-ink bg-brand-ink">
+                <BrainCircuit className="h-3.5 w-3.5 text-white" />
                 {isLastAI && isLoading === false && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-brand-mint border border-white" />
+                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-white bg-brand-mint" />
                 )}
               </div>
             )}
 
             {/* Message bubble */}
             <div
-              className={`max-w-[84%] rounded-[12px] px-3.5 py-2.5 text-xs border shadow-xs ${
+              className={`max-w-[84%] rounded-[10px] border px-3.5 py-2.5 text-xs ${
                 isUser
-                  ? "bg-brand-ink text-white border-brand-ink/25 rounded-tr-[4px]"
-                  : "bg-white text-brand-ink border-brand-hairline rounded-tl-[4px]"
+                  ? "rounded-tr-[4px] border-brand-ink bg-brand-ink text-white"
+                  : "rounded-tl-[4px] border-brand-hairline bg-brand-surface-soft text-brand-ink"
               }`}
             >
               {isUser ? (
@@ -249,7 +249,7 @@ export function ChatArea() {
 
             {/* User Avatar */}
             {isUser && (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-surface-strong border border-brand-hairline">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-hairline bg-white">
                 <User className="h-3.5 w-3.5 text-brand-muted" />
               </div>
             )}
@@ -260,10 +260,10 @@ export function ChatArea() {
       {/* Typing indicator */}
       {isLoading && (
         <div className="flex items-start gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-ink border border-brand-ink/20 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-brand-mint animate-spin" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-brand-ink bg-brand-ink">
+            <BrainCircuit className="h-3.5 w-3.5 text-white" />
           </div>
-          <div className="rounded-[12px] rounded-tl-[4px] border border-brand-hairline bg-white px-4 py-3 shadow-xs">
+          <div className="rounded-[10px] rounded-tl-[4px] border border-brand-hairline bg-brand-surface-soft px-4 py-3">
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-brand-muted/40 animate-bounce" style={{ animationDelay: "0ms" }} />
               <span className="h-1.5 w-1.5 rounded-full bg-brand-muted/40 animate-bounce" style={{ animationDelay: "120ms" }} />

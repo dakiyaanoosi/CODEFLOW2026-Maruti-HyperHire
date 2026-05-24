@@ -66,16 +66,16 @@ interface ContextChipProps {
 
 function ContextChip({ label, value, color = "default" }: ContextChipProps) {
   const colorMap = {
-    mint: "bg-brand-mint/15 text-brand-success border-brand-mint/25",
-    peach: "bg-brand-peach/15 text-brand-coral border-brand-peach/25",
-    yellow: "bg-brand-yellow/15 text-brand-mustard border-brand-yellow/30",
-    default: "bg-brand-surface-strong/60 text-brand-muted border-brand-hairline",
+    mint: "bg-white text-brand-success border-brand-hairline",
+    peach: "bg-white text-brand-coral border-brand-hairline",
+    yellow: "bg-white text-brand-mustard border-brand-hairline",
+    default: "bg-white text-brand-muted border-brand-hairline",
   };
 
   return (
     <div className={`flex items-center gap-1.5 rounded-[6px] border px-2 py-1 ${colorMap[color]}`}>
       <span className="text-[9px] font-semibold uppercase tracking-wider opacity-70">{label}</span>
-      <span className="text-[10px] font-bold max-w-[80px] truncate">{value}</span>
+      <span className="max-w-[80px] truncate text-[10px] font-medium">{value}</span>
     </div>
   );
 }
@@ -101,9 +101,9 @@ export function ContextStatusBar() {
         {/* AI engine status */}
         <div className="flex items-center gap-1.5">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${hasActiveContext ? "bg-brand-mint animate-pulse" : "bg-brand-surface-strong"}`}
+            className={`h-1.5 w-1.5 rounded-full ${hasActiveContext ? "bg-brand-success" : "bg-brand-surface-strong"}`}
           />
-          <span className="text-[9px] font-semibold uppercase tracking-widest text-brand-muted/70">
+          <span className="text-[9px] font-semibold uppercase tracking-wider text-brand-muted">
             {hasActiveContext ? "Context Loaded" : "Awaiting Context"}
           </span>
         </div>

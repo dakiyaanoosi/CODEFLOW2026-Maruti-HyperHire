@@ -18,20 +18,20 @@ function getScoreColor(score: number): {
     return {
       ring: "stroke-brand-mint",
       text: "text-brand-success",
-      bg: "bg-brand-mint/15",
+      bg: "bg-white",
     };
   }
   if (score >= 50) {
     return {
       ring: "stroke-brand-yellow",
       text: "text-brand-mustard",
-      bg: "bg-brand-yellow/15",
+      bg: "bg-white",
     };
   }
   return {
     ring: "stroke-brand-peach",
     text: "text-brand-coral",
-    bg: "bg-brand-peach/15",
+      bg: "bg-white",
   };
 }
 
@@ -86,11 +86,11 @@ export function SemanticBadge({ score, label, size = "md" }: SemanticBadgeProps)
 
       {/* Score + label */}
       <div className="flex flex-col">
-        <span className={`text-[11px] font-bold leading-none ${text}`}>
+        <span className={`text-[11px] font-medium leading-none ${text}`}>
           {score}%
         </span>
         {label && (
-          <span className="text-[9px] font-semibold uppercase tracking-wider text-brand-muted/70 leading-none mt-0.5">
+          <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider leading-none text-brand-muted">
             {label}
           </span>
         )}
