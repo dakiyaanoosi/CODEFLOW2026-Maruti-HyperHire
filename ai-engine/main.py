@@ -265,3 +265,12 @@ app.include_router(
     trust_router,
     tags=["Trust"]
 )
+
+from routes.context import (
+    router as context_router
+)
+
+app.include_router(
+    context_router,
+    tags=["HyperAI Context Engine"]
+)

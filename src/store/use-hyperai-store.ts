@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { ChatMessage, ChatRequest, ChatResponse } from "@/services/ai/types";
 import { aiService } from "@/services/ai/service";
+import { ContextualInsight, AIEcosystemSummary } from "@/types/hyperai";
 
 interface HyperAIState {
   isOpen: boolean;
@@ -35,6 +36,16 @@ interface HyperAIState {
   }) => void;
   sendMessage: (content: string) => Promise<void>;
   clearHistory: () => void;
+
+  // Contextual Intelligence State
+  insights: ContextualInsight[];
+  ecosystemSummary: AIEcosystemSummary | null;
+  dismissedInsightIds: Record<string, number>;
+  isEvaluatingContext: boolean;
+  
+  setEvaluatingContext: (evaluating: boolean) => void;
+  setContextData: (insights: ContextualInsight[], summary: AIEcosystemSummary) => void;
+  dismissInsight: (id: string) => void;
 }
 
 export const useHyperAIStore = create<HyperAIState>((set, get) => ({
@@ -52,6 +63,11 @@ export const useHyperAIStore = create<HyperAIState>((set, get) => ({
   quickActions: [],
   reasoningHighlights: null,
   contextLoaded: false,
+
+  insights: [],
+  ecosystemSummary: null,
+  dismissedInsightIds: {},
+  isEvaluatingContext: false,
 
   openAssistant: () => set({ isOpen: true }),
   closeAssistant: () => set({ isOpen: false }),
@@ -175,4 +191,38 @@ export const useHyperAIStore = create<HyperAIState>((set, get) => ({
       reasoningHighlights: null,
     });
   },
+
+  setEvaluatingContext: (evaluating) => set({ isEvaluatingContext: evaluating }),
+  
+  setContextData: (insights, summary) => {
+    // Filter out dismissed insights (cooldown of 24h)
+    const now = Date.now();
+    const { dismissedInsightIds } = get();
+    
+    // Clean up expired cooldowns
+    const activeDismissals = { ...dismissedInsightIds };
+    for (const [id, timestamp] of Object.entries(activeDismissals)) {
+      if (now - timestamp > 24 * 60 * 60 * 1000) {
+        delete activeDismissals[id];
+      }
+    }
+
+    const filteredInsights = insights.filter(i => !activeDismissals[i.id]);
+
+    set({ 
+      insights: filteredInsights, 
+      ecosystemSummary: summary,
+      dismissedInsightIds: activeDismissals
+    });
+  },
+
+  dismissInsight: (id) => {
+    set((state) => ({
+      insights: state.insights.filter(i => i.id !== id),
+      dismissedInsightIds: {
+        ...state.dismissedInsightIds,
+        [id]: Date.now()
+      }
+    }));
+  }
 }));

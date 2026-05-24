@@ -6,6 +6,8 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import { HyperAI } from "@/components/ai/hyperai";
+import { StrategicAdvisorWidget } from "@/components/ai/hyperai/StrategicAdvisorWidget";
+import { contextEngine } from "@/lib/hyperai/context-engine";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -21,6 +23,15 @@ export default function DashboardLayout({
       router.replace("/login");
     }
   }, [user, profile, isLoading, router]);
+
+  React.useEffect(() => {
+    if (user && profile?.role) {
+      contextEngine.boot(user.uid, profile.role);
+    }
+    return () => {
+      contextEngine.shutdown();
+    };
+  }, [user?.uid, profile?.role]);
 
   // Premium loading state while resolving authentication
   if (isLoading) {
@@ -48,6 +59,7 @@ export default function DashboardLayout({
 
         <main className="flex-1 overflow-y-auto bg-brand-surface-soft p-4 md:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl w-full">
+            <StrategicAdvisorWidget />
             {children}
           </div>
         </main>
