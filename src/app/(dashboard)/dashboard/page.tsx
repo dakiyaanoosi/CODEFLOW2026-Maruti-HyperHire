@@ -2,39 +2,44 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
-import { Briefcase, TrendingUp, Star, Clock, ArrowRight, Store, FileText } from "lucide-react";
+import { Briefcase, Star, Clock, ArrowRight, Store } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { StudentAIRecommendations } from "@/components/ai/StudentAIRecommendations";
+import { BusinessAIRecommendations } from "@/components/ai/BusinessAIRecommendations";
+import { AIInsightsWidget } from "@/components/ai/AIInsightsWidget";
+import { jobService } from "@/lib/job-service";
+import { Job } from "@/types/job";
 
 const STAT_CARDS = [
   {
-    label: "Active Jobs",
+    label: "Active Gigs",
     value: "-",
-    delta: "Getting started",
+    delta: "Hyperlocal status",
     icon: Briefcase,
     accent: "bg-brand-peach",
     href: "/jobs",
   },
   {
-    label: "Trust Score",
+    label: "Trust Rating",
     value: "-",
-    delta: "Build your profile",
+    delta: "AI verified pro status",
     icon: Star,
     accent: "bg-brand-yellow",
     href: "/profile",
   },
   {
-    label: "Demand Trend",
+    label: "Category Trend",
     value: "+32%",
-    delta: "Video editing this week",
-    icon: TrendingUp,
+    delta: "Web Dev peaking",
+    icon: Store,
     accent: "bg-brand-mint",
     href: "/analytics",
   },
   {
-    label: "Pending Actions",
+    label: "Workflow Actions",
     value: "-",
-    delta: "Review applications",
+    delta: "Check pending status",
     icon: Clock,
     accent: "bg-brand-cream",
     href: "/applications",
@@ -56,7 +61,9 @@ const businessQuickLinks = [
 ];
 
 export default function DashboardPage() {
-  const { profile } = useAuthStore();
+  const { user, profile } = useAuthStore();
+  const [businessJobs, setBusinessJobs] = React.useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = React.useState(false);
 
   const firstName = profile?.name?.split(" ")[0] || "there";
   const isBusiness = profile?.role === "business";
@@ -64,6 +71,24 @@ export default function DashboardPage() {
   const quickLinks = isBusiness ? businessQuickLinks : studentQuickLinks;
   const greeting =
     new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
+
+  React.useEffect(() => {
+    async function loadBusinessJobs() {
+      if (user?.uid && isBusiness) {
+        setLoadingJobs(true);
+        try {
+          const jobs = await jobService.getJobs(user.uid);
+          // Only show published jobs for match recommendations
+          setBusinessJobs(jobs.filter((j) => j.status === "Published"));
+        } catch (e) {
+          console.error("Failed to load business jobs on dashboard", e);
+        } finally {
+          setLoadingJobs(false);
+        }
+      }
+    }
+    loadBusinessJobs();
+  }, [user, isBusiness]);
 
   return (
     <div className="space-y-8">
@@ -114,7 +139,9 @@ export default function DashboardPage() {
                   </div>
                   <ArrowRight className="h-3.5 w-3.5 text-brand-muted opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
-                <p className="mt-3 text-2xl font-semibold leading-none text-brand-ink">{card.value}</p>
+                <p className="mt-3 text-2xl font-semibold leading-none text-brand-ink">
+                  {card.label === "Trust Rating" && profile?.trustScore ? `${profile.trustScore}%` : card.value}
+                </p>
                 <p className="mt-1 text-xs font-semibold text-brand-muted">{card.label}</p>
                 <p className="mt-0.5 text-[11px] leading-[1.4] text-brand-muted">{card.delta}</p>
               </div>
@@ -130,38 +157,42 @@ export default function DashboardPage() {
           transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
           className="lg:col-span-2"
         >
-          <div className="rounded-[10px] bg-brand-ink p-6 text-white">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-[6px] bg-white/10">
-                <FileText className="h-3.5 w-3.5 text-white" />
+          {isBusiness ? (
+            businessJobs.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4.5 w-4.5 text-brand-ink" />
+                  <h3 className="text-sm font-semibold text-brand-ink uppercase tracking-wider">
+                    Matches for: {businessJobs[0].title}
+                  </h3>
+                </div>
+                <BusinessAIRecommendations job={businessJobs[0]} />
               </div>
-              <p className="text-sm font-semibold text-white">Workspace Summary</p>
-              <span className="ml-auto rounded-full bg-brand-mint px-1.5 py-0.5 text-[10px] font-semibold text-brand-ink">
-                Active
-              </span>
-            </div>
-            <p className="text-sm leading-[1.75] text-white/80">
-              {isBusiness
-                ? "Create gig listings, review incoming applications, and keep your company profile current so students understand your hiring needs."
-                : "Browse marketplace gigs, submit applications, and keep your profile and portfolio current so businesses can evaluate your work quickly."}
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {(isBusiness
-                ? ["Gig posting", "Application review", "Company profile"]
-                : ["Marketplace", "Portfolio", "Applications"]
-              ).map((tag) => (
-                <span key={tag} className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/80">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
+            ) : (
+              <div className="rounded-[10px] border border-brand-hairline bg-white p-6 text-center text-brand-muted space-y-3">
+                <Briefcase className="h-8 w-8 mx-auto text-brand-hairline animate-bounce" />
+                <h3 className="text-xs font-semibold text-brand-ink">Enable AI Talent Recommendations</h3>
+                <p className="text-[11px] leading-relaxed max-w-sm mx-auto">
+                  Publish an active digital gig to let HyperHire's semantic matching engine scan and recommend compatible student talent.
+                </p>
+                <Link
+                  href="/jobs"
+                  className="inline-flex items-center gap-1.5 rounded-[8px] bg-brand-ink px-4 py-2 text-xs font-semibold text-white cursor-pointer"
+                >
+                  Post First Gig
+                </Link>
+              </div>
+            )
+          ) : (
+            <StudentAIRecommendations />
+          )}
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
+          className="space-y-6"
         >
           <div className="rounded-[10px] border border-brand-hairline bg-white p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-brand-muted">
@@ -183,6 +214,8 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+
+          <AIInsightsWidget />
         </motion.div>
       </div>
 
@@ -199,9 +232,9 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-48 overflow-hidden rounded-full bg-brand-surface-strong">
-              <div className="h-full w-[37%] rounded-full bg-brand-ink" />
+              <div className="h-full w-[45%] rounded-full bg-brand-ink" />
             </div>
-            <span className="text-xs font-semibold text-brand-ink">Features 1-11</span>
+            <span className="text-xs font-semibold text-brand-ink">Features 1-11 + AI Layer</span>
           </div>
         </div>
 

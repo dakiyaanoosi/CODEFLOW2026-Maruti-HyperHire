@@ -7,11 +7,14 @@ import { Job } from "@/types/job";
 import { generateMockJobs } from "@/lib/marketplace-utils";
 import { MarketplaceFeed } from "@/components/marketplace";
 import { Loader2, Store, Target } from "lucide-react";
+import { portfolioService } from "@/lib/portfolio-service";
+import { aiService } from "@/services/ai/service";
 
 export default function MarketplacePage() {
   const { user, profile } = useAuthStore();
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isAIActive, setIsAIActive] = React.useState(false);
 
   const userSkills: string[] =
     profile?.role === "student" && profile.skills
@@ -19,19 +22,55 @@ export default function MarketplacePage() {
       : [];
 
   React.useEffect(() => {
-    async function fetchJobs() {
+    async function fetchAndMatchJobs() {
+      if (!user?.uid || !profile) return;
       setIsLoading(true);
       try {
-        const data = await jobService.getJobs(undefined, true);
-        setJobs(data && data.length > 0 ? data : generateMockJobs());
-      } catch {
-        setJobs(generateMockJobs());
+        const rawJobs = await jobService.getJobs(undefined, true);
+        const activeJobs = rawJobs && rawJobs.length > 0 ? rawJobs : generateMockJobs();
+        
+        if (profile.role === "student") {
+          try {
+            // Fetch portfolios
+            const portfolios = await portfolioService.getPortfolios(user.uid);
+            // Query FastAPI AI Engine recommend endpoint
+            const aiRes = await aiService.recommendJobsForStudent({
+              id: user.uid,
+              profile: profile as any,
+              portfolios,
+            }, activeJobs);
+            
+            // Map real AI scores back to the jobs list
+            const matchedJobs = activeJobs.map(job => {
+              const recommendation = aiRes.ranked_jobs.find(rj => rj.job_id === job.jobId);
+              return {
+                ...job,
+                matchScore: recommendation ? recommendation.match_percentage : 0,
+                aiReasoning: recommendation ? recommendation.reasoning : "",
+                aiBreakdown: recommendation ? recommendation.breakdown : undefined,
+                aiConfidence: recommendation ? recommendation.confidence_score : undefined,
+              };
+            });
+            
+            setJobs(matchedJobs);
+            setIsAIActive(true);
+          } catch (aiErr) {
+            console.warn("FastAPI AI Engine not accessible, using fallback skill match.", aiErr);
+            setJobs(activeJobs);
+            setIsAIActive(false);
+          }
+        } else {
+          setJobs(activeJobs);
+        }
+      } catch (err) {
+        console.error("Error fetching marketplace jobs:", err);
       } finally {
         setIsLoading(false);
       }
     }
-    fetchJobs();
-  }, [user]);
+    
+    fetchAndMatchJobs();
+  }, [user, profile]);
 
   if (!user || !profile) {
     return (
@@ -60,9 +99,13 @@ export default function MarketplacePage() {
         <div className="flex shrink-0 items-center gap-2 self-start rounded-[10px] border border-brand-hairline bg-brand-surface-soft px-3.5 py-2.5">
           <Target className="h-4 w-4 text-brand-info" />
           <div>
-            <p className="text-xs font-semibold leading-none text-brand-ink">Skill Fit</p>
+            <p className="text-xs font-semibold leading-none text-brand-ink">
+              {isAIActive ? "AI Semantic Matching" : "Skill Fit Overlap"}
+            </p>
             <p className="mt-0.5 text-[10px] font-medium text-brand-muted">
-              {userSkills.length > 0
+              {isAIActive
+                ? "Running vector cosine similarity"
+                : userSkills.length > 0
                 ? `Based on ${userSkills.length} skills in your profile`
                 : "Add skills to your profile for better results"}
             </p>

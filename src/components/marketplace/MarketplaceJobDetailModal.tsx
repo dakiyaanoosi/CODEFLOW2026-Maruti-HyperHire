@@ -14,8 +14,11 @@ import {
   BarChart2,
   Building2,
   ArrowUpRight,
+  Sparkles,
 } from "lucide-react";
 import { JobWithMatchScore } from "@/types/marketplace";
+import { AIMatchVisualization } from "@/components/ai/AIMatchVisualization";
+import { AIExplanationCard } from "@/components/ai/AIExplanationCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ApplicationApplyModal } from "@/components/applications/ApplicationApplyModal";
@@ -114,7 +117,7 @@ export function MarketplaceJobDetailModal({
     Intermediate: { text: "text-[#254fad]", bg: "bg-[#254fad]/8 border-[#254fad]/20" },
     Advanced: { text: "text-[#aa2d00]", bg: "bg-[#aa2d00]/8 border-[#aa2d00]/20" },
   };
-  const diff = difficultyConfig[job.difficultyLevel];
+  const diff = difficultyConfig[job.difficultyLevel] || { text: "text-[#254fad]", bg: "bg-[#254fad]/8 border-[#254fad]/20" };
 
   return (
     <>
@@ -235,18 +238,40 @@ export function MarketplaceJobDetailModal({
                 ))}
               </div>
 
-              {/* Skill fit score bar */}
-              <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft px-4 py-3.5">
-                <MatchBar score={job.matchScore} />
-                {matchedSkills.length > 0 && (
-                  <p className="mt-2 text-[11px] text-brand-muted font-medium">
-                    You match on:{" "}
-                    <span className="text-[#006400] font-semibold">
-                      {matchedSkills.join(", ")}
+              {/* Skill fit score bar / AI Relevancy Matching Details */}
+              {(job as any).aiBreakdown ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-brand-mustard shrink-0" />
+                    <span className="text-xs font-semibold text-brand-muted uppercase tracking-wider">
+                      AI Matching Analytics
                     </span>
-                  </p>
-                )}
-              </div>
+                  </div>
+                  <AIMatchVisualization
+                    matchPercentage={job.matchScore}
+                    confidenceScore={(job as any).aiConfidence ?? 0}
+                    breakdown={(job as any).aiBreakdown}
+                  />
+                  <AIExplanationCard
+                    reasoning={(job as any).aiReasoning ?? ""}
+                    breakdown={(job as any).aiBreakdown}
+                    skillsMatched={matchedSkills}
+                    experienceLevel={profile?.experienceLevel}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft px-4 py-3.5">
+                  <MatchBar score={job.matchScore} />
+                  {matchedSkills.length > 0 && (
+                    <p className="mt-2 text-[11px] text-brand-muted font-medium">
+                      You match on:{" "}
+                      <span className="text-[#006400] font-semibold">
+                        {matchedSkills.join(", ")}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Description */}
               <div>
@@ -332,7 +357,7 @@ export function MarketplaceJobDetailModal({
                 ) : (
                   <button
                     onClick={() => setApplyModalOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white hover:bg-brand-primary-active active:scale-[0.98] transition-all shadow-sm"
+                    className="flex-1 flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white hover:bg-brand-primary-active active:scale-[0.98] transition-all shadow-sm cursor-pointer"
                   >
                     <ArrowUpRight className="h-4 w-4" />
                     Apply for this Gig
@@ -340,7 +365,7 @@ export function MarketplaceJobDetailModal({
                 )}
                 <button
                   onClick={onClose}
-                  className="rounded-[12px] border border-brand-hairline bg-white px-4 py-3 text-sm font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors"
+                  className="rounded-[12px] border border-brand-hairline bg-white px-4 py-3 text-sm font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors cursor-pointer"
                 >
                   Back
                 </button>

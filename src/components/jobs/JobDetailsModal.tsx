@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ApplicationApplyModal } from "@/components/applications/ApplicationApplyModal";
 import { useAuthStore } from "@/store/use-auth-store";
+import { BusinessAIRecommendations } from "@/components/ai/BusinessAIRecommendations";
 
 interface JobDetailsModalProps {
   job: Job | null;
@@ -35,7 +36,6 @@ export function JobDetailsModal({
 
   React.useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowDeleteConfirm(false);
       setError(null);
       setIsDeleting(false);
@@ -273,12 +273,18 @@ export function JobDetailsModal({
                   ) : (
                     <button
                       onClick={() => setApplyModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white shadow-sm"
+                      className="w-full flex items-center justify-center gap-2 rounded-[12px] bg-brand-ink px-5 py-3 text-sm font-semibold text-white shadow-sm cursor-pointer"
                     >
                       <Send className="h-4 w-4" />
                       Apply for this Gig
                     </button>
                   )}
+                </div>
+              )}
+
+              {canManage && (
+                <div className="pt-6 border-t border-brand-hairline space-y-4">
+                  <BusinessAIRecommendations job={job} />
                 </div>
               )}
             </div>

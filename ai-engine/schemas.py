@@ -10,12 +10,12 @@ class JobModel(BaseModel):
     title: str
     description: str
     category: str
-    requiredSkills: List[str]
+    requiredSkills: Optional[List[str]] = []
     budget: float
     deadline: str
     difficultyLevel: str
     workMode: str
-    deliverables: List[str]
+    deliverables: Optional[List[str]] = []
     status: str
     aiGeneratedSummary: Optional[str] = None
     aiExtractedSkills: Optional[List[str]] = None
@@ -25,28 +25,28 @@ class JobModel(BaseModel):
 
 class StudentProfileModel(BaseModel):
     name: str
-    college: str
-    bio: str
-    skills: List[str]
-    experienceLevel: str
-    availability: str
-    preferredCategories: List[str]
-    hourlyRate: float
-    portfolioLinks: List[str]
-    trustScore: float
-    isVerified: bool
-    profileStrength: float
+    college: Optional[str] = ""
+    bio: Optional[str] = ""
+    skills: Optional[List[str]] = []
+    experienceLevel: Optional[str] = "Beginner"
+    availability: Optional[str] = ""
+    preferredCategories: Optional[List[str]] = []
+    hourlyRate: Optional[float] = 0.0
+    portfolioLinks: Optional[List[str]] = []
+    trustScore: Optional[float] = 80.0
+    isVerified: Optional[bool] = False
+    profileStrength: Optional[float] = 0.0
     avatarUrl: Optional[str] = ""
 
 class PortfolioItemModel(BaseModel):
     portfolioId: str
     userId: str
     title: str
-    description: str
-    category: str
+    description: Optional[str] = ""
+    category: Optional[str] = ""
     mediaType: str
     mediaUrl: str
-    tags: List[str]
+    tags: Optional[List[str]] = []
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
 
