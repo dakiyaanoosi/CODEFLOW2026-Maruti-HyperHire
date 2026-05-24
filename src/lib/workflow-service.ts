@@ -29,9 +29,9 @@ const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Completed"];
 export const workflowService = {
   /**
    * Creates a full workflow workspace from an accepted application.
-   * Auto-provisions columns and an initial kickoff task.
+   * Auto-provisions columns and an initial kickoff task, or onboarding tasks if requested.
    */
-  async createWorkflowFromApplication(app: Application): Promise<string> {
+  async createWorkflowFromApplication(app: Application, isOnboardingSeeded: boolean = false): Promise<string> {
     const batch = writeBatch(db!);
     const workflowId = `wf_${app.applicationId}`;
     
@@ -73,26 +73,56 @@ export const workflowService = {
 
     const todoColumnId = columnRefs[0];
 
-    // 3. Create Kickoff Task
-    const taskId = `task_${Date.now()}_kickoff`;
-    const taskRef = doc(db!, "workflowTasks", taskId);
-    const newTask: WorkflowTask = {
-      taskId,
-      workflowId,
-      columnId: todoColumnId,
-      title: "Project Kickoff & Requirements Review",
-      description: "Review the initial job requirements and set up milestones.",
-      priority: "High",
-      assigneeId: app.studentId,
-      attachments: [],
-      aiSuggestions: [],
-      status: "active",
-      studentId: app.studentId,
-      businessId: app.businessId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    batch.set(taskRef, newTask);
+    // 3. Create Kickoff / Onboarding Tasks
+    if (isOnboardingSeeded) {
+      const onboardingTasks = [
+        { title: "Define deliverables", desc: "Collaborate to finalize the exact project deliverables." },
+        { title: "Upload references", desc: "Upload brand assets, API keys, or reference materials." },
+        { title: "Confirm timeline", desc: "Set hard deadlines for each phase." },
+        { title: "Setup milestone structure", desc: "Agree on escrow milestones and payment splits." }
+      ];
+
+      onboardingTasks.forEach((taskData, index) => {
+        const taskId = `task_${Date.now()}_onboard_${index}`;
+        const taskRef = doc(db!, "workflowTasks", taskId);
+        batch.set(taskRef, {
+          taskId,
+          workflowId,
+          columnId: todoColumnId,
+          title: taskData.title,
+          description: taskData.desc,
+          priority: "High",
+          assigneeId: app.studentId,
+          attachments: [],
+          aiSuggestions: [],
+          status: "active",
+          studentId: app.studentId,
+          businessId: app.businessId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      });
+    } else {
+      const taskId = `task_${Date.now()}_kickoff`;
+      const taskRef = doc(db!, "workflowTasks", taskId);
+      const newTask: WorkflowTask = {
+        taskId,
+        workflowId,
+        columnId: todoColumnId,
+        title: "Project Kickoff & Requirements Review",
+        description: "Review the initial job requirements and set up milestones.",
+        priority: "High",
+        assigneeId: app.studentId,
+        attachments: [],
+        aiSuggestions: [],
+        status: "active",
+        studentId: app.studentId,
+        businessId: app.businessId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      batch.set(taskRef, newTask);
+    }
 
     // 4. Log Creation Activity
     const activityId = `act_${Date.now()}`;

@@ -1,4 +1,4 @@
-export type ApplicationStatus = "submitted" | "shortlisted" | "accepted" | "rejected" | "in_progress" | "completed";
+export type ApplicationStatus = "submitted" | "shortlisted" | "accepted" | "rejected" | "collaboration_started" | "in_progress" | "completed";
 
 export interface Application {
   applicationId: string;
@@ -22,6 +22,10 @@ export interface Application {
   aiMatchConfidence?: number;
   aiMatchExplanation?: string;
   aiSemanticCompatibility?: any;
+
+  // Ecosystem Linkage
+  sourceType?: "invitation";
+  sourceInvitationId?: string;
 
   status: ApplicationStatus;
   createdAt: string;

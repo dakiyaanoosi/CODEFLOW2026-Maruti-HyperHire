@@ -12,10 +12,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function WorkspacePage({ params }: { params: { workflowId: string } }) {
+export default function WorkspacePage({ params }: { params: Promise<{ workflowId: string }> }) {
   const router = useRouter();
   const { user, profile } = useAuthStore();
-  const workflowId = params.workflowId;
+  const unwrappedParams = React.use(params);
+  const workflowId = unwrappedParams.workflowId;
 
   const [workflow, setWorkflow] = React.useState<Workflow | null>(null);
   const [columns, setColumns] = React.useState<WorkflowColumn[]>([]);

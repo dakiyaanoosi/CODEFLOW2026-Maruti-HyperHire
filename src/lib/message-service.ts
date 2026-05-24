@@ -88,11 +88,15 @@ export const messageService = {
       createdAt: now
     };
 
+    const cleanMessage = Object.fromEntries(
+      Object.entries(message).filter(([_, v]) => v !== undefined)
+    ) as Message;
+
     const batch = writeBatch(db);
     
     // 1. Create message
     const msgRef = doc(db, "messages", messageId);
-    batch.set(msgRef, message);
+    batch.set(msgRef, cleanMessage);
 
     // 2. Update conversation last message and unread counts
     const convRef = doc(db, "conversations", conversationId);

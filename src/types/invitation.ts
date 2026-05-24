@@ -1,4 +1,4 @@
-export type InvitationStatus = "pending" | "accepted" | "declined" | "expired";
+export type InvitationStatus = "pending" | "viewed" | "accepted" | "declined" | "expired" | "workflow_created";
 
 export interface InvitationAnalytics {
   responseLatencyMs?: number;
@@ -17,5 +17,17 @@ export interface GigInvitation {
   message?: string;
   analyticsMetrics: InvitationAnalytics;
   createdAt: number;
-  respondedAt?: number;
+  
+  // Ecosystem Linkages
+  conversationId?: string;
+  workflowId?: string;
+  applicationId?: string;
+  
+  // Lifecycle Metadata
+  expiresAt: number;
+  viewedAt?: number;
+  acceptedAt?: number;
+  declinedAt?: number;
+  collaborationStartedAt?: number;
+  acceptanceNote?: string;
 }

@@ -9,6 +9,7 @@ import {
   DollarSign,
   Building2,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 
 interface ApplicationCardProps {
@@ -45,6 +46,12 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         </div>
         <ApplicationStatusBadge status={application.status} />
       </div>
+
+      {application.sourceType === "invitation" && (
+        <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-1 bg-brand-primary/5 text-brand-primary text-[10px] font-bold uppercase tracking-wider rounded-md border border-brand-primary/20">
+          <Sparkles className="h-3 w-3" /> Started from invitation
+        </div>
+      )}
 
       <p className="mt-3 text-xs text-brand-body line-clamp-2 leading-relaxed">
         {application.coverLetter}

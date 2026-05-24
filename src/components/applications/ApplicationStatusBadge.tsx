@@ -26,6 +26,10 @@ const CONFIG: Record<ApplicationStatus, { label: string; className: string }> = 
     label: "rejected",
     className: "bg-brand-coral/10 text-brand-coral border-brand-coral/20",
   },
+  collaboration_started: {
+    label: "started",
+    className: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
+  },
   in_progress: {
     label: "in progress",
     className: "bg-brand-info/10 text-brand-info border-brand-info/20",
