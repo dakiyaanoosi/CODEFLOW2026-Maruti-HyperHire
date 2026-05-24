@@ -157,7 +157,12 @@ export function Sidebar() {
       </div>
 
       {/* Collapse toggle */}
-      <div className="flex justify-center border-t border-brand-hairline p-2">
+      <div
+        className={cn(
+          "flex border-t border-brand-hairline p-2",
+          isSidebarCollapsed ? "justify-center" : "justify-end"
+        )}
+      >
         <Button
           variant="ghost"
           size="icon"
