@@ -18,6 +18,26 @@ function saveSimulatedJobs(jobs: Record<string, Job>) {
   }
 }
 
+// Helper to get simulated business profiles and map ownerIds to company names
+function getSimulatedBusinessesMap(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const data = localStorage.getItem("hyperhire_simulated_businesses");
+    if (!data) return {};
+    const businesses = JSON.parse(data) as Record<string, { ownerId?: string; companyName?: string }>;
+    const map: Record<string, string> = {};
+    Object.values(businesses).forEach((b) => {
+      if (b.ownerId && b.companyName) {
+        map[b.ownerId] = b.companyName;
+      }
+    });
+    return map;
+  } catch (e) {
+    console.error("Failed to parse simulated businesses for company name resolution:", e);
+    return {};
+  }
+}
+
 // Helper to remove undefined properties before writing to Firestore
 function cleanFirestoreData(data: any) {
   const clean: any = {};
@@ -64,7 +84,43 @@ export const jobService = {
         });
 
         // Sort in memory to avoid index requirements in Firestore
-        return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const sortedJobs = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        // Resolve company names dynamically from business profiles
+        try {
+          const businessIds = Array.from(new Set(sortedJobs.map((j) => j.businessId)));
+          if (businessIds.length > 0) {
+            const businessesRef = collection(db, "businesses");
+            const profilesMap: Record<string, string> = {};
+            
+            // Chunk businessIds into arrays of 30
+            const chunks: string[][] = [];
+            for (let i = 0; i < businessIds.length; i += 30) {
+              chunks.push(businessIds.slice(i, i + 30));
+            }
+            
+            for (const chunk of chunks) {
+              const bQuery = query(businessesRef, where("ownerId", "in", chunk));
+              const bSnapshot = await getDocs(bQuery);
+              bSnapshot.forEach((doc) => {
+                const data = doc.data();
+                if (data.ownerId && data.companyName) {
+                  profilesMap[data.ownerId] = data.companyName;
+                }
+              });
+            }
+            
+            sortedJobs.forEach((job) => {
+              if (profilesMap[job.businessId]) {
+                job.companyName = profilesMap[job.businessId];
+              }
+            });
+          }
+        } catch (bizErr) {
+          console.error("Failed to dynamically resolve company names from Firestore profiles:", bizErr);
+        }
+
+        return sortedJobs;
       } catch (error) {
         console.error("Firestore getJobs error, falling back to simulated:", error);
         return this.getSimulatedJobsList(businessId, onlyPublished);
@@ -88,7 +144,20 @@ export const jobService = {
       list = list.filter((j) => j.status === "Published");
     }
     
-    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const sorted = list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    try {
+      const bizMap = getSimulatedBusinessesMap();
+      sorted.forEach((job) => {
+        if (bizMap[job.businessId]) {
+          job.companyName = bizMap[job.businessId];
+        }
+      });
+    } catch (e) {
+      console.error("Failed to dynamically resolve simulated company names:", e);
+    }
+
+    return sorted;
   },
 
   /**
@@ -100,20 +169,51 @@ export const jobService = {
         const docRef = doc(db, "jobs", jobId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          return {
+          const job = {
             ...docSnap.data(),
             jobId: docSnap.id,
           } as Job;
+
+          // Resolve company name dynamically
+          try {
+            const businessesRef = collection(db, "businesses");
+            const q = query(businessesRef, where("ownerId", "==", job.businessId));
+            const bSnapshot = await getDocs(q);
+            if (!bSnapshot.empty) {
+              const bData = bSnapshot.docs[0].data();
+              if (bData.companyName) {
+                job.companyName = bData.companyName;
+              }
+            }
+          } catch (bizErr) {
+            console.error("Failed to dynamically resolve company name for single job:", bizErr);
+          }
+
+          return job;
         }
         return null;
       } catch (error) {
         console.error("Firestore getJob error:", error);
         const jobs = getSimulatedJobs();
-        return jobs[jobId] || null;
+        const job = jobs[jobId] || null;
+        if (job) {
+          const bizMap = getSimulatedBusinessesMap();
+          if (bizMap[job.businessId]) {
+            job.companyName = bizMap[job.businessId];
+          }
+        }
+        return job;
       }
     } else {
       const jobs = getSimulatedJobs();
-      return jobs[jobId] || null;
+      const job = jobs[jobId] || null;
+      if (job) {
+        const bizMap = getSimulatedBusinessesMap();
+        if (bizMap[job.businessId]) {
+          job.companyName = bizMap[job.businessId];
+        }
+      }
+      return job;
     }
   },
 
@@ -217,6 +317,44 @@ export const jobService = {
     const jobs = getSimulatedJobs();
     if (jobs[jobId]) {
       delete jobs[jobId];
+      saveSimulatedJobs(jobs);
+    }
+  },
+
+  /**
+   * Update company name for all jobs posted by a business
+   */
+  async updateBusinessJobsCompanyName(businessId: string, companyName: string): Promise<void> {
+    if (isFirebaseConfigured && db) {
+      try {
+        const jobsRef = collection(db, "jobs");
+        const q = query(jobsRef, where("businessId", "==", businessId));
+        const querySnapshot = await getDocs(q);
+        
+        const promises = querySnapshot.docs.map((doc) => {
+          const jobRef = doc.ref;
+          return setDoc(jobRef, { companyName }, { merge: true });
+        });
+        await Promise.all(promises);
+      } catch (error) {
+        console.error("Firestore updateBusinessJobsCompanyName error, updating simulated:", error);
+        this.updateSimulatedJobsCompanyName(businessId, companyName);
+      }
+    } else {
+      this.updateSimulatedJobsCompanyName(businessId, companyName);
+    }
+  },
+
+  updateSimulatedJobsCompanyName(businessId: string, companyName: string) {
+    const jobs = getSimulatedJobs();
+    let updated = false;
+    Object.values(jobs).forEach((job) => {
+      if (job.businessId === businessId) {
+        job.companyName = companyName;
+        updated = true;
+      }
+    });
+    if (updated) {
       saveSimulatedJobs(jobs);
     }
   }

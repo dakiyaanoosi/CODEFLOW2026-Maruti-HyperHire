@@ -148,6 +148,17 @@ export const businessService = {
             updatedAt: new Date().toISOString(),
           };
           await setDoc(docRef, cleanFirestoreData(updated));
+
+          // Update companyName on all jobs posted by this business
+          if (data.companyName && data.companyName !== current.companyName) {
+            try {
+              const { jobService } = await import("./job-service");
+              await jobService.updateBusinessJobsCompanyName(current.ownerId, data.companyName);
+            } catch (err) {
+              console.error("Failed to update company name on jobs:", err);
+            }
+          }
+
           return updated;
         }
       } catch (error) {
@@ -169,6 +180,17 @@ export const businessService = {
     };
     businesses[businessId] = updated;
     saveSimulatedBusinesses(businesses);
+
+    // Update companyName on all simulated jobs posted by this business
+    if (data.companyName && data.companyName !== current.companyName) {
+      try {
+        const { jobService } = await import("./job-service");
+        jobService.updateSimulatedJobsCompanyName(current.ownerId, data.companyName);
+      } catch (err) {
+        console.error("Failed to update company name on simulated jobs:", err);
+      }
+    }
+
     return updated;
   },
 };
