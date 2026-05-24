@@ -144,3 +144,17 @@ class ApplicationEnhanceResponse(BaseModel):
     recommendedPrice: Optional[float] = None
     recommendedDays: Optional[int] = None
     upsellSuggestion: Optional[str] = None
+
+class JobAnalyzeRequest(BaseModel):
+    title: str
+    description: str
+
+class JobAnalyzeResponse(BaseModel):
+    aiExtractedSkills: List[str]
+    aiGeneratedSummary: str
+    aiDifficultyScore: int
+    difficultyLevel: str
+    suggestedCategory: str
+    deliverables: List[str]
+    workflowComplexity: str
+    collaborationRequirements: str

@@ -163,9 +163,11 @@ export const applicationService = {
 
     if (status === "accepted") {
       try {
-        await workflowService.createWorkflowFromApplication(updatedApp);
+        const workflowId = await workflowService.createWorkflowFromApplication(updatedApp);
+        const { escrowService } = await import("@/lib/escrow-service");
+        await escrowService.createEscrowFromAcceptedApplication(updatedApp, workflowId);
       } catch (e) {
-        console.error("Error creating Workflow Workspace during acceptance workflow", e);
+        console.error("Error creating Workflow Workspace and Escrow during acceptance workflow", e);
       }
     }
 

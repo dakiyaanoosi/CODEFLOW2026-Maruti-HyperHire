@@ -17,9 +17,29 @@ export async function analyzeJobDescription(
   title: string,
   description: string
 ): Promise<AIJobAnalysis> {
-  // Simulate AI processing delay (1.2 seconds)
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_AI_API_URL || "https://hyperhire-ai-engine.onrender.com";
+    const res = await fetch(`${apiUrl}/job/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description }),
+    });
 
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        aiExtractedSkills: data.aiExtractedSkills || [],
+        aiGeneratedSummary: data.aiGeneratedSummary || "",
+        aiDifficultyScore: data.aiDifficultyScore || 5,
+        difficultyLevel: (data.difficultyLevel || "Intermediate") as JobDifficulty,
+        suggestedCategory: data.suggestedCategory || "Web Development",
+      };
+    }
+  } catch (err) {
+    console.error("AI job analyze backend failed, falling back to local:", err);
+  }
+
+  // Local fallback (deterministic, no Math.random)
   const combinedText = `${title} ${description}`.toLowerCase();
   const extractedSkillsSet = new Set<string>();
   let suggestedCategory = "Web Development";
@@ -166,7 +186,7 @@ export async function analyzeJobDescription(
   }
 
   // Determine difficulty score (1-10) and level
-  let aiDifficultyScore = 4; // default intermediate
+  let aiDifficultyScore = 5;
   let difficultyLevel: JobDifficulty = "Intermediate";
 
   if (
@@ -177,7 +197,7 @@ export async function analyzeJobDescription(
     combinedText.includes("advanced") ||
     combinedText.includes("lead")
   ) {
-    aiDifficultyScore = Math.floor(Math.random() * 3) + 8; // 8-10
+    aiDifficultyScore = 8;
     difficultyLevel = "Advanced";
   } else if (
     combinedText.includes("junior") ||
@@ -187,15 +207,15 @@ export async function analyzeJobDescription(
     combinedText.includes("beginner") ||
     combinedText.includes("easy")
   ) {
-    aiDifficultyScore = Math.floor(Math.random() * 3) + 1; // 1-3
+    aiDifficultyScore = 2;
     difficultyLevel = "Beginner";
   } else {
-    aiDifficultyScore = Math.floor(Math.random() * 4) + 4; // 4-7
+    aiDifficultyScore = 5;
     difficultyLevel = "Intermediate";
   }
 
   // Validate suggestedCategory against ALL_CATEGORIES
-  if (!ALL_CATEGORIES.includes(suggestedCategory as any)) {
+  if (!ALL_CATEGORIES.includes(suggestedCategory as typeof ALL_CATEGORIES[number])) {
     suggestedCategory = ALL_CATEGORIES[0] || "Web Development";
   }
 

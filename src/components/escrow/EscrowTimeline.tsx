@@ -4,14 +4,16 @@ import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, Send, Banknote, AlertTriangle } from "lucide-react";
 import type { EscrowEvent } from "@/types/escrow";
 const EVENT_CONFIG: Record<
-  EscrowEvent["type"],
+  string,
   { label: string; Icon: React.ElementType; color: string; ring: string }
 > = {
-  funded:    { label: "Escrow Funded",       Icon: Banknote,       color: "text-brand-mustard",  ring: "bg-brand-yellow/20 border-brand-mustard/30" },
-  submitted: { label: "Work Submitted",      Icon: Send,           color: "text-brand-info",     ring: "bg-[#254fad]/10 border-[#458fff]/30" },
-  approved:  { label: "Work Approved",       Icon: CheckCircle2,   color: "text-brand-success",  ring: "bg-brand-mint/20 border-brand-success/30" },
-  released:  { label: "Funds Released",      Icon: Banknote,       color: "text-[#0a2e0e]",      ring: "bg-[#0a2e0e]/10 border-[#0a2e0e]/20" },
-  disputed:  { label: "Dispute Raised",      Icon: AlertTriangle,  color: "text-brand-coral",    ring: "bg-brand-coral/10 border-brand-coral/30" },
+  funded:             { label: "Escrow Funded",       Icon: Banknote,       color: "text-brand-mustard",  ring: "bg-brand-yellow/20 border-brand-mustard/30" },
+  completed:          { label: "Work Completed",      Icon: CheckCircle2,   color: "text-brand-success",  ring: "bg-brand-mint/20 border-brand-success/30" },
+  released:           { label: "Funds Released",      Icon: Banknote,       color: "text-emerald-600",    ring: "bg-emerald-500/10 border-emerald-500/20" },
+  revision_requested: { label: "Revision Requested",  Icon: AlertTriangle,  color: "text-brand-coral",    ring: "bg-brand-coral/10 border-brand-coral/25" },
+  submitted:          { label: "Work Submitted",      Icon: Send,           color: "text-brand-info",     ring: "bg-[#254fad]/10 border-[#458fff]/30" },
+  approved:           { label: "Work Approved",       Icon: CheckCircle2,   color: "text-brand-success",  ring: "bg-brand-mint/20 border-brand-success/30" },
+  disputed:           { label: "Dispute Raised",      Icon: AlertTriangle,  color: "text-brand-coral",    ring: "bg-brand-coral/10 border-brand-coral/30" },
 };
 function fmt(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {

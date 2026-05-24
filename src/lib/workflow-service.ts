@@ -24,7 +24,7 @@ import { Application } from "@/types/application";
 import { notificationService } from "@/lib/notification-service";
 import { trustService } from "@/lib/trust/trust-service";
 
-const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Completed"];
+const DEFAULT_COLUMNS = ["Pending", "In Progress", "Revision", "Completed", "Paid"];
 
 export const workflowService = {
   /**
@@ -44,7 +44,7 @@ export const workflowService = {
       applicationId: app.applicationId,
       studentId: app.studentId,
       businessId: app.businessId,
-      status: "active",
+      status: "Pending",
       progress: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -242,6 +242,14 @@ export const workflowService = {
       updatedAt: new Date().toISOString(),
     });
 
+    if (newColumnName === "In Progress") {
+      const workflowRef = doc(db!, "workflows", workflowId);
+      batch.update(workflowRef, {
+        status: "In Progress",
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
     const activityId = `act_${Date.now()}`;
     const activityRef = doc(db!, "workflowActivity", activityId);
     batch.set(activityRef, {
@@ -283,7 +291,7 @@ export const workflowService = {
         taskId,
         "task"
       );
-    } else if (newColumnName === "Review") {
+    } else if (newColumnName === "Review" || newColumnName === "Revision") {
       await trustService.logTrustEvent(
         studentId,
         "student",
@@ -347,5 +355,17 @@ export const workflowService = {
         actionUrl: `/workflows/${activity.workflowId}`
       });
     }
+  },
+
+  /**
+   * Update workflow status directly
+   */
+  async updateWorkflowStatus(workflowId: string, status: Workflow["status"]) {
+    if (!db) throw new Error("Firestore is not initialized.");
+    const workflowRef = doc(db, "workflows", workflowId);
+    await updateDoc(workflowRef, {
+      status,
+      updatedAt: new Date().toISOString()
+    });
   }
 };

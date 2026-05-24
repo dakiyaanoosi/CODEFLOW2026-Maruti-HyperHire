@@ -1,5 +1,4 @@
-import type { EscrowTransaction, EscrowSummary, EscrowStatus } from "@/types/escrow";
-import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { 
   collection, 
   doc, 
@@ -8,125 +7,37 @@ import {
   getDocs, 
   query, 
   where, 
-  writeBatch 
+  updateDoc,
+  onSnapshot,
+  Timestamp
 } from "firebase/firestore";
+import type { Escrow, EscrowSummary, EscrowStatus, EscrowEvent } from "@/types/escrow";
+import type { Application } from "@/types/application";
 
-const now = () => new Date().toISOString();
+const COLLECTION_NAME = "escrows";
 
-const SEED_TRANSACTIONS: EscrowTransaction[] = [
-  {
-    escrowId: "esc_001",
-    jobId: "job_001",
-    jobTitle: "Landing Page Redesign",
-    businessId: "biz_001",
-    businessName: "Verve Studio",
-    studentId: "stu_001",
-    studentName: "Ananya Sharma",
-    amount: 18_000,
-    platformFee: 1_800,
-    netPayout: 16_200,
-    currency: "INR",
-    status: "in_review",
-    createdAt: "2026-05-01T09:00:00Z",
-    updatedAt: "2026-05-20T14:30:00Z",
-    submissionNote: "All deliverables uploaded to the shared drive. Figma file & exported assets included.",
-    timeline: [
-      { type: "funded",    timestamp: "2026-05-01T09:00:00Z", note: "Escrow funded by Verve Studio" },
-      { type: "submitted", timestamp: "2026-05-20T14:30:00Z", note: "Student submitted final deliverables" },
-    ],
-  },
-  {
-    escrowId: "esc_002",
-    jobId: "job_002",
-    jobTitle: "API Integration",
-    businessId: "biz_001",
-    businessName: "Verve Studio",
-    studentId: "stu_002",
-    studentName: "Rohan Mehta",
-    amount: 13_000,
-    platformFee: 1_300,
-    netPayout: 11_700,
-    currency: "INR",
-    status: "approved",
-    createdAt: "2026-04-15T10:00:00Z",
-    updatedAt: "2026-05-18T11:00:00Z",
-    approvalNote: "Excellent work — all endpoints tested and passing.",
-    timeline: [
-      { type: "funded",    timestamp: "2026-04-15T10:00:00Z" },
-      { type: "submitted", timestamp: "2026-05-10T16:45:00Z" },
-      { type: "approved",  timestamp: "2026-05-18T11:00:00Z", note: "Excellent work — all endpoints tested and passing." },
-    ],
-  },
-  {
-    escrowId: "esc_003",
-    jobId: "job_003",
-    jobTitle: "ML Model Integration",
-    businessId: "biz_002",
-    businessName: "NovaTech",
-    studentId: "stu_003",
-    studentName: "Dev Kapoor",
-    amount: 92_000,
-    platformFee: 9_200,
-    netPayout: 82_800,
-    currency: "INR",
-    status: "released",
-    createdAt: "2026-03-01T08:00:00Z",
-    updatedAt: "2026-05-10T09:00:00Z",
-    approvalNote: "Model accuracy exceeded targets. Released immediately.",
-    timeline: [
-      { type: "funded",    timestamp: "2026-03-01T08:00:00Z" },
-      { type: "submitted", timestamp: "2026-05-05T12:00:00Z" },
-      { type: "approved",  timestamp: "2026-05-08T15:00:00Z" },
-      { type: "released",  timestamp: "2026-05-10T09:00:00Z", note: "Funds transferred to student wallet." },
-    ],
-  },
-  {
-    escrowId: "esc_004",
-    jobId: "job_004",
-    jobTitle: "Mobile App UI",
-    businessId: "biz_002",
-    businessName: "NovaTech",
-    studentId: "stu_004",
-    studentName: "Fatima Noor",
-    amount: 48_000,
-    platformFee: 4_800,
-    netPayout: 43_200,
-    currency: "INR",
-    status: "funded",
-    createdAt: "2026-05-15T07:00:00Z",
-    updatedAt: "2026-05-15T07:00:00Z",
-    timeline: [
-      { type: "funded", timestamp: "2026-05-15T07:00:00Z", note: "Escrow funded. Awaiting student delivery." },
-    ],
-  },
-  {
-    escrowId: "esc_005",
-    jobId: "job_005",
-    jobTitle: "Brand Identity Kit",
-    businessId: "biz_003",
-    businessName: "Pixel Labs",
-    studentId: "stu_005",
-    studentName: "Priya Singh",
-    amount: 52_000,
-    platformFee: 5_200,
-    netPayout: 46_800,
-    currency: "INR",
-    status: "in_review",
-    createdAt: "2026-05-02T11:00:00Z",
-    updatedAt: "2026-05-22T10:00:00Z",
-    submissionNote: "Brand guidelines PDF, logo files (SVG/PNG), and color palette sheet delivered.",
-    timeline: [
-      { type: "funded",    timestamp: "2026-05-02T11:00:00Z" },
-      { type: "submitted", timestamp: "2026-05-22T10:00:00Z" },
-    ],
-  },
-];
+/**
+ * Helper to serialize Firestore document data (converting Timestamps to ISO strings for UI)
+ */
+function serializeEscrow(data: any, id: string): Escrow {
+  return {
+    ...data,
+    escrowId: id,
+    fundedAt: data.fundedAt?.toDate ? data.fundedAt.toDate().toISOString() : data.fundedAt,
+    releasedAt: data.releasedAt?.toDate ? data.releasedAt.toDate().toISOString() : data.releasedAt,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+    timeline: (data.timeline || []).map((ev: any) => ({
+      ...ev,
+      timestamp: ev.timestamp?.toDate ? ev.timestamp.toDate().toISOString() : ev.timestamp,
+    })),
+  };
+}
 
-// Local memory fallback store
-let _store: EscrowTransaction[] = SEED_TRANSACTIONS.map((t) => ({ ...t, timeline: [...t.timeline] }));
-
-// Clean object helper
-function cleanData(data: any) {
+/**
+ * Helper to remove undefined properties before writing to Firestore
+ */
+function cleanFirestoreData(data: any) {
   const clean: any = {};
   Object.keys(data).forEach((key) => {
     if (data[key] !== undefined) {
@@ -136,176 +47,339 @@ function cleanData(data: any) {
   return clean;
 }
 
-// Seed function
-async function seedEscrowsIfEmpty() {
-  if (!isFirebaseConfigured || !db) return;
-  try {
-    const snap = await getDocs(collection(db, "escrows"));
-    if (snap.empty) {
-      const batch = writeBatch(db);
-      SEED_TRANSACTIONS.forEach((t) => {
-        const ref = doc(db!, "escrows", t.escrowId);
-        batch.set(ref, cleanData(t));
-      });
-      await batch.commit();
-      console.log("[Escrow Service] Seeded default transactions to Firestore.");
-    }
-  } catch (e) {
-    console.error("Failed to seed escrows to Firestore:", e);
-  }
-}
-
-// Helper to compile summary from a list of transactions
-function compileSummary(txns: EscrowTransaction[]): EscrowSummary {
+/**
+ * Helper to compile summary from a list of escrows
+ */
+function compileSummary(txns: Escrow[]): EscrowSummary {
   return {
     totalFunded:     txns.reduce((s, t) => s + t.amount, 0),
-    totalReleased:   txns.filter((t) => t.status === "released").reduce((s, t) => s + t.netPayout, 0),
-    pendingApproval: txns.filter((t) => t.status === "in_review").length,
-    inReview:        txns.filter((t) => t.status === "in_review").length,
+    totalReleased:   txns.filter((t) => t.status === "released").reduce((s, t) => s + (t.payoutAmount || t.amount * 0.9), 0),
+    pendingApproval: txns.filter((t) => t.status === "completed").length,
+    inReview:        txns.filter((t) => t.status === "completed").length,
     transactions:    txns,
   };
 }
 
-// ─── Read helpers ─────────────────────────────────────────────────────────────
-export async function getEscrowSummary(_uid: string, role: "student" | "business"): Promise<EscrowSummary> {
-  if (isFirebaseConfigured && db) {
+export const escrowService = {
+  /**
+   * Create a new escrow upon application acceptance
+   */
+  async createEscrowFromAcceptedApplication(app: Application, workflowId: string): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+
+    const escrowId = `esc_${app.applicationId}`;
+    const escrowRef = doc(db, COLLECTION_NAME, escrowId);
+
+    const amount = app.proposedBudget || 100;
+    const platformFee = Math.round(amount * 0.1);
+    const payoutAmount = amount - platformFee;
+
+    const now = Timestamp.now();
+    const newEscrow: any = {
+      escrowId,
+      workflowId,
+      applicationId: app.applicationId,
+      jobId: app.jobId,
+      businessId: app.businessId,
+      studentId: app.studentId,
+      amount,
+      platformFee,
+      payoutAmount,
+      status: "funded" as EscrowStatus,
+      fundedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      jobTitle: app.jobTitle,
+      businessName: app.companyName,
+      studentName: app.studentName,
+      timeline: [
+        { type: "funded", timestamp: now, note: "Escrow funded. Awaiting student delivery." }
+      ]
+    };
+
+    await setDoc(escrowRef, cleanFirestoreData(newEscrow));
+
+    // Send notification
     try {
-      await seedEscrowsIfEmpty();
-      const colRef = collection(db, "escrows");
+      const { notificationService } = await import("@/lib/notification-service");
+      await notificationService.createNotification({
+        userId: app.studentId,
+        type: "success",
+        title: "Escrow Funded! 💰",
+        description: `Escrow has been funded for "${app.jobTitle}" by ${app.companyName}.`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: "/escrow"
+      });
+    } catch (e) {
+      console.error("Error creating escrow notification:", e);
+    }
+
+    return serializeEscrow(newEscrow, escrowId);
+  },
+
+  /**
+   * Fetch all escrows for a specific user
+   */
+  async getEscrowsByUser(userId: string, role: "student" | "business"): Promise<Escrow[]> {
+    if (!db) return [];
+    try {
       const q = query(
-        colRef,
-        where(role === "business" ? "businessId" : "studentId", "==", _uid)
+        collection(db, COLLECTION_NAME),
+        where(role === "business" ? "businessId" : "studentId", "==", userId)
       );
       const snap = await getDocs(q);
-      const txns: EscrowTransaction[] = [];
+      const list: Escrow[] = [];
       snap.forEach((d) => {
-        txns.push(d.data() as EscrowTransaction);
+        list.push(serializeEscrow(d.data(), d.id));
       });
-      // Sort in memory by updatedAt descending
-      txns.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      return compileSummary(txns);
+      return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     } catch (error) {
-      console.error("Firestore getEscrowSummary error, falling back to memory:", error);
+      console.error("Error getEscrowsByUser:", error);
+      return [];
     }
-  }
-  
-  // Memory/Local storage fallback
-  const txns = role === "business"
-    ? _store.filter((t) => t.businessId === _uid)  
-    : _store.filter((t) => t.studentId === _uid);  
-  return compileSummary(txns);
-}
+  },
 
-export async function getEscrowById(escrowId: string): Promise<EscrowTransaction | null> {
-  if (isFirebaseConfigured && db) {
+  /**
+   * Listen to active escrows for live updates
+   */
+  subscribeToEscrows(userId: string, role: "student" | "business", callback: (escrows: Escrow[]) => void) {
+    if (!db) return () => {};
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where(role === "business" ? "businessId" : "studentId", "==", userId)
+    );
+    return onSnapshot(q, (snap) => {
+      const results: Escrow[] = [];
+      snap.forEach((docSnap) => results.push(serializeEscrow(docSnap.data(), docSnap.id)));
+      results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      callback(results);
+    });
+  },
+
+  /**
+   * Fetch escrow summary statistics
+   */
+  async getEscrowSummary(userId: string, role: "student" | "business"): Promise<EscrowSummary> {
+    const list = await this.getEscrowsByUser(userId, role);
+    return compileSummary(list);
+  },
+
+  /**
+   * Fetch an escrow by ID
+   */
+  async getEscrowById(escrowId: string): Promise<Escrow | null> {
+    if (!db) return null;
+    const snap = await getDoc(doc(db, COLLECTION_NAME, escrowId));
+    return snap.exists() ? serializeEscrow(snap.data(), snap.id) : null;
+  },
+
+  /**
+   * Student marks escrow/work completed (submits deliverable)
+   */
+  async submitWork(escrowId: string, note: string): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+    const current = await this.getEscrowById(escrowId);
+    if (!current) throw new Error("Escrow not found");
+
+    const now = Timestamp.now();
+    const timelineEvent: EscrowEvent = {
+      type: "completed",
+      timestamp: now as any,
+      note
+    };
+
+    const docRef = doc(db, COLLECTION_NAME, escrowId);
+    await updateDoc(docRef, {
+      status: "completed" as EscrowStatus,
+      submissionNote: note,
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+
+    // Also update workflow status to completed
     try {
-      const docRef = doc(db, "escrows", escrowId);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        return snap.data() as EscrowTransaction;
-      }
-      return null;
-    } catch (error) {
-      console.error("Firestore getEscrowById error:", error);
+      const { workflowService } = await import("@/lib/workflow-service");
+      await workflowService.updateWorkflowStatus(current.workflowId, "completed");
+    } catch (e) {
+      console.error("Error updating workflow status in submitWork:", e);
     }
-  }
-  return _store.find((t) => t.escrowId === escrowId) ?? null;
-}
 
-// ─── Mutations ────────────────────────────────────────────────────────────────
-export async function approveEscrow(escrowId: string, note: string): Promise<EscrowTransaction> {
-  const ts = now();
-  const current = await getEscrowById(escrowId);
-  if (!current) throw new Error("Escrow not found");
-
-  const updated: EscrowTransaction = {
-    ...current,
-    status: "approved" as EscrowStatus,
-    approvalNote: note,
-    updatedAt: ts,
-    timeline: [...current.timeline, { type: "approved", timestamp: ts, note }],
-  };
-
-  if (isFirebaseConfigured && db) {
+    // Trigger notification to business
     try {
-      const docRef = doc(db, "escrows", escrowId);
-      await setDoc(docRef, cleanData(updated), { merge: true });
-      return updated;
-    } catch (error) {
-      console.error("Firestore approveEscrow error, saving to memory:", error);
+      const { notificationService } = await import("@/lib/notification-service");
+      await notificationService.createNotification({
+        userId: current.businessId,
+        type: "success",
+        title: "Deliverable Submitted",
+        description: `${current.studentName} has submitted deliverables for "${current.jobTitle}".`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: "/escrow"
+      });
+    } catch (e) {
+      console.error("Error sending submit notification:", e);
     }
-  }
 
-  const idx = _store.findIndex((t) => t.escrowId === escrowId);
-  if (idx !== -1) {
-    _store[idx] = updated;
-  }
-  return updated;
-}
+    const updated = await this.getEscrowById(escrowId);
+    return updated!;
+  },
 
-export async function releaseEscrow(escrowId: string): Promise<EscrowTransaction> {
-  const ts = now();
-  const current = await getEscrowById(escrowId);
-  if (!current) throw new Error("Escrow not found");
-  if (current.status !== "approved") throw new Error("Escrow must be approved before release");
+  /**
+   * Business requests a revision
+   */
+  async requestRevision(escrowId: string, note: string): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+    const current = await this.getEscrowById(escrowId);
+    if (!current) throw new Error("Escrow not found");
 
-  const updated: EscrowTransaction = {
-    ...current,
-    status: "released" as EscrowStatus,
-    updatedAt: ts,
-    timeline: [
-      ...current.timeline,
-      { type: "released", timestamp: ts, note: "Funds transferred to student wallet." },
-    ],
-  };
+    const now = Timestamp.now();
+    const timelineEvent: EscrowEvent = {
+      type: "revision_requested",
+      timestamp: now as any,
+      note
+    };
 
-  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, COLLECTION_NAME, escrowId);
+    await updateDoc(docRef, {
+      status: "revision_requested" as EscrowStatus,
+      revisionNote: note,
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+
+    // Also update workflow status to revision
     try {
-      const docRef = doc(db, "escrows", escrowId);
-      await setDoc(docRef, cleanData(updated), { merge: true });
-      return updated;
-    } catch (error) {
-      console.error("Firestore releaseEscrow error, saving to memory:", error);
+      const { workflowService } = await import("@/lib/workflow-service");
+      await workflowService.updateWorkflowStatus(current.workflowId, "Revision");
+    } catch (e) {
+      console.error("Error updating workflow status in requestRevision:", e);
     }
-  }
 
-  const idx = _store.findIndex((t) => t.escrowId === escrowId);
-  if (idx !== -1) {
-    _store[idx] = updated;
-  }
-  return updated;
-}
-
-export async function submitWork(escrowId: string, note: string): Promise<EscrowTransaction> {
-  const ts = now();
-  const current = await getEscrowById(escrowId);
-  if (!current) throw new Error("Escrow not found");
-
-  const updated: EscrowTransaction = {
-    ...current,
-    status: "in_review" as EscrowStatus,
-    submissionNote: note,
-    updatedAt: ts,
-    timeline: [
-      ...current.timeline,
-      { type: "submitted", timestamp: ts, note },
-    ],
-  };
-
-  if (isFirebaseConfigured && db) {
+    // Notify student
     try {
-      const docRef = doc(db, "escrows", escrowId);
-      await setDoc(docRef, cleanData(updated), { merge: true });
-      return updated;
-    } catch (error) {
-      console.error("Firestore submitWork error, saving to memory:", error);
+      const { notificationService } = await import("@/lib/notification-service");
+      await notificationService.createNotification({
+        userId: current.studentId,
+        type: "warning",
+        title: "Revision Requested ⚠️",
+        description: `${current.businessName} requested a revision on "${current.jobTitle}".`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: "/escrow"
+      });
+    } catch (e) {
+      console.error("Error sending revision notification:", e);
     }
-  }
 
-  const idx = _store.findIndex((t) => t.escrowId === escrowId);
-  if (idx !== -1) {
-    _store[idx] = updated;
-  }
-  return updated;
-}
+    const updated = await this.getEscrowById(escrowId);
+    return updated!;
+  },
 
+  /**
+   * Business approves work & releases escrow payment
+   */
+  async releaseEscrow(escrowId: string): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+    const current = await this.getEscrowById(escrowId);
+    if (!current) throw new Error("Escrow not found");
+
+    const now = Timestamp.now();
+    const timelineEvent: EscrowEvent = {
+      type: "released",
+      timestamp: now as any,
+      note: "Funds released to student wallet."
+    };
+
+    const docRef = doc(db, COLLECTION_NAME, escrowId);
+    await updateDoc(docRef, {
+      status: "released" as EscrowStatus,
+      releasedAt: now,
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+
+    // 1. Update workflow status to paid
+    try {
+      const { workflowService } = await import("@/lib/workflow-service");
+      await workflowService.updateWorkflowStatus(current.workflowId, "Paid");
+    } catch (e) {
+      console.error("Error updating workflow status in releaseEscrow:", e);
+    }
+
+    // 2. Log student trust event
+    try {
+      const { trustService } = await import("@/lib/trust/trust-service");
+      await trustService.logTrustEvent(
+        current.studentId,
+        "student",
+        "reliability",
+        15,
+        `Successful escrow release for "${current.jobTitle}"`,
+        current.workflowId,
+        "workflow"
+      );
+    } catch (e) {
+      console.error("Error logging trust event in releaseEscrow:", e);
+    }
+
+    // 3. Generate portfolio proof-of-work dynamically
+    try {
+      const { portfolioService } = await import("@/lib/portfolio-service");
+      // Add dynamic portfolio item
+      await portfolioService.createPortfolioItem({
+        userId: current.studentId,
+        title: `${current.jobTitle} - Proof of Work`,
+        description: `Successfully completed project: "${current.jobTitle}" for client ${current.businessName}.`,
+        category: "Web Development", // fallback category
+        mediaType: "link",
+        mediaUrl: "https://hyperhire.dev/proof/" + current.escrowId,
+        tags: ["hyperhire", "verified", "escrow"],
+        aiSummary: `Verified proof of milestone completion for "${current.jobTitle}" via HyperHire Escrow contract.`,
+        isVerified: true,
+        verifiedProofLabel: "Completed via HyperHire Marketplace",
+        linkedClient: current.businessName,
+        linkedWorkflowId: current.workflowId,
+        linkedJobId: current.jobId
+      } as any);
+    } catch (e) {
+      console.error("Error generating portfolio proof-of-work:", e);
+    }
+
+    // 4. Notify student
+    try {
+      const { notificationService } = await import("@/lib/notification-service");
+      await notificationService.createNotification({
+        userId: current.studentId,
+        type: "success",
+        title: "Payment Released! 💸",
+        description: `${current.businessName} has released your payment of ₹${current.payoutAmount?.toLocaleString("en-IN")}.`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: "/escrow"
+      });
+    } catch (e) {
+      console.error("Error sending release notification:", e);
+    }
+
+    const updated = await this.getEscrowById(escrowId);
+    return updated!;
+  },
+
+  /**
+   * Alias legacy function to avoid breaking pages
+   */
+  async approveEscrow(escrowId: string, note: string): Promise<Escrow> {
+    // In our new flow, approve maps to releaseEscrow
+    return this.releaseEscrow(escrowId);
+  }
+};
+
+// Default export compatibility
+export default escrowService;
+export const getEscrowSummary = (uid: string, role: "student" | "business") => escrowService.getEscrowSummary(uid, role);
+export const getEscrowById = (escrowId: string) => escrowService.getEscrowById(escrowId);
+export const approveEscrow = (escrowId: string, note: string) => escrowService.approveEscrow(escrowId, note);
+export const releaseEscrow = (escrowId: string) => escrowService.releaseEscrow(escrowId);
+export const submitWork = (escrowId: string, note: string) => escrowService.submitWork(escrowId, note);
+export const requestRevision = (escrowId: string, note: string) => escrowService.requestRevision(escrowId, note);

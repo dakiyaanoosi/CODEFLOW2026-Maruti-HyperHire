@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
-import random
+from generation import call_llm_json
 
 router = APIRouter(prefix="/talent")
 
@@ -39,135 +39,182 @@ class TalentSearchResponse(BaseModel):
     recruiterGuidance: List[AIRecruiterGuidance]
     searchIntentExtracted: List[str]
 
+TALENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "matches": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "userId": {"type": "string"},
+                    "semanticScore": {"type": "integer"},
+                    "diversityBonus": {"type": "integer"},
+                    "freshnessWeight": {"type": "integer"},
+                    "overallScore": {"type": "integer"},
+                    "matchReasoning": {"type": "string"},
+                    "riskFactors": {"type": "array", "items": {"type": "string"}},
+                    "rarityIndicators": {"type": "array", "items": {"type": "string"}},
+                    "momentum": {"type": "string"}
+                },
+                "required": ["userId", "semanticScore", "diversityBonus", "freshnessWeight", "overallScore", "matchReasoning", "riskFactors", "rarityIndicators", "momentum"],
+                "additionalProperties": False
+            }
+        },
+        "recruiterGuidance": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string"},
+                    "type": {"type": "string"}
+                },
+                "required": ["message", "type"],
+                "additionalProperties": False
+            }
+        },
+        "searchIntentExtracted": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["matches", "recruiterGuidance", "searchIntentExtracted"],
+    "additionalProperties": False
+}
 
 @router.post("/search", response_model=TalentSearchResponse)
 def search_talent(payload: TalentSearchRequest):
     """
     Semantic Workforce Graph Search Engine.
     Executes intent extraction, semantic overlap, and diversity balancing.
+    Uses LLM if available; otherwise falls back to local semantic match calculations.
     """
-    query_lower = payload.query.lower()
-    matches = []
-    
-    # 1. Search Intent Extraction (Mocked via heuristics for speed)
-    intent_tags = []
-    if "ai" in query_lower or "artificial intelligence" in query_lower:
-        intent_tags.append("AI/Machine Learning Focus")
-    if "react" in query_lower or "frontend" in query_lower:
-        intent_tags.append("Frontend Architecture")
-    if "backend" in query_lower or "node" in query_lower:
-        intent_tags.append("Backend Scalability")
-    if "design" in query_lower or "ui" in query_lower or "ux" in query_lower:
-        intent_tags.append("User Experience Focus")
+    try:
+        system_prompt = (
+            "You are an expert AI recruiter.\n"
+            "Rank candidates against the search query.\n"
+            "Evaluate candidate skills, bioSnippet, preferred categories, and experience level.\n"
+            "Produce overallScore (1-100), semanticScore (1-100), matchReasoning, riskFactors, rarityIndicators, and momentum ('stable', 'rising', 'declining').\n"
+            "Also provide recruiterGuidance (opportunities, warnings, trends) and searchIntentExtracted tags.\n"
+            "You must return a JSON object matching the requested schema."
+        )
         
-    if not intent_tags:
-        intent_tags = ["General Software Engineering"]
+        user_payload = {
+            "query": payload.query,
+            "candidates": [c.model_dump() for c in payload.candidates]
+        }
+        
+        llm_result = call_llm_json(system_prompt, user_payload, TALENT_SCHEMA)
+        
+        if llm_result:
+            matches_data = llm_result.get("matches", [])
+            matches = [
+                CandidateMatch(**m) for m in matches_data
+            ]
+            guidance = [
+                AIRecruiterGuidance(**g) for g in llm_result.get("recruiterGuidance", [])
+            ]
+            return TalentSearchResponse(
+                matches=matches,
+                recruiterGuidance=guidance,
+                searchIntentExtracted=llm_result.get("searchIntentExtracted", [])
+            )
+            
+    except Exception as e:
+        print(f"Error calling LLM for talent search: {e}")
 
-    # 2. Candidate Evaluation
-    for idx, candidate in enumerate(payload.candidates):
-        # Semantic Score Baseline
-        semantic_score = 40
-        match_reasons = []
-        risk_factors = []
-        rarity_indicators = []
-        
-        # Skill Overlap
-        cand_skills_lower = [s.lower() for s in candidate.skills]
-        query_words = set(query_lower.split())
-        
-        overlap_count = 0
-        for word in query_words:
-            if len(word) > 2 and any(word in s for s in cand_skills_lower):
-                overlap_count += 1
+    # Fallback path: Real semantic search using MiniLM embeddings
+    try:
+        matches = []
+        for idx, candidate in enumerate(payload.candidates):
+            # Create a pseudo-job representation of the query
+            pseudo_job = {
+                "title": "Search Request",
+                "description": payload.query,
+                "category": candidate.preferredCategories[0] if candidate.preferredCategories else "General",
+                "requiredSkills": [],
+                "difficultyLevel": "intermediate"
+            }
+            candidate_dict = {
+                "bio": candidate.bioSnippet,
+                "skills": candidate.skills,
+                "trustScore": candidate.trustScore,
+                "experienceLevel": candidate.experienceLevel,
+                "preferredCategories": candidate.preferredCategories
+            }
+            
+            from matcher import compute_score_and_reasoning
+            from schemas import MatchWeights
+            
+            match_pct, rank_score, conf_score, breakdown, reasoning = compute_score_and_reasoning(
+                job=pseudo_job,
+                candidate=candidate_dict,
+                portfolios=[],
+                weights=MatchWeights(
+                    semantic=0.6,
+                    skills=0.2,
+                    trust=0.1,
+                    experience=0.1,
+                    portfolio=0.0,
+                    category=0.0
+                )
+            )
+            
+            # Risk factors
+            risk_factors = []
+            if candidate.trustScore < 60:
+                risk_factors.append("Low trust rating (below 60%). Monitor deliverable milestones closely.")
                 
-        if overlap_count > 0:
-            semantic_score += (overlap_count * 15)
-            match_reasons.append(f"Direct semantic skill match found for query keywords.")
+            rarity = []
+            cand_skills_lower = [s.lower() for s in candidate.skills]
+            if "ai" in cand_skills_lower or "machine learning" in cand_skills_lower:
+                rarity.append("AI Specialist")
+            if "typescript" in cand_skills_lower and "react" in cand_skills_lower:
+                rarity.append("Full-Stack JS Specialist")
             
-        # Bio Overlap
-        if any(word in candidate.bioSnippet.lower() for word in query_words if len(word) > 4):
-            semantic_score += 15
-            match_reasons.append("Bio contains strong contextual alignment with your search intent.")
+            momentum = "stable"
+            if candidate.trustScore > 80:
+                momentum = "rising"
+            elif candidate.trustScore < 50:
+                momentum = "declining"
+                
+            matches.append(CandidateMatch(
+                userId=candidate.userId,
+                semanticScore=int(breakdown.semantic_similarity * 100),
+                diversityBonus=0,
+                freshnessWeight=0,
+                overallScore=int(match_pct),
+                matchReasoning=reasoning,
+                riskFactors=risk_factors,
+                rarityIndicators=rarity,
+                momentum=momentum
+            ))
             
-        # Market Rarity
-        if "AI" in candidate.skills and "UI/UX Design" in candidate.preferredCategories:
-            rarity_indicators.append("Rare Hybrid: AI + Design")
-            semantic_score += 10
-            
-        # Trust Evaluation
-        if candidate.trustScore < 60:
-            risk_factors.append("Below average Trust Score. Monitor workflow reliability closely.")
-        elif candidate.trustScore > 85:
-            match_reasons.append("Elite Trust Tier guarantees high workflow reliability.")
-            
-        # Experience Evaluation
-        if candidate.experienceLevel == "Beginner" and "expert" in query_lower:
-            semantic_score -= 20
-            risk_factors.append("Experience level may not match senior requirements.")
-            
-        # Final calculations
-        semantic_score = min(100, max(10, semantic_score))
+        # Rank by overall score descending
+        matches.sort(key=lambda x: x.overallScore, reverse=True)
         
-        # Diversity Bonus (Deterministic pseudo-randomness based on ID for demo)
-        diversity_bonus = (hash(candidate.userId) % 10) if idx > 0 else 0
-        freshness_weight = (hash(candidate.userId + "fresh") % 15)
+        # Intent tags
+        intent_tags = ["General Sourcing"]
+        query_lower = payload.query.lower()
+        if "react" in query_lower or "frontend" in query_lower:
+            intent_tags = ["Frontend Sourcing"]
+        elif "backend" in query_lower or "node" in query_lower:
+            intent_tags = ["Backend Sourcing"]
+        elif "ai" in query_lower or "ml" in query_lower or "machine" in query_lower:
+            intent_tags = ["AI/Machine Learning Sourcing"]
+            
+        guidance = [
+            AIRecruiterGuidance(
+                message=f"Ranked candidates semantically using local vector models. Match percentage corresponds to vector similarity against target description.",
+                type="market_trend"
+            )
+        ]
         
-        overall = min(100, int((semantic_score * 0.7) + (candidate.trustScore * 0.2) + (diversity_bonus + freshness_weight)))
-        
-        # Momentum
-        momentum = "stable"
-        if freshness_weight > 10 and candidate.trustScore > 75:
-            momentum = "rising"
-        elif candidate.trustScore < 50:
-            momentum = "declining"
-
-        if not match_reasons:
-            match_reasons.append("Broad skillset aligns with general requirements.")
-
-        matches.append(CandidateMatch(
-            userId=candidate.userId,
-            semanticScore=semantic_score,
-            diversityBonus=diversity_bonus,
-            freshnessWeight=freshness_weight,
-            overallScore=overall,
-            matchReasoning=match_reasons[0], # Pick primary reason
-            riskFactors=risk_factors,
-            rarityIndicators=rarity_indicators,
-            momentum=momentum
-        ))
-
-    # Sort by overall score
-    matches.sort(key=lambda x: x.overallScore, reverse=True)
-    
-    # 3. AI Recruiter Guidance Generation
-    guidance = []
-    
-    # Analyze the search results
-    high_trust_count = sum(1 for m in matches if m.overallScore > 75)
-    
-    if len(matches) == 0:
-        guidance.append(AIRecruiterGuidance(
-            message="Market Scarcity: This exact skill combination is currently rare. Consider removing 1 constraint.",
-            type="warning"
-        ))
-    elif high_trust_count == 0 and len(matches) > 0:
-        guidance.append(AIRecruiterGuidance(
-            message="Warning: The candidates matching this query have lower-than-average Trust Scores. Proceed with structured milestones.",
-            type="warning"
-        ))
-    elif len(intent_tags) > 1:
-        guidance.append(AIRecruiterGuidance(
-            message=f"Opportunity: You are searching for a hybrid role ({', '.join(intent_tags)}). These profiles often deliver massive startup value.",
-            type="opportunity"
-        ))
-    else:
-        guidance.append(AIRecruiterGuidance(
-            message="Market Trend: This category currently has a high volume of elite, verified talent available.",
-            type="market_trend"
-        ))
-
-    return TalentSearchResponse(
-        matches=matches,
-        recruiterGuidance=guidance,
-        searchIntentExtracted=intent_tags
-    )
+        return TalentSearchResponse(
+            matches=matches,
+            recruiterGuidance=guidance,
+            searchIntentExtracted=intent_tags
+        )
+    except Exception as e:
+        print(f"Error in fallback talent search: {e}")
+        return TalentSearchResponse(matches=[], recruiterGuidance=[], searchIntentExtracted=["General"])

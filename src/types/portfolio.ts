@@ -15,4 +15,11 @@ export interface PortfolioItem {
   aiSummary?: string; // AI generated portfolio summary
   createdAt: string;
   updatedAt: string;
+  
+  // Verified credentials for Aethon Grid
+  isVerified?: boolean;
+  verifiedProofLabel?: string;
+  linkedClient?: string;
+  linkedWorkflowId?: string;
+  linkedJobId?: string;
 }

@@ -138,7 +138,7 @@ export const analyticsService = {
       const revisionCount = tasksWithRevision + activitiesWithRevision;
 
       // Escrow / Earnings
-      const totalEarned = escrows.filter(e => e.status === "released").reduce((s, e) => s + e.netPayout, 0);
+      const totalEarned = escrows.filter(e => e.status === "released").reduce((s, e) => s + (e.payoutAmount ?? e.amount * 0.9), 0);
       const pendingEscrow = escrows.filter(e => e.status !== "released").reduce((s, e) => s + e.amount, 0);
       const releasedEscrow = totalEarned;
 
@@ -156,7 +156,7 @@ export const analyticsService = {
           const date = new Date(e.updatedAt || e.createdAt);
           const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
           if (trendMap[key] !== undefined) {
-            trendMap[key] += e.netPayout;
+            trendMap[key] += e.payoutAmount ?? e.amount * 0.9;
           }
         }
       });
@@ -473,7 +473,7 @@ export const analyticsService = {
 
       // Spending Intelligence
       const escrowedFunds = escrows.filter(e => e.status !== "released").reduce((s, e) => s + e.amount, 0);
-      const releasedPayouts = escrows.filter(e => e.status === "released").reduce((s, e) => s + e.netPayout, 0);
+      const releasedPayouts = escrows.filter(e => e.status === "released").reduce((s, e) => s + e.amount, 0);
 
       // Monthly Spend Trend
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -489,7 +489,7 @@ export const analyticsService = {
           const date = new Date(e.updatedAt || e.createdAt);
           const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
           if (spendMap[key] !== undefined) {
-            spendMap[key] += e.netPayout;
+            spendMap[key] += e.amount;
           }
         }
       });

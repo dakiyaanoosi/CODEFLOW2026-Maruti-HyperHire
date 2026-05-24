@@ -3,24 +3,33 @@ from fastapi import (
     HTTPException,
     Depends
 )
-
 from fastapi.middleware.cors import CORSMiddleware
-
 from pydantic import BaseModel
 
 from routes.matching import (
     router as matching_router
 )
-
 from routes.chat import (
     router as chat_router
 )
-
 from routes.workflow import (
     router as workflow_router
 )
-
-from model import get_model
+from routes.analytics import (
+    router as analytics_router
+)
+from routes.trust import (
+    router as trust_router
+)
+from routes.context import (
+    router as context_router
+)
+from routes.optimization import (
+    router as optimization_router
+)
+from routes.talent import (
+    router as talent_router
+)
 
 from security.auth import (
     create_access_token,
@@ -29,22 +38,17 @@ from security.auth import (
     get_current_user,
     UserClaims,
 )
-
 from security.rbac import (
     require_role,
     UserRole
 )
-
 import logging
-
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
-
 logger = logging.getLogger(__name__)
-
 
 app = FastAPI(
     title="HyperHire AI Engine",
@@ -52,11 +56,9 @@ app = FastAPI(
     version="2.1.0"
 )
 
-
 # =========================
 # CORS
 # =========================
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -65,170 +67,111 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # =========================
 # DUMMY DATABASE
 # =========================
-
 fake_users_db = {}
-
 
 # =========================
 # REQUEST MODELS
 # =========================
-
 class RegisterRequest(BaseModel):
     email: str
     password: str
     role: str = "student"
 
-
 class LoginRequest(BaseModel):
     email: str
     password: str
 
-
 # =========================
 # STARTUP
 # =========================
-
 @app.on_event("startup")
 def startup_event():
-
-    logger.info(
-        "Starting HyperHire AI Engine..."
-    )
-    logger.info(
-        "AI model will be lazy-loaded on the first embedding/matching request."
-    )
-
+    logger.info("Starting HyperHire AI Engine...")
+    logger.info("AI model will be lazy-loaded on the first embedding/matching request.")
 
 # =========================
 # ROOT
 # =========================
-
 @app.get("/")
 def read_root():
-
     return {
         "status": "online",
         "service": "HyperHire AI Engine",
         "model": "all-MiniLM-L6-v2"
     }
 
-
 # =========================
 # REGISTER
 # =========================
-
 @app.post("/register")
-async def register(
-    data: RegisterRequest
-):
-
+async def register(data: RegisterRequest):
     if data.email in fake_users_db:
-
         raise HTTPException(
             status_code=400,
             detail="User already exists"
         )
-
-    hashed = hash_password(
-        data.password
-    )
-
+    hashed = hash_password(data.password)
     fake_users_db[data.email] = {
         "email": data.email,
         "password": hashed,
         "role": data.role
     }
-
     return {
         "message": "User registered successfully"
     }
 
-
 # =========================
 # LOGIN
 # =========================
-
 @app.post("/login")
-async def login(
-    data: LoginRequest
-):
-
-    user = fake_users_db.get(
-        data.email
-    )
-
+async def login(data: LoginRequest):
+    user = fake_users_db.get(data.email)
     if not user:
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
         )
-
-    if not verify_password(
-        data.password,
-        user["password"]
-    ):
-
+    if not verify_password(data.password, user["password"]):
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
         )
-
     token = create_access_token({
-
         "sub": data.email,
         "email": data.email,
         "role": user["role"]
-
     })
-
     return {
         "access_token": token,
         "token_type": "bearer"
     }
 
-
 # =========================
 # PROTECTED ROUTE
 # =========================
-
 @app.get("/protected")
-async def protected_route(
-    current_user: UserClaims = Depends(
-        get_current_user
-    )
-):
-
+async def protected_route(current_user: UserClaims = Depends(get_current_user)):
     return {
         "message": "Protected route working",
         "user": current_user.email,
         "role": current_user.role
     }
 
-
 # =========================
 # ADMIN ROUTE
 # =========================
-
 @app.get("/admin")
-async def admin_route(
-    current_user: UserClaims = Depends(
-        require_role(UserRole.ADMIN)
-    )
-):
-
+async def admin_route(current_user: UserClaims = Depends(require_role(UserRole.ADMIN))):
     return {
         "message": "Admin access granted"
     }
 
-
 # =========================
-# ROUTERS
+# ROUTERS REGISTRATION
 # =========================
-
 app.include_router(
     matching_router,
     tags=["Matching"]
@@ -239,8 +182,9 @@ app.include_router(
     tags=["Chat"]
 )
 
-from routes.analytics import (
-    router as analytics_router
+app.include_router(
+    workflow_router,
+    tags=["Workflow"]
 )
 
 app.include_router(
@@ -248,17 +192,9 @@ app.include_router(
     tags=["Analytics"]
 )
 
-from routes.trust import (
-    router as trust_router
-)
-
 app.include_router(
     trust_router,
     tags=["Trust"]
-)
-
-from routes.context import (
-    router as context_router
 )
 
 app.include_router(
@@ -266,17 +202,9 @@ app.include_router(
     tags=["HyperAI Context Engine"]
 )
 
-from routes.optimization import (
-    router as optimization_router
-)
-
 app.include_router(
     optimization_router,
     tags=["HyperAI Optimization Engine"]
-)
-
-from routes.talent import (
-    router as talent_router
 )
 
 app.include_router(

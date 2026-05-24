@@ -6,9 +6,8 @@ import { Conversation, Message } from "@/types/message";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
 import { AiQuickReplies } from "./AiQuickReplies";
-import { AI_QUICK_REPLIES, AI_SUGGESTIONS } from "@/lib/message-utils";
+import { getContextualSuggestions } from "@/lib/message-utils";
 import { uploadFile } from "@/lib/cloudinary";
-import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatWindowProps {
@@ -152,8 +151,16 @@ export function ChatWindow({
             className="overflow-hidden"
           >
             <AiQuickReplies
-              replies={AI_QUICK_REPLIES}
-              suggestions={AI_SUGGESTIONS[currentUserRole] ?? []}
+              replies={getContextualSuggestions(
+                currentUserRole,
+                conversation,
+                messages[messages.length - 1]
+              ).replies}
+              suggestions={getContextualSuggestions(
+                currentUserRole,
+                conversation,
+                messages[messages.length - 1]
+              ).suggestions}
               onSelectReply={handleAiReply}
               onDismiss={() => setShowAi(false)}
             />

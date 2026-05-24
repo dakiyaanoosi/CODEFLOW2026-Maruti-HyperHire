@@ -1,40 +1,53 @@
-// ─── Escrow Domain Types ──────────────────────────────────────────────────────
+import { Timestamp } from "firebase/firestore";
+
 export type EscrowStatus =
-  | "funded"       
-  | "in_review"    
-  | "approved"     
-  | "released"     
-  | "disputed";    
-export type EscrowEvent =
-  | { type: "funded";    timestamp: string; note?: string }
-  | { type: "submitted"; timestamp: string; note?: string }
-  | { type: "approved";  timestamp: string; note?: string }
-  | { type: "released";  timestamp: string; note?: string }
-  | { type: "disputed";  timestamp: string; note?: string };
-export interface EscrowTransaction {
-  escrowId: string;
-  jobId: string;
-  jobTitle: string;
-  businessId: string;
-  businessName: string;
-  studentId: string;
-  studentName: string;
-  amount: number;         
-  platformFee: number;    
-  netPayout: number;      
-  currency: "INR";
-  status: EscrowStatus;
-  createdAt: string;      
-  updatedAt: string;      
-  timeline: EscrowEvent[];
-  submissionNote?: string;
-  approvalNote?: string;  
+  | "funded"
+  | "in_progress"
+  | "revision_requested"
+  | "completed"
+  | "released";
+
+export interface EscrowEvent {
+  type: string;
+  timestamp: string;
+  note?: string;
 }
-// ─── Summary shapes used by the dashboard widgets ────────────────────────────
+
+export interface Escrow {
+  escrowId: string;
+  workflowId: string;
+  applicationId: string;
+  jobId: string;
+
+  businessId: string;
+  studentId: string;
+
+  amount: number;
+  platformFee?: number;
+  payoutAmount?: number;
+
+  status: EscrowStatus;
+
+  fundedAt?: Timestamp | { toDate?: () => Date } | string | null;
+  releasedAt?: Timestamp | { toDate?: () => Date } | string | null;
+  createdAt: Timestamp | { toDate?: () => Date } | string;
+  updatedAt: Timestamp | { toDate?: () => Date } | string;
+
+  // UI convenience fields
+  jobTitle?: string;
+  businessName?: string;
+  studentName?: string;
+  submissionNote?: string;
+  revisionNote?: string;
+  timeline: EscrowEvent[];
+}
+
+export type EscrowTransaction = Escrow;
+
 export interface EscrowSummary {
   totalFunded: number;
   totalReleased: number;
-  pendingApproval: number;   
-  inReview: number;          
-  transactions: EscrowTransaction[];
+  pendingApproval: number;
+  inReview: number;
+  transactions: Escrow[];
 }

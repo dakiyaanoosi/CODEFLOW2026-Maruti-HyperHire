@@ -14,9 +14,12 @@ from schemas import (
     PortfolioSummarizeResponse,
     ApplicationEnhanceRequest,
     ApplicationEnhanceResponse,
+    JobAnalyzeRequest,
+    JobAnalyzeResponse,
 )
 from utils import get_embeddings
 from matcher import compute_score_and_reasoning
+from generation import call_llm_json, local_job_analysis
 import logging
 
 logger = logging.getLogger(__name__)
@@ -195,42 +198,159 @@ def portfolio_summarize_endpoint(request: PortfolioSummarizeRequest):
 @router.post("/application/enhance", response_model=ApplicationEnhanceResponse)
 def application_enhance_endpoint(request: ApplicationEnhanceRequest):
     """
-    Simulates an AI Smart Pitch Assistant that rewrites the cover letter and proposal.
-    In a production system, this would call an LLM. Here we use rule-based expansion to demonstrate the UX.
+    AI Smart Pitch Assistant that rewrites the cover letter and proposal.
+    Uses LLM when keys are configured; falls back to structured semantic templates.
     """
     try:
-        # Rule-based generation for demonstration
-        tone_prefix = "Hey there! " if request.tone.lower() == "conversational" else "Dear Hiring Team, "
+        system_prompt = (
+            "You are a professional AI pitch writer and application optimizer.\n"
+            "Enhance the student's cover message and proposal text to make it competitive for the job.\n"
+            "Do NOT write extremely verbose or robotic essays.\n"
+            "Keep the response concise, strategic, and professional.\n"
+            "You must return a JSON object matching the requested schema."
+        )
         
-        enhanced_cover = f"{tone_prefix}I am very interested in the '{request.jobTitle}' role. Based on your description, I am confident my skills align perfectly with what you're looking for. {request.coverMessage.strip()} I'm ready to dive in and deliver high-quality results."
+        user_payload = {
+            "coverMessage": request.coverMessage,
+            "proposalText": request.proposalText,
+            "tone": request.tone,
+            "jobTitle": request.jobTitle,
+            "jobDescription": request.jobDescription
+        }
         
-        enhanced_proposal = f"### Approach & Methodology\nI have carefully reviewed the requirements for '{request.jobTitle}'. My proposed approach:\n\n1. **Discovery & Alignment**: Understand the exact scope and target audience.\n2. **Execution**: {request.proposalText.strip()}\n3. **Review & Handover**: Deliver the final assets and provide any necessary support.\n\nI can start immediately and will ensure regular communication throughout the project."
-
-        # Simple rule-based suggestion for demonstration
-        # In a real app, the LLM would extract/suggest this based on the job description
-        desc_lower = request.jobDescription.lower()
+        llm_result = call_llm_json(system_prompt, user_payload, {
+            "type": "object",
+            "properties": {
+                "enhancedCoverMessage": {"type": "string"},
+                "enhancedProposalText": {"type": "string"},
+                "recommendedPrice": {"type": ["number", "null"]},
+                "recommendedDays": {"type": ["integer", "null"]},
+                "upsellSuggestion": {"type": ["string", "null"]}
+            },
+            "required": ["enhancedCoverMessage", "enhancedProposalText", "recommendedPrice", "recommendedDays", "upsellSuggestion"],
+            "additionalProperties": False
+        })
         
-        upsell = None
-        days = 7
-        if "design" in desc_lower or "ui" in desc_lower:
-            upsell = "Offer to include a mini style guide or 2 extra revision rounds for a 15% premium."
-            days = 5
-        elif "develop" in desc_lower or "api" in desc_lower or "backend" in desc_lower:
-            upsell = "Offer to include basic API documentation or unit tests as a quality guarantee."
-            days = 10
-        elif "video" in desc_lower or "edit" in desc_lower:
-            upsell = "Offer to provide raw project files or a short teaser clip for social media."
-            days = 4
-        else:
-            upsell = "Offer expedited delivery (2 days faster) for a small rush fee."
-
+        if llm_result:
+            return ApplicationEnhanceResponse(
+                enhancedCoverMessage=llm_result.get("enhancedCoverMessage", ""),
+                enhancedProposalText=llm_result.get("enhancedProposalText", ""),
+                recommendedPrice=llm_result.get("recommendedPrice"),
+                recommendedDays=llm_result.get("recommendedDays"),
+                upsellSuggestion=llm_result.get("upsellSuggestion")
+            )
+            
+    except Exception as e:
+        print(f"Error calling LLM for application pitch enhance: {e}")
+        
+    # Local fallback
+    try:
+        from generation import local_pitch_enhancement
+        local_res = local_pitch_enhancement(
+            cover_message=request.coverMessage,
+            proposal_text=request.proposalText,
+            tone=request.tone,
+            job_title=request.jobTitle,
+            job_description=request.jobDescription
+        )
         return ApplicationEnhanceResponse(
-            enhancedCoverMessage=enhanced_cover,
-            enhancedProposalText=enhanced_proposal,
-            recommendedPrice=None, # Leave price logic to UI, or we can suggest one here. Let's leave None to not override budget if not confident.
-            recommendedDays=days,
-            upsellSuggestion=upsell
+            enhancedCoverMessage=local_res["enhancedCoverMessage"],
+            enhancedProposalText=local_res["enhancedProposalText"],
+            recommendedPrice=local_res["recommendedPrice"],
+            recommendedDays=local_res["recommendedDays"],
+            upsellSuggestion=local_res["upsellSuggestion"]
         )
     except Exception as e:
-        logger.exception("Error in /application/enhance endpoint")
+        logger.exception("Error in /application/enhance endpoint fallback")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/job/analyze", response_model=JobAnalyzeResponse)
+def job_analyze_endpoint(request: JobAnalyzeRequest):
+    """
+    Analyzes a job title and description.
+    Extracts required skills, category, difficulty, deliverables, complexity, and requirements.
+    Uses LLM if available; otherwise falls back to deterministic local parsing.
+    """
+    try:
+        system_prompt = (
+            "You are an expert AI recruiting coordinator and workspace architect.\n"
+            "Analyze the job title and description to extract workspace planning details.\n"
+            "You must return a JSON object matching the requested schema.\n"
+            "Keys:\n"
+            "- aiExtractedSkills (list of strings): 4-8 core technical skills required.\n"
+            "- aiGeneratedSummary (string): A professional 2-sentence summary of the gig.\n"
+            "- aiDifficultyScore (integer, 1-10): The estimated difficulty of the project.\n"
+            "- difficultyLevel (string): 'Beginner', 'Intermediate', or 'Advanced'.\n"
+            "- suggestedCategory (string): The primary marketplace category (e.g. 'Web Development', 'Backend Engineering', 'UI/UX Design', 'Machine Learning', etc.).\n"
+            "- deliverables (list of strings): 3-5 concrete deliverables expected at the end.\n"
+            "- workflowComplexity (string): 'Low', 'Medium', or 'High'.\n"
+            "- collaborationRequirements (string): A short description of how much communication/review is needed."
+        )
+        
+        user_payload = {
+            "title": request.title,
+            "description": request.description
+        }
+        
+        schema = {
+            "type": "object",
+            "properties": {
+                "aiExtractedSkills": {"type": "array", "items": {"type": "string"}},
+                "aiGeneratedSummary": {"type": "string"},
+                "aiDifficultyScore": {"type": "integer"},
+                "difficultyLevel": {"type": "string"},
+                "suggestedCategory": {"type": "string"},
+                "deliverables": {"type": "array", "items": {"type": "string"}},
+                "workflowComplexity": {"type": "string"},
+                "collaborationRequirements": {"type": "string"}
+            },
+            "required": [
+                "aiExtractedSkills", "aiGeneratedSummary", "aiDifficultyScore",
+                "difficultyLevel", "suggestedCategory", "deliverables",
+                "workflowComplexity", "collaborationRequirements"
+            ],
+            "additionalProperties": False
+        }
+        
+        llm_result = call_llm_json(system_prompt, user_payload, schema)
+        
+        if llm_result:
+            return JobAnalyzeResponse(
+                aiExtractedSkills=llm_result.get("aiExtractedSkills", []),
+                aiGeneratedSummary=llm_result.get("aiGeneratedSummary", ""),
+                aiDifficultyScore=int(llm_result.get("aiDifficultyScore", 5)),
+                difficultyLevel=llm_result.get("difficultyLevel", "Intermediate"),
+                suggestedCategory=llm_result.get("suggestedCategory", "Web Development"),
+                deliverables=llm_result.get("deliverables", []),
+                workflowComplexity=llm_result.get("workflowComplexity", "Medium"),
+                collaborationRequirements=llm_result.get("collaborationRequirements", "Regular updates required.")
+            )
+            
+        # Local Fallback
+        local_res = local_job_analysis(request.title, request.description)
+        
+        deliverables = []
+        desc_lower = request.description.lower()
+        if "design" in desc_lower or "ui" in desc_lower:
+            deliverables = ["Wireframes/Mockups", "Interactive Prototype", "Figma Design Tokens"]
+        elif "api" in desc_lower or "database" in desc_lower or "backend" in desc_lower:
+            deliverables = ["API Schema & Routes", "Database Setup", "Integration Tests"]
+        else:
+            deliverables = ["Initial requirements draft", "Project implementation code", "Handover documentation"]
+            
+        complexity = "Low" if len(deliverables) <= 3 and local_res["aiDifficultyScore"] <= 4 else "High" if local_res["aiDifficultyScore"] >= 7 else "Medium"
+        collab = "Bi-weekly reviews and milestone milestones" if complexity == "High" else "Direct communication and final review"
+        
+        return JobAnalyzeResponse(
+            aiExtractedSkills=local_res["aiExtractedSkills"],
+            aiGeneratedSummary=local_res["aiGeneratedSummary"],
+            aiDifficultyScore=local_res["aiDifficultyScore"],
+            difficultyLevel=local_res["difficultyLevel"],
+            suggestedCategory=local_res["suggestedCategory"],
+            deliverables=deliverables,
+            workflowComplexity=complexity,
+            collaborationRequirements=collab
+        )
+    except Exception as e:
+        logger.exception("Error in /job/analyze endpoint")
         raise HTTPException(status_code=500, detail=str(e))

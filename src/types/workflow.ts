@@ -4,7 +4,7 @@ export interface Workflow {
   applicationId: string;
   studentId: string;
   businessId: string;
-  status: "active" | "completed" | "archived";
+  status: "Pending" | "In Progress" | "Revision" | "Completed" | "Paid" | "active" | "completed" | "archived";
   progress: number;
   createdAt: string;
   updatedAt: string;

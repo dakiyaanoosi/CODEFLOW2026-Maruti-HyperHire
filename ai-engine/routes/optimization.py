@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 import datetime
+from generation import call_llm_json
 
 router = APIRouter(prefix="/optimization")
 
@@ -49,26 +50,118 @@ class GigOptimizationPayload(BaseModel):
     businessTrustScore: int
     previousScore: Optional[int] = None
 
+OPTIMIZATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "scores": {
+            "type": "object",
+            "properties": {
+                "overall": {"type": "integer"},
+                "clarity": {"type": "integer"},
+                "relevance": {"type": "integer"},
+                "professionalism": {"type": "integer"},
+                "marketCompetitiveness": {"type": "integer"},
+                "trustCompatibility": {"type": "integer"}
+            },
+            "required": ["overall", "clarity", "relevance", "professionalism", "marketCompetitiveness", "trustCompatibility"],
+            "additionalProperties": False
+        },
+        "percentile": {"type": "integer"},
+        "confidence": {"type": "integer"},
+        "confidenceReasoning": {"type": "string"},
+        "weaknesses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "phrase": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "suggestedFix": {"type": "string"}
+                },
+                "required": ["phrase", "reason", "suggestedFix"],
+                "additionalProperties": False
+            }
+        },
+        "insights": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "type": {"type": "string"}
+                },
+                "required": ["text", "type"],
+                "additionalProperties": False
+            }
+        }
+    },
+    "required": ["scores", "percentile", "confidence", "confidenceReasoning", "weaknesses", "insights"],
+    "additionalProperties": False
+}
 
 @router.post("/proposal", response_model=OptimizationAnalysisResponse)
 def optimize_proposal(payload: ProposalOptimizationPayload):
     """
     Evaluates a student's proposal semantically against the job requirements.
-    Simulates semantic matching and multi-dimensional scoring.
+    Uses LLM if available; otherwise falls back to deterministic local parsing.
     """
+    try:
+        system_prompt = (
+            "You are a professional AI proposal strategist and career advisor.\n"
+            "Evaluate the student's proposal letter and proposed approach against the job description and required skills.\n"
+            "Provide multi-dimensional scores (overall, clarity, relevance, professionalism, marketCompetitiveness, trustCompatibility as integers 1-100).\n"
+            "Identify weaknesses: parts of the text that sound generic, lack specificity, or miss key requirements.\n"
+            "Identify strategic insights: actionable growth tips.\n"
+            "You must return a JSON object matching the requested schema."
+        )
+        
+        user_payload = {
+            "text": payload.text,
+            "jobDescription": payload.jobDescription,
+            "jobRequiredSkills": payload.jobRequiredSkills,
+            "studentTrustScore": payload.studentTrustScore
+        }
+        
+        llm_result = call_llm_json(system_prompt, user_payload, OPTIMIZATION_SCHEMA)
+        
+        if llm_result:
+            scores_data = llm_result.get("scores", {})
+            return OptimizationAnalysisResponse(
+                scores=OptimizationScores(
+                    overall=int(scores_data.get("overall", 70)),
+                    clarity=int(scores_data.get("clarity", 70)),
+                    relevance=int(scores_data.get("relevance", 70)),
+                    professionalism=int(scores_data.get("professionalism", 70)),
+                    marketCompetitiveness=int(scores_data.get("marketCompetitiveness", 70)),
+                    trustCompatibility=int(scores_data.get("trustCompatibility", 70))
+                ),
+                previousOverallScore=payload.previousScore,
+                percentile=int(llm_result.get("percentile", 50)),
+                confidence=int(llm_result.get("confidence", 80)),
+                confidenceReasoning=llm_result.get("confidenceReasoning", "Analysis based on proposal details."),
+                weaknesses=[
+                    OptimizationWeakness(**w) for w in llm_result.get("weaknesses", [])
+                ],
+                insights=[
+                    OptimizationInsight(**ins) for ins in llm_result.get("insights", [])
+                ],
+                lastUpdated=datetime.datetime.utcnow().isoformat() + "Z"
+            )
+    except Exception as e:
+        print(f"Error calling LLM for proposal optimization: {e}")
+
+    # Rubric-based deterministic fallback (remove Math.random)
     text_lower = payload.text.lower()
     word_count = len(text_lower.split())
     
-    # 1. Relevance: Check if required skills are mentioned
     skills_mentioned = sum(1 for skill in payload.jobRequiredSkills if skill.lower() in text_lower)
     relevance = 40 if len(payload.jobRequiredSkills) == 0 else min(100, int((skills_mentioned / len(payload.jobRequiredSkills)) * 100) + 20)
-    if word_count < 20: relevance = min(relevance, 30)
-
-    # 2. Clarity & Professionalism (Mocked via heuristics)
+    if word_count < 20: 
+        relevance = min(relevance, 30)
+        
     clarity = min(100, 30 + (word_count * 2)) if word_count < 35 else 85
-    professionalism = 90 if "sincerely" in text_lower or "regards" in text_lower or "experience" in text_lower else 65
-
-    # 3. Weakness Detection
+    professionalism = 90 if any(greet in text_lower for greet in ["sincerely", "regards", "thank you", "hello", "hi"]) else 65
+    
     weaknesses = []
     generic_phrases = ["i want this job", "i am hardworking", "hire me", "i can do this"]
     for phrase in generic_phrases:
@@ -76,10 +169,10 @@ def optimize_proposal(payload: ProposalOptimizationPayload):
             weaknesses.append(OptimizationWeakness(
                 phrase=phrase,
                 reason="Lacks technical specificity and sounds generic.",
-                suggestedFix="Show, don't tell. Detail a specific past project where you delivered similar results."
+                suggestedFix="Detail a specific past project where you delivered similar results."
             ))
-            professionalism -= 15
-            clarity -= 10
+            professionalism = max(40, professionalism - 15)
+            clarity = max(40, clarity - 10)
             
     if word_count < 15 and text_lower != "":
         weaknesses.append(OptimizationWeakness(
@@ -88,13 +181,10 @@ def optimize_proposal(payload: ProposalOptimizationPayload):
             suggestedFix="Expand on how your skills directly solve the client's core problem."
         ))
 
-    # 4. Market Competitiveness & Trust
     trust_compatibility = min(100, payload.studentTrustScore + 10)
     market_comp = (relevance + professionalism) // 2
-    
     overall = (clarity + relevance + professionalism + market_comp + trust_compatibility) // 5
 
-    # 5. Strategic Insights
     insights = []
     if relevance < 60:
         insights.append(OptimizationInsight(
@@ -106,7 +196,7 @@ def optimize_proposal(payload: ProposalOptimizationPayload):
             text="Your Elite trust ranking significantly increases hiring probability. Ensure your proposal timeline matches your high reliability score.",
             type="trust_impact"
         ))
-        
+
     confidence_reasoning = "High semantic overlap with gig requirements." if relevance > 75 else "Vague technical references reduce matching certainty."
 
     return OptimizationAnalysisResponse(
@@ -119,7 +209,7 @@ def optimize_proposal(payload: ProposalOptimizationPayload):
             trustCompatibility=max(0, trust_compatibility)
         ),
         previousOverallScore=payload.previousScore,
-        percentile=max(1, 100 - overall + 5),  # Simplified percentile proxy
+        percentile=max(1, 100 - overall),
         confidence=min(99, 40 + (word_count * 2)),
         confidenceReasoning=confidence_reasoning,
         weaknesses=weaknesses,
@@ -131,8 +221,56 @@ def optimize_proposal(payload: ProposalOptimizationPayload):
 def optimize_gig(payload: GigOptimizationPayload):
     """
     Evaluates a business's gig creation payload.
-    Identifies vague requirements, uncompetitive budgets, and missing tags.
+    Uses LLM if available; otherwise falls back to deterministic local parsing.
     """
+    try:
+        system_prompt = (
+            "You are an expert AI workforce architect.\n"
+            "Evaluate the business's gig creation details (title, description, budget, category, skills).\n"
+            "Provide multi-dimensional scores (overall, clarity, relevance, professionalism, marketCompetitiveness, trustCompatibility as integers 1-100).\n"
+            "Identify weaknesses in the description, requirements, or budget constraints.\n"
+            "Provide actionable strategic recruitment insights.\n"
+            "You must return a JSON object matching the requested schema."
+        )
+        
+        user_payload = {
+            "title": payload.title,
+            "description": payload.description,
+            "budget": payload.budget,
+            "category": payload.category,
+            "skills": payload.skills,
+            "businessTrustScore": payload.businessTrustScore
+        }
+        
+        llm_result = call_llm_json(system_prompt, user_payload, OPTIMIZATION_SCHEMA)
+        
+        if llm_result:
+            scores_data = llm_result.get("scores", {})
+            return OptimizationAnalysisResponse(
+                scores=OptimizationScores(
+                    overall=int(scores_data.get("overall", 70)),
+                    clarity=int(scores_data.get("clarity", 70)),
+                    relevance=int(scores_data.get("relevance", 70)),
+                    professionalism=int(scores_data.get("professionalism", 70)),
+                    marketCompetitiveness=int(scores_data.get("marketCompetitiveness", 70)),
+                    trustCompatibility=int(scores_data.get("trustCompatibility", 70))
+                ),
+                previousOverallScore=payload.previousScore,
+                percentile=int(llm_result.get("percentile", 50)),
+                confidence=int(llm_result.get("confidence", 80)),
+                confidenceReasoning=llm_result.get("confidenceReasoning", "Analysis based on gig parameters."),
+                weaknesses=[
+                    OptimizationWeakness(**w) for w in llm_result.get("weaknesses", [])
+                ],
+                insights=[
+                    OptimizationInsight(**ins) for ins in llm_result.get("insights", [])
+                ],
+                lastUpdated=datetime.datetime.utcnow().isoformat() + "Z"
+            )
+    except Exception as e:
+        print(f"Error calling LLM for gig optimization: {e}")
+
+    # Fallback (deterministic)
     desc_lower = payload.description.lower()
     word_count = len(desc_lower.split())
     
@@ -140,27 +278,30 @@ def optimize_gig(payload: GigOptimizationPayload):
     relevance = 90 if len(payload.skills) > 2 else 50
     professionalism = 85
     
-    # Market & Trust Check
     market_comp = 80
     insights = []
     weaknesses = []
     
-    # Heuristics: Budget Analytics
-    if payload.budget > 0 and payload.budget < 500:
-        market_comp -= 20
+    if payload.budget > 0 and payload.budget < 100:
+        market_comp = 50
         insights.append(OptimizationInsight(
             text="Current budget range may discourage high-trust, elite candidates. The marketplace average for this category is higher.",
             type="market_trend"
         ))
+    elif payload.budget > 0 and payload.budget < 500:
+        market_comp = 70
+        insights.append(OptimizationInsight(
+            text="Budget is competitive for intermediate candidates, but consider a slightly higher cap for elite experts.",
+            type="market_trend"
+        ))
     
-    # Generic description check
     if word_count < 20 and word_count > 0:
         weaknesses.append(OptimizationWeakness(
             phrase=payload.description,
             reason="Description is too brief to semantically attract the right talent.",
             suggestedFix="Detail the core deliverables, technical stack, and expected timeline clearly."
         ))
-        clarity -= 20
+        clarity = max(30, clarity - 20)
         
     if len(payload.skills) == 0:
         insights.append(OptimizationInsight(
@@ -186,7 +327,7 @@ def optimize_gig(payload: GigOptimizationPayload):
             trustCompatibility=max(0, payload.businessTrustScore)
         ),
         previousOverallScore=payload.previousScore,
-        percentile=max(1, 100 - overall + 10),
+        percentile=max(1, 100 - overall),
         confidence=min(95, 50 + (word_count * 2)),
         confidenceReasoning="Clear deliverables and budget enable high-confidence matching." if overall > 75 else "Vague requirements limit semantic matching precision.",
         weaknesses=weaknesses,

@@ -10,11 +10,12 @@ import {
 import { getEscrowSummary } from "@/lib/escrow-service";
 import type { EscrowSummary, EscrowTransaction, EscrowStatus } from "@/types/escrow";
 const FILTER_TABS: { label: string; value: EscrowStatus | "all" }[] = [
-  { label: "All",        value: "all" },
-  { label: "Funded",     value: "funded" },
-  { label: "In Review",  value: "in_review" },
-  { label: "Approved",   value: "approved" },
-  { label: "Released",   value: "released" },
+  { label: "All",                value: "all" },
+  { label: "Funded",             value: "funded" },
+  { label: "In Progress",        value: "in_progress" },
+  { label: "Revision Requested", value: "revision_requested" },
+  { label: "Completed",          value: "completed" },
+  { label: "Released",           value: "released" },
 ];
 export default function EscrowPage() {
   const { user, profile } = useAuthStore();
@@ -40,9 +41,9 @@ export default function EscrowPage() {
         ...prev,
         totalReleased: txns
           .filter((t) => t.status === "released")
-          .reduce((s, t) => s + t.netPayout, 0),
-        pendingApproval: txns.filter((t) => t.status === "in_review").length,
-        inReview: txns.filter((t) => t.status === "in_review").length,
+          .reduce((s, t) => s + (t.payoutAmount ?? t.amount * 0.9), 0),
+        pendingApproval: txns.filter((t) => t.status === "completed").length,
+        inReview: txns.filter((t) => t.status === "completed").length,
         transactions: txns,
       };
     });

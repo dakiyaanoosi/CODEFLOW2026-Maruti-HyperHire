@@ -163,24 +163,21 @@ def call_openai_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
     if not api_key:
         return None
 
-    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    # For JSON response format, OpenAI requires the prompt to specify returning JSON.
+    system_instruction = system_prompt + "\n\nCRITICAL: You must return a valid JSON object matching the requested schema."
     body = {
         "model": model,
-        "input": [
-            {"role": "system", "content": system_prompt},
+        "messages": [
+            {"role": "system", "content": system_instruction},
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
-        "text": {
-            "format": {
-                "type": "json_schema",
-                "name": "hyperhire_ai_result",
-                "strict": True,
-                "schema": schema,
-            }
-        },
+        "response_format": {
+            "type": "json_object"
+        }
     }
     request = urllib.request.Request(
-        "https://api.openai.com/v1/responses",
+        "https://api.openai.com/v1/chat/completions",
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -191,21 +188,18 @@ def call_openai_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+    except Exception as e:
+        print(f"OpenAI API call failed: {e}")
         return None
 
-    output_text = payload.get("output_text")
-    if not output_text:
-        chunks = []
-        for item in payload.get("output", []):
-            for content in item.get("content", []):
-                if content.get("type") == "output_text":
-                    chunks.append(content.get("text", ""))
-        output_text = "".join(chunks)
-    if not output_text:
+    choices = payload.get("choices", [])
+    if not choices:
+        return None
+    content = choices[0].get("message", {}).get("content", "")
+    if not content:
         return None
     try:
-        return json.loads(output_text)
+        return json.loads(content)
     except json.JSONDecodeError:
         return None
 

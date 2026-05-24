@@ -18,7 +18,8 @@ export type EntityType =
   | "task"
   | "job"
   | "analytics"
-  | "profile";
+  | "profile"
+  | "escrow";
 
 export interface SystemNotification {
   notificationId: string;
@@ -30,6 +31,6 @@ export interface SystemNotification {
   relatedEntityType?: EntityType;
   isRead: boolean;
   actionUrl?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: number;
 }
