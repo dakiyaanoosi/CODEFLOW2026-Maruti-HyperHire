@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAuthStore, UserProfile } from "@/store/use-auth-store";
 import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { ProfileCard } from "@/components/profile/ProfileCard";
+import { TrustIntelligenceDashboard } from "@/components/profile/TrustIntelligenceDashboard";
 import { ProfileDetails } from "@/components/profile/ProfileDetails";
 import { ProfileEditForm } from "@/components/profile/ProfileEditForm";
 import { StudentProfile } from "@/types/profile";
@@ -255,6 +256,11 @@ export default function ProfilePage() {
                 ? "Your public profile visible to businesses and the talent pool."
                 : "Update your profile information. Changes will be saved to your cloud profile."}
             </p>
+            
+            {/* AI Trust Intelligence */}
+            <div className="mt-8">
+              <TrustIntelligenceDashboard userId={user?.uid} />
+            </div>
           </div>
 
           {/* Tab switcher */}

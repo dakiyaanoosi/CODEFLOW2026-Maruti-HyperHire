@@ -22,6 +22,7 @@ import {
 } from "@/types/workflow";
 import { Application } from "@/types/application";
 import { notificationService } from "@/lib/notification-service";
+import { trustService } from "@/lib/trust/trust-service";
 
 const DEFAULT_COLUMNS = ["Todo", "In Progress", "Review", "Completed"];
 
@@ -239,6 +240,30 @@ export const workflowService = {
       relatedEntityType: "workflow",
       actionUrl: `/workflows/${workflowId}`
     });
+
+    // Trust Intelligence Logging
+    if (newColumnName === "Completed") {
+      const studentImpact = actorId === studentId ? 2 : 1; // Student delivering gets +2
+      await trustService.logTrustEvent(
+        studentId,
+        "student",
+        "delivery",
+        studentImpact,
+        "Completed a workflow task",
+        taskId,
+        "task"
+      );
+    } else if (newColumnName === "Review") {
+      await trustService.logTrustEvent(
+        studentId,
+        "student",
+        "collaboration",
+        1,
+        "Submitted a deliverable for review",
+        taskId,
+        "task"
+      );
+    }
   },
 
   /**

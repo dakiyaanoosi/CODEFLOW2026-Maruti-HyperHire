@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Globe, DollarSign, Clock, GraduationCap, Camera } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrustScoreBadge } from "./TrustScoreBadge";
+import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { ProfileStrengthMeter } from "./ProfileStrengthMeter";
 import { VerificationBadge } from "./VerificationBadge";
 import { StudentProfile } from "@/types/profile";
@@ -78,7 +78,7 @@ export function ProfileCard({ profile, isEditing = false, onAvatarClick }: Profi
           </div>
 
           <div className="flex flex-wrap justify-center gap-2">
-            <TrustScoreBadge score={profile.trustScore} />
+            <ConfidenceIndicator score={profile.trustScore} rank="Bronze" />
             <VerificationBadge isVerified={profile.isVerified} />
           </div>
         </div>

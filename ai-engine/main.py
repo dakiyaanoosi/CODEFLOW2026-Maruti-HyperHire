@@ -256,3 +256,12 @@ app.include_router(
     analytics_router,
     tags=["Analytics"]
 )
+
+from routes.trust import (
+    router as trust_router
+)
+
+app.include_router(
+    trust_router,
+    tags=["Trust"]
+)
