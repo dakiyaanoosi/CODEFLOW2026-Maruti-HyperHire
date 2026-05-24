@@ -11,35 +11,38 @@ export interface Attachment {
 }
 
 export interface Message {
-  id: string;
+  messageId: string;
   conversationId: string;
   senderId: string;
-  senderName: string;
   senderRole: "student" | "business";
   content: string;
-  attachments: Attachment[];
-  status: MessageStatus;
-  createdAt: Date;
-  isAiSuggestion?: boolean;
+  messageType: "text" | "attachment" | "system";
+  attachmentUrl?: string;
+  attachmentType?: AttachmentType;
+  readBy: string[]; // array of userIds
+  createdAt: string;
 }
 
 export interface Conversation {
-  id: string;
-  participantId: string;
-  participantName: string;
-  participantRole: "student" | "business";
-  participantInitials: string;
+  conversationId: string;
+  participantIds: string[];
+  participantRoles: Record<string, "student" | "business">;
+  participantNames: Record<string, string>; // for quick display without joins
+  participantInitials: Record<string, string>; // for quick display without joins
+  relatedJobId?: string;
+  relatedApplicationId?: string;
   lastMessage: string;
-  lastMessageAt: Date;
-  unreadCount: number;
-  isOnline: boolean;
-  jobTitle?: string;
+  lastMessageAt: string;
+  unreadCounts: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TypingIndicator {
   conversationId: string;
   userId: string;
   userName: string;
+  updatedAt: string;
 }
 
 export interface AiQuickReply {

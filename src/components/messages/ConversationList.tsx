@@ -10,21 +10,26 @@ interface ConversationListProps {
   conversations: Conversation[];
   activeId: string | null;
   onSelect: (conv: Conversation) => void;
+  currentUserId: string;
 }
 
-export function ConversationList({ conversations, activeId, onSelect }: ConversationListProps) {
+export function ConversationList({ conversations, activeId, onSelect, currentUserId }: ConversationListProps) {
   const [search, setSearch] = React.useState("");
 
   const filtered = React.useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return conversations;
-    return conversations.filter(
-      (c) =>
-        c.participantName.toLowerCase().includes(q) ||
-        c.jobTitle?.toLowerCase().includes(q) ||
+    return conversations.filter((c) => {
+      const otherParticipantId = c.participantIds.find(id => id !== currentUserId) || currentUserId;
+      const otherName = c.participantNames[otherParticipantId] || "Unknown";
+      
+      return (
+        otherName.toLowerCase().includes(q) ||
+        c.relatedJobId?.toLowerCase().includes(q) ||
         c.lastMessage.toLowerCase().includes(q)
-    );
-  }, [conversations, search]);
+      );
+    });
+  }, [conversations, search, currentUserId]);
 
   return (
     <div className="flex h-full flex-col border-r border-brand-hairline bg-white">
@@ -48,10 +53,11 @@ export function ConversationList({ conversations, activeId, onSelect }: Conversa
         ) : (
           filtered.map((conv) => (
             <ConversationItem
-              key={conv.id}
+              key={conv.conversationId}
               conversation={conv}
-              isActive={conv.id === activeId}
+              isActive={conv.conversationId === activeId}
               onSelect={onSelect}
+              currentUserId={currentUserId}
             />
           ))
         )}
@@ -64,11 +70,18 @@ function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  currentUserId,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conv: Conversation) => void;
+  currentUserId: string;
 }) {
+  const otherParticipantId = conversation.participantIds.find(id => id !== currentUserId) || currentUserId;
+  const participantName = conversation.participantNames[otherParticipantId] || "Unknown";
+  const participantInitials = conversation.participantInitials[otherParticipantId] || "U";
+  const unreadCount = conversation.unreadCounts?.[currentUserId] || 0;
+
   return (
     <button
       onClick={() => onSelect(conversation)}
@@ -79,26 +92,25 @@ function ConversationItem({
     >
       <div className="relative shrink-0">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-ink text-xs font-semibold text-white">
-          {conversation.participantInitials}
+          {participantInitials}
         </div>
-        {conversation.isOnline && (
-          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-success" />
-        )}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-1">
-          <span className="truncate text-sm font-medium text-brand-ink">{conversation.participantName}</span>
-          <span className="shrink-0 text-[11px] text-brand-muted">{formatMessageTime(conversation.lastMessageAt)}</span>
+          <span className="truncate text-sm font-medium text-brand-ink">{participantName}</span>
+          <span className="shrink-0 text-[11px] text-brand-muted">{formatMessageTime(new Date(conversation.lastMessageAt))}</span>
         </div>
-        {conversation.jobTitle && (
-          <span className="text-[11px] text-brand-link">{conversation.jobTitle}</span>
-        )}
         <div className="mt-0.5 flex items-center justify-between gap-1">
-          <p className="truncate text-xs text-brand-muted">{conversation.lastMessage}</p>
-          {conversation.unreadCount > 0 && (
-            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-ink px-1 text-[10px] font-semibold text-white">
-              {conversation.unreadCount}
+          <p className={cn(
+            "truncate text-xs", 
+            unreadCount > 0 ? "text-brand-ink font-medium" : "text-brand-muted"
+          )}>
+            {conversation.lastMessage}
+          </p>
+          {unreadCount > 0 && (
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-semibold text-white">
+              {unreadCount}
             </span>
           )}
         </div>

@@ -13,6 +13,7 @@ import {
   orderBy
 } from "firebase/firestore";
 import { kanbanService } from "@/lib/kanban-service";
+import { messageService } from "@/lib/message-service";
 
 function generateId(): string {
   return `app_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -138,7 +139,15 @@ export const applicationService = {
     
     const updatedApp = { ...snapshot.data(), status, updatedAt: now } as Application;
     
-    // Acceptance Workflow
+    // Workflow Automations
+    if (status === "shortlisted" || status === "accepted") {
+      try {
+        await messageService.createConversationFromApplication(updatedApp);
+      } catch (e) {
+        console.error("Error creating Conversation during workflow", e);
+      }
+    }
+
     if (status === "accepted") {
       try {
         kanbanService.createFromApplication(updatedApp);

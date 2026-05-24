@@ -10,7 +10,8 @@ import {
   MessageSquare,
   User,
   Sparkles,
-  Bot
+  Bot,
+  Calendar
 } from "lucide-react";
 import { Application, ApplicationStatus } from "@/types/application";
 import { ApplicationStatusBadge } from "./ApplicationStatusBadge";

@@ -5,24 +5,22 @@ import { ConversationList } from "./ConversationList";
 import { ChatWindow } from "./ChatWindow";
 import { MessagesEmptyState } from "./MessagesEmptyState";
 import { Conversation, Message } from "@/types/message";
-import { MOCK_CONVERSATIONS, MOCK_MESSAGES } from "@/lib/message-utils";
+import { messageService } from "@/lib/message-service";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/use-auth-store";
 
-interface MessagingPanelProps {
-  currentUserId?: string;
-  currentUserRole?: "student" | "business";
-}
+export function MessagingPanel() {
+  const { user, profile } = useAuthStore();
+  const currentUserId = user?.uid || "current-user";
+  const currentUserRole = profile?.role || "student";
 
-export function MessagingPanel({
-  currentUserId = "current-user",
-  currentUserRole = "student",
-}: MessagingPanelProps) {
-  const [conversations, setConversations] = React.useState<Conversation[]>(MOCK_CONVERSATIONS);
-  const [messageMap, setMessageMap] = React.useState<Record<string, Message[]>>(MOCK_MESSAGES);
+  const [conversations, setConversations] = React.useState<Conversation[]>([]);
+  const [messages, setMessages] = React.useState<Message[]>([]);
   const [activeConvId, setActiveConvId] = React.useState<string | null>(null);
   const [mobileView, setMobileView] = React.useState<"list" | "chat">("list");
   const [isActuallyMobile, setIsActuallyMobile] = React.useState(false);
 
+  // Responsive logic
   React.useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     setIsActuallyMobile(mq.matches);
@@ -31,56 +29,53 @@ export function MessagingPanel({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const activeConv = conversations.find((c) => c.id === activeConvId) ?? null;
-  const activeMessages = activeConvId ? (messageMap[activeConvId] ?? []) : [];
+  // Real-time conversations
+  React.useEffect(() => {
+    if (!currentUserId) return;
+    const unsubscribe = messageService.subscribeToConversations(currentUserId, (convos) => {
+      setConversations(convos);
+    });
+    return () => unsubscribe();
+  }, [currentUserId]);
+
+  // Real-time messages for active conversation
+  React.useEffect(() => {
+    if (!activeConvId) {
+      setMessages([]);
+      return;
+    }
+    const unsubscribe = messageService.subscribeToMessages(activeConvId, (msgs) => {
+      setMessages(msgs);
+    });
+    return () => unsubscribe();
+  }, [activeConvId]);
+
+  const activeConv = conversations.find((c) => c.conversationId === activeConvId) ?? null;
 
   const handleSelectConversation = (conv: Conversation) => {
-    setActiveConvId(conv.id);
+    setActiveConvId(conv.conversationId);
     setMobileView("chat");
 
-    if (conv.unreadCount > 0) {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
-      );
+    if (conv.unreadCounts && conv.unreadCounts[currentUserId] > 0) {
+      messageService.markAsRead(conv.conversationId, currentUserId).catch(console.error);
     }
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string, attachmentUrl?: string, attachmentType?: any) => {
     if (!activeConvId) return;
 
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      conversationId: activeConvId,
-      senderId: currentUserId,
-      senderName: "You",
-      senderRole: currentUserRole,
-      content,
-      attachments: [],
-      status: "sending",
-      createdAt: new Date(),
-    };
-
-    setMessageMap((prev) => ({
-      ...prev,
-      [activeConvId]: [...(prev[activeConvId] ?? []), newMsg],
-    }));
-
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === activeConvId
-          ? { ...c, lastMessage: content, lastMessageAt: new Date() }
-          : c
-      )
-    );
-
-    setTimeout(() => {
-      setMessageMap((prev) => ({
-        ...prev,
-        [activeConvId]: (prev[activeConvId] ?? []).map((m) =>
-          m.id === newMsg.id ? { ...m, status: "delivered" } : m
-        ),
-      }));
-    }, 800);
+    try {
+      await messageService.sendMessage(
+        activeConvId,
+        currentUserId,
+        currentUserRole as any,
+        content,
+        attachmentUrl,
+        attachmentType
+      );
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
   };
 
   return (
@@ -96,6 +91,7 @@ export function MessagingPanel({
           conversations={conversations}
           activeId={activeConvId}
           onSelect={handleSelectConversation}
+          currentUserId={currentUserId}
         />
       </div>
 
@@ -108,9 +104,9 @@ export function MessagingPanel({
         {activeConv ? (
           <ChatWindow
             conversation={activeConv}
-            messages={activeMessages}
+            messages={messages}
             currentUserId={currentUserId}
-            currentUserRole={currentUserRole}
+            currentUserRole={currentUserRole as any}
             onSendMessage={handleSendMessage}
             onBack={() => setMobileView("list")}
             isMobile={isActuallyMobile}

@@ -2,34 +2,45 @@
 
 import * as React from "react";
 import { Check, CheckCheck, FileText, ImageIcon, File } from "lucide-react";
-import { Message, Attachment } from "@/types/message";
-import { formatMessageTime, formatFileSize } from "@/lib/message-utils";
+import { Message } from "@/types/message";
+import { formatMessageTime } from "@/lib/message-utils";
 import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
+  senderName: string;
 }
 
-export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, senderName }: MessageBubbleProps) {
+  if (message.messageType === "system") {
+    return (
+      <div className="flex justify-center my-4">
+        <span className="text-xs text-brand-muted bg-brand-surface-soft px-3 py-1 rounded-full">
+          {message.content}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex items-end gap-2", isOwn ? "flex-row-reverse" : "flex-row")}>
       {!isOwn && (
         <div className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-surface-strong text-[10px] font-semibold text-brand-ink">
-          {message.senderName.slice(0, 2).toUpperCase()}
+          {senderName.slice(0, 2).toUpperCase()}
         </div>
       )}
 
       <div className={cn("flex max-w-[68%] flex-col gap-1", isOwn ? "items-end" : "items-start")}>
-        {message.attachments.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            {message.attachments.map((att) => (
-              <AttachmentChip key={att.id} attachment={att} isOwn={isOwn} />
-            ))}
-          </div>
+        {message.attachmentUrl && (
+          <AttachmentChip 
+            url={message.attachmentUrl} 
+            type={message.attachmentType || "file"} 
+            isOwn={isOwn} 
+          />
         )}
 
-        {message.content && (
+        {message.content && message.content !== "Sent an attachment" && (
           <div
             className={cn(
               "rounded-[12px] px-3.5 py-2.5 text-sm leading-[1.5]",
@@ -43,27 +54,28 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         )}
 
         <div className={cn("flex items-center gap-1", isOwn ? "flex-row-reverse" : "flex-row")}>
-          <span className="text-[10px] text-brand-muted">{formatMessageTime(message.createdAt)}</span>
-          {isOwn && <StatusIcon status={message.status} />}
+          <span className="text-[10px] text-brand-muted">{formatMessageTime(new Date(message.createdAt))}</span>
+          {isOwn && <CheckCheck className="h-3 w-3 text-brand-link" />}
         </div>
       </div>
     </div>
   );
 }
 
-function StatusIcon({ status }: { status: Message["status"] }) {
-  if (status === "sending") return <span className="h-3 w-3 animate-pulse rounded-full bg-brand-muted opacity-50" />;
-  if (status === "sent") return <Check className="h-3 w-3 text-brand-muted" />;
-  if (status === "delivered") return <CheckCheck className="h-3 w-3 text-brand-muted" />;
-  return <CheckCheck className="h-3 w-3 text-brand-link" />;
-}
+function AttachmentChip({ url, type, isOwn }: { url: string; type: string; isOwn: boolean }) {
+  const Icon = type === "pdf" ? FileText : type === "image" ? ImageIcon : File;
 
-function AttachmentChip({ attachment, isOwn }: { attachment: Attachment; isOwn: boolean }) {
-  const Icon = attachment.type === "pdf" ? FileText : attachment.type === "image" ? ImageIcon : File;
+  if (type === "image") {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="block max-w-[240px] overflow-hidden rounded-[10px] border border-brand-hairline">
+        <img src={url} alt="Attachment" className="w-full h-auto object-cover" />
+      </a>
+    );
+  }
 
   return (
     <a
-      href={attachment.url}
+      href={url}
       target="_blank"
       rel="noreferrer"
       className={cn(
@@ -75,9 +87,9 @@ function AttachmentChip({ attachment, isOwn }: { attachment: Attachment; isOwn: 
     >
       <Icon className="h-4 w-4 shrink-0" />
       <div className="min-w-0">
-        <p className="max-w-[180px] truncate text-xs font-medium">{attachment.name}</p>
+        <p className="max-w-[180px] truncate text-xs font-medium">View File</p>
         <p className={cn("text-[10px]", isOwn ? "text-white/60" : "text-brand-muted")}>
-          {formatFileSize(attachment.size)}
+          {type.toUpperCase()}
         </p>
       </div>
     </a>
