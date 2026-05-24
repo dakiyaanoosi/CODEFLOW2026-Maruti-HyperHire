@@ -136,8 +136,13 @@ export const useHyperAIStore = create<HyperAIState>((set, get) => ({
 
       const res: ChatResponse = await aiService.chatWithAssistant(request);
 
+      const assistantResponse =
+        typeof res.response === "string" && res.response.trim()
+          ? res.response
+          : "HyperAI returned an empty response. Please try again.";
+
       set({
-        history: [...updatedHistory, { role: "assistant", content: res.response }],
+        history: [...updatedHistory, { role: "assistant", content: assistantResponse }],
         suggestions: res.suggestions ?? [],
         quickActions: res.quickActions ?? [],
         reasoningHighlights: res.reasoningHighlights ?? null,

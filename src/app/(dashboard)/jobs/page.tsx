@@ -3,9 +3,10 @@
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useHyperAIStore } from "@/store/use-hyperai-store";
-import { useBusinessProfileStore } from "@/store/use-business-profile-store";
+import { businessService } from "@/lib/business-service";
 import { jobService } from "@/lib/job-service";
 import { Job } from "@/types/job";
+import { BusinessProfile } from "@/types/business";
 import { JobDashboard } from "@/components/jobs/JobDashboard";
 import { JobFormModal } from "@/components/jobs/JobFormModal";
 import { JobDetailsModal } from "@/components/jobs/JobDetailsModal";
@@ -34,7 +35,7 @@ function StatusToast({ message, visible }: { message: string; visible: boolean }
 export default function JobsPage() {
   const { user, profile } = useAuthStore();
   const { setContext } = useHyperAIStore();
-  const businessProfile = useBusinessProfileStore((state) => state.profile);
+  const [businessProfile, setBusinessProfile] = React.useState<BusinessProfile | null>(null);
 
   // Gigs state
   const [jobs, setJobs] = React.useState<Job[]>([]);
@@ -62,6 +63,15 @@ export default function JobsPage() {
       setIsLoading(true);
       try {
         if (profile.role === "business") {
+          const loadedBusinessProfile =
+            (await businessService.getBusinessProfileByOwner(user.uid)) ??
+            (await businessService.createDefaultBusinessProfile(
+              user.uid,
+              user.email || "",
+              profile.name || user.displayName || "My Business Org"
+            ));
+          setBusinessProfile(loadedBusinessProfile);
+
           // Businesses see all of their own gig posts (both Drafts & Published)
           const data = await jobService.getJobs(user.uid);
           setJobs(data);
@@ -101,7 +111,11 @@ export default function JobsPage() {
   }
 
   const isBusiness = profile.role === "business";
-  const companyName = businessProfile?.companyName || user.displayName || "My Company";
+  const companyName =
+    businessProfile?.companyName ||
+    profile.name ||
+    user.displayName ||
+    "My Company";
 
   // CRUD event callbacks
   const handleAddSuccess = (newJob: Job) => {

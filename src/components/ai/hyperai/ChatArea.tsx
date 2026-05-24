@@ -142,7 +142,8 @@ function StreamingText({ text }: { text: string }) {
     const words = text.split(" ");
     const timer = setInterval(() => {
       if (i < words.length) {
-        setDisplayed((prev) => (prev ? prev + " " + words[i] : words[i]));
+        const nextWord = words[i] ?? "";
+        setDisplayed((prev) => (prev ? `${prev} ${nextWord}` : nextWord));
         i++;
       } else {
         clearInterval(timer);
