@@ -16,6 +16,14 @@ import type { Application } from "@/types/application";
 
 const COLLECTION_NAME = "escrows";
 
+const parseToDate = (dateVal: any): Date => {
+  if (!dateVal) return new Date();
+  if (typeof dateVal.toDate === "function") {
+    return dateVal.toDate();
+  }
+  return new Date(dateVal);
+};
+
 /**
  * Helper to serialize Firestore document data (converting Timestamps to ISO strings for UI)
  */
@@ -133,7 +141,7 @@ export const escrowService = {
       snap.forEach((d) => {
         list.push(serializeEscrow(d.data(), d.id));
       });
-      return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      return list.sort((a, b) => parseToDate(b.updatedAt).getTime() - parseToDate(a.updatedAt).getTime());
     } catch (error) {
       console.error("Error getEscrowsByUser:", error);
       return [];
@@ -152,7 +160,7 @@ export const escrowService = {
     return onSnapshot(q, (snap) => {
       const results: Escrow[] = [];
       snap.forEach((docSnap) => results.push(serializeEscrow(docSnap.data(), docSnap.id)));
-      results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      results.sort((a, b) => parseToDate(b.updatedAt).getTime() - parseToDate(a.updatedAt).getTime());
       callback(results);
     });
   },

@@ -6,6 +6,15 @@ import { Workflow, WorkflowTask, WorkflowActivity } from "@/types/workflow";
 import { TrustProfile, TrustEvent } from "@/types/trust";
 import { EscrowTransaction } from "@/types/escrow";
 
+// Helper to parse potential Firestore Timestamps or strings/Dates into standard JS Dates
+const parseToDate = (dateVal: any): Date => {
+  if (!dateVal) return new Date();
+  if (typeof dateVal.toDate === "function") {
+    return dateVal.toDate();
+  }
+  return new Date(dateVal);
+};
+
 export interface StudentAnalytics {
   totalApplications: number;
   acceptedApplications: number;
@@ -153,7 +162,7 @@ export const analyticsService = {
       }
       escrows.forEach(e => {
         if (e.status === "released") {
-          const date = new Date(e.updatedAt || e.createdAt);
+          const date = parseToDate(e.updatedAt || e.createdAt);
           const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
           if (trendMap[key] !== undefined) {
             trendMap[key] += e.payoutAmount ?? e.amount * 0.9;
@@ -486,7 +495,7 @@ export const analyticsService = {
       }
       escrows.forEach(e => {
         if (e.status === "released") {
-          const date = new Date(e.updatedAt || e.createdAt);
+          const date = parseToDate(e.updatedAt || e.createdAt);
           const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
           if (spendMap[key] !== undefined) {
             spendMap[key] += e.amount;
