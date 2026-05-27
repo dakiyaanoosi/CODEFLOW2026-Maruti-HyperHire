@@ -144,7 +144,7 @@ export const escrowService = {
       return list.sort((a, b) => parseToDate(b.updatedAt).getTime() - parseToDate(a.updatedAt).getTime());
     } catch (error) {
       console.error("Error getEscrowsByUser:", error);
-      return [];
+      throw new Error(`Firestore query failed for getEscrowsByUser: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 

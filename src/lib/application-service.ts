@@ -102,8 +102,8 @@ export const applicationService = {
       const apps = snapshot.docs.map(doc => doc.data() as Application);
       return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error("Firestore getApplicationsByStudent error:", e);
+      throw new Error(`Firestore query failed for getApplicationsByStudent: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 
@@ -118,8 +118,8 @@ export const applicationService = {
       const apps = snapshot.docs.map(doc => doc.data() as Application);
       return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error("Firestore getApplicationsByBusiness error:", e);
+      throw new Error(`Firestore query failed for getApplicationsByBusiness: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 
@@ -134,8 +134,8 @@ export const applicationService = {
       const apps = snapshot.docs.map(doc => doc.data() as Application);
       return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error("Firestore getApplicationsByJob error:", e);
+      throw new Error(`Firestore query failed for getApplicationsByJob: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 

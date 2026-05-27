@@ -34,7 +34,7 @@ export const reviewService = {
       return snap.docs.map(doc => doc.data() as Review);
     } catch (e) {
       console.error("Error fetching reviews for user:", e);
-      return [];
+      throw new Error(`Firestore query failed for getReviewsForUser: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 

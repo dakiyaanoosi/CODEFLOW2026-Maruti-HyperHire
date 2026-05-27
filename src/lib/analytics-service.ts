@@ -301,7 +301,8 @@ export const analyticsService = {
       (snap) => {
         apps = snap.docs.map(doc => doc.data() as Application);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Apps] Subscription error:", error)
     );
 
     const workflowsUnsub = onSnapshot(
@@ -309,7 +310,8 @@ export const analyticsService = {
       (snap) => {
         workflows = snap.docs.map(doc => doc.data() as Workflow);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Workflows] Subscription error:", error)
     );
 
     const tasksUnsub = onSnapshot(
@@ -317,7 +319,8 @@ export const analyticsService = {
       (snap) => {
         tasks = snap.docs.map(doc => doc.data() as WorkflowTask);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Tasks] Subscription error:", error)
     );
 
     const activitiesUnsub = onSnapshot(
@@ -325,7 +328,8 @@ export const analyticsService = {
       (snap) => {
         activities = snap.docs.map(doc => doc.data() as WorkflowActivity);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Activities] Subscription error:", error)
     );
 
     const trustProfileUnsub = onSnapshot(
@@ -335,7 +339,8 @@ export const analyticsService = {
           trustProfile = snap.data() as TrustProfile;
         }
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Trust Profile] Subscription error:", error)
     );
 
     const trustHistoryUnsub = onSnapshot(
@@ -343,7 +348,8 @@ export const analyticsService = {
       (snap) => {
         trustHistory = snap.docs.map(doc => doc.data() as TrustEvent);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Trust History] Subscription error:", error)
     );
 
     const portfoliosUnsub = onSnapshot(
@@ -351,7 +357,8 @@ export const analyticsService = {
       (snap) => {
         portfolios = snap.docs.map(doc => doc.data() as any);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Portfolios] Subscription error:", error)
     );
 
     const jobsUnsub = onSnapshot(
@@ -359,7 +366,8 @@ export const analyticsService = {
       (snap) => {
         publishedJobs = snap.docs.map(doc => doc.data() as Job);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Jobs] Subscription error:", error)
     );
 
     const escrowsUnsub = onSnapshot(
@@ -367,7 +375,8 @@ export const analyticsService = {
       (snap) => {
         escrows = snap.docs.map(doc => doc.data() as EscrowTransaction);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Escrows] Subscription error:", error)
     );
 
     const reviewsUnsub = onSnapshot(
@@ -375,7 +384,8 @@ export const analyticsService = {
       (snap) => {
         reviews = snap.docs.map(doc => doc.data() as Review);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Reviews] Subscription error:", error)
     );
 
     return () => {
@@ -587,7 +597,8 @@ export const analyticsService = {
       (snap) => {
         jobs = snap.docs.map(doc => doc.data() as Job);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Jobs] Subscription error:", error)
     );
 
     const appsUnsub = onSnapshot(
@@ -595,7 +606,8 @@ export const analyticsService = {
       (snap) => {
         apps = snap.docs.map(doc => doc.data() as Application);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Apps] Subscription error:", error)
     );
 
     const workflowsUnsub = onSnapshot(
@@ -603,7 +615,8 @@ export const analyticsService = {
       (snap) => {
         workflows = snap.docs.map(doc => doc.data() as Workflow);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Workflows] Subscription error:", error)
     );
 
     const tasksUnsub = onSnapshot(
@@ -611,7 +624,8 @@ export const analyticsService = {
       (snap) => {
         tasks = snap.docs.map(doc => doc.data() as WorkflowTask);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Tasks] Subscription error:", error)
     );
 
     const activitiesUnsub = onSnapshot(
@@ -619,7 +633,8 @@ export const analyticsService = {
       (snap) => {
         activities = snap.docs.map(doc => doc.data() as WorkflowActivity);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Activities] Subscription error:", error)
     );
 
     const escrowsUnsub = onSnapshot(
@@ -627,7 +642,8 @@ export const analyticsService = {
       (snap) => {
         escrows = snap.docs.map(doc => doc.data() as EscrowTransaction);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Escrows] Subscription error:", error)
     );
 
     const studentsUnsub = onSnapshot(
@@ -635,7 +651,8 @@ export const analyticsService = {
       (snap) => {
         studentProfiles = snap.docs.map(doc => doc.data() as any);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Students] Subscription error:", error)
     );
 
     const reviewsUnsub = onSnapshot(
@@ -643,7 +660,8 @@ export const analyticsService = {
       (snap) => {
         reviews = snap.docs.map(doc => doc.data() as Review);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Reviews] Subscription error:", error)
     );
 
     return () => {

@@ -34,7 +34,7 @@ export const invitationService = {
       return snapshot.docs.map(doc => doc.data() as GigInvitation);
     } catch (error) {
       console.error("Firestore getPendingInvitations error:", error);
-      return [];
+      throw new Error(`Firestore query failed for getPendingInvitations: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 
@@ -135,8 +135,8 @@ export const invitationService = {
       const items = snapshot.docs.map(doc => doc.data() as GigInvitation);
       return items.sort((a, b) => b.createdAt - a.createdAt);
     } catch (error) {
-      console.error(error);
-      return [];
+      console.error("Firestore getInvitationsForStudent error:", error);
+      throw new Error(`Firestore query failed for getInvitationsForStudent: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 
