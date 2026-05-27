@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { TrustEvent, TrustProfile, TrustDimension, UserRole } from "@/types/trust";
 import { trustEngine } from "./trust-engine";
+import { getBusinessDocRefByOwnerId } from "../business/business-lookup";
 
 export const trustService = {
   /**
@@ -118,9 +119,44 @@ export const trustService = {
     await batch.commit();
 
     // 5. Update user/business object's denormalized trust score for easy querying
-    const userRef = doc(db, role === "student" ? "users" : "businesses", userId);
-    await setDoc(userRef, { trustScore: overallScore }, { merge: true });
+    let userRef;
+    if (role === "student") {
+      userRef = doc(db, "users", userId);
+    } else {
+      try {
+        const resolvedRef = await getBusinessDocRefByOwnerId(userId);
+        if (!resolvedRef) {
+          console.warn(`[Trust Service] Missing business profile for owner ID: ${userId}. Creating dynamic fallback.`);
+          const { businessService } = await import("../business-service");
+          let name = "My Business Org";
+          let email = "";
+          try {
+            const userSnap = await getDoc(doc(db, "users", userId));
+            if (userSnap.exists()) {
+              const uData = userSnap.data();
+              name = uData.name || name;
+              email = uData.email || email;
+            }
+          } catch (e) {
+            console.error("[Trust Service] Failed to retrieve user details for business profile fallback:", e);
+          }
+          const defaultProfile = await businessService.createDefaultBusinessProfile(userId, email, name);
+          userRef = doc(db, "businesses", defaultProfile.businessId);
+        } else {
+          userRef = resolvedRef;
+        }
+      } catch (err) {
+        console.error(`[Trust Service] Error resolving business document for owner ID: ${userId}:`, err);
+        throw new Error(`Failed to resolve business document reference for owner ID: ${userId}. ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
 
-    console.log(`[Trust Engine] Logged ${impactScore} points for ${userId}. New Score: ${overallScore} (${rank})`);
+    try {
+      await setDoc(userRef, { trustScore: overallScore }, { merge: true });
+      console.log(`[Trust Engine] Logged ${impactScore} points for ${userId}. New Score: ${overallScore} (${rank})`);
+    } catch (e) {
+      console.error(`[Trust Engine] Error updating trustScore for ${role} ${userId}:`, e);
+      throw new Error(`Failed to update trustScore for ${role} ${userId}. ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 };

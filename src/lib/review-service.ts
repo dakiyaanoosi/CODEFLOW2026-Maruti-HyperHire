@@ -14,6 +14,7 @@ import { Review } from "@/types/review";
 import { Workflow } from "@/types/workflow";
 import { trustService } from "@/lib/trust/trust-service";
 import { portfolioService } from "@/lib/portfolio-service";
+import { getBusinessDocRefByOwnerId } from "./business/business-lookup";
 
 const COLLECTION_NAME = "reviews";
 
@@ -291,7 +292,37 @@ export const reviewService = {
       }
     }
 
-    const docRef = doc(db, role === "student" ? "users" : "businesses", userId);
+    let docRef;
+    if (role === "student") {
+      docRef = doc(db, "users", userId);
+    } else {
+      try {
+        const resolvedRef = await getBusinessDocRefByOwnerId(userId);
+        if (!resolvedRef) {
+          console.warn(`[Review Service] Missing business profile for owner ID: ${userId}. Creating dynamic fallback.`);
+          const { businessService } = await import("./business-service");
+          let name = "My Business Org";
+          let email = "";
+          try {
+            const userSnap = await getDoc(doc(db, "users", userId));
+            if (userSnap.exists()) {
+              const uData = userSnap.data();
+              name = uData.name || name;
+              email = uData.email || email;
+            }
+          } catch (e) {
+            console.error("[Review Service] Failed to retrieve user details for business profile creation fallback:", e);
+          }
+          const defaultProfile = await businessService.createDefaultBusinessProfile(userId, email, name);
+          docRef = doc(db, "businesses", defaultProfile.businessId);
+        } else {
+          docRef = resolvedRef;
+        }
+      } catch (err) {
+        console.error(`[Review Service] Error resolving business document for owner ID: ${userId}:`, err);
+        throw new Error(`Failed to resolve business document reference for owner ID: ${userId}. ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     
     const updateData: Record<string, unknown> = {
       averageRating,
@@ -306,7 +337,12 @@ export const reviewService = {
       updateData.collaborationQualityScore = averageRating; // Denormalized for business quality indicator
     }
 
-    await updateDoc(docRef, updateData);
-    console.log(`[Review Service] Recalculated reputation for ${role} ${userId}: Avg Rating=${averageRating}, Count=${reviewCount}`);
+    try {
+      await updateDoc(docRef, updateData);
+      console.log(`[Review Service] Recalculated reputation for ${role} ${userId}: Avg Rating=${averageRating}, Count=${reviewCount}`);
+    } catch (e) {
+      console.error(`[Review Service] Error updating reputation document for ${role} ${userId}:`, e);
+      throw new Error(`Failed to update reputation for ${role} ${userId}. ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 };
