@@ -4,7 +4,7 @@ import * as React from "react";
 import {
   X,
   Clock,
-  DollarSign,
+  IndianRupee,
   Building2,
   FileText,
   MessageSquare,
@@ -117,9 +117,9 @@ export function ApplicationDetailModal({
               <div className="grid grid-cols-3 gap-3">
                 {[
                   {
-                    icon: DollarSign,
+                    icon: IndianRupee,
                     label: "Quoted Price",
-                    value: `$${application.proposedBudget.toLocaleString()}`,
+                    value: `₹${application.proposedBudget.toLocaleString()}`,
                   },
                   {
                     icon: Clock,

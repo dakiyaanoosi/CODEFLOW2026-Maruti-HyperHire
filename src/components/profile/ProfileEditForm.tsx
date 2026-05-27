@@ -205,7 +205,7 @@ export function ProfileEditForm({ profile, onChange }: ProfileEditFormProps) {
           </div>
 
           <InputField
-            label="Hourly Rate (USD)"
+            label="Hourly Rate (INR)"
             value={profile.hourlyRate}
             onChange={(v) => onChange({ hourlyRate: parseFloat(v) || 0 })}
             type="number"

@@ -267,8 +267,8 @@ def _handle_improve_gig(job: Optional[Dict]) -> Tuple[str, List[str]]:
         issues.append(f"**Only {len(skills)} required skills listed** — Add 5–8 specific skills to increase match precision and reduce unqualified applications.")
     if not deliverables or len(deliverables) == 0:
         issues.append("**No deliverables specified** — Clear deliverables increase application quality by setting explicit expectations.")
-    if budget < 50:
-        issues.append(f"**Budget is ${int(budget)}** — Very low budgets filter out experienced candidates before they even apply.")
+    if budget < 3000:
+        issues.append(f"**Budget is ₹{int(budget)}** — Very low budgets filter out experienced candidates before they even apply.")
 
     if not issues:
         response = (

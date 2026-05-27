@@ -94,7 +94,7 @@ export const businessService = {
         fullTime: true,
         internship: false,
       },
-      budgetRange: "< $500/mo",
+      budgetRange: "< ₹10k/mo",
       logoUrl: "",
       verificationStatus: "Unverified",
       activeJobs: 0,

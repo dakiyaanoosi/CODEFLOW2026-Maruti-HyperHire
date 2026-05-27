@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, Users, DollarSign, Building2, Camera } from "lucide-react";
+import { MapPin, Users, IndianRupee, Building2, Camera } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BusinessVerificationBadge } from "./BusinessVerificationBadge";
 import { BusinessProfile } from "@/types/business";
@@ -108,7 +108,7 @@ export function BusinessProfileCard({ profile, isEditing = false, onLogoClick }:
 
           <div className="flex items-center justify-between text-[13px]">
             <span className="flex items-center gap-2 text-brand-muted">
-              <DollarSign className="h-3.5 w-3.5 shrink-0" />
+              <IndianRupee className="h-3.5 w-3.5 shrink-0" />
               Budget
             </span>
             <span className="font-medium text-brand-ink">{profile.budgetRange}</span>

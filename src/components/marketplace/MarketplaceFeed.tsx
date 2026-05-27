@@ -316,18 +316,21 @@ export function MarketplaceFeed({
                 <FolderOpen className="h-5 w-5" />
               </div>
               <h3 className="text-sm font-semibold text-brand-ink mb-1">
-                No gigs match your criteria
+                {jobs.length === 0 ? "No active gigs available" : "No gigs match your criteria"}
               </h3>
               <p className="text-xs text-brand-muted max-w-xs leading-relaxed mb-5">
-                Try adjusting your search or clearing some filters to see more
-                listings.
+                {jobs.length === 0
+                  ? "There are currently no active gigs listed in the marketplace. Check back later or create a new gig listing if you are a business."
+                  : "Try adjusting your search or clearing some filters to see more listings."}
               </p>
-              <button
-                onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="rounded-[10px] border border-brand-hairline bg-white px-4 py-2 text-xs font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors"
-              >
-                Reset all filters
-              </button>
+              {jobs.length > 0 && (
+                <button
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="rounded-[10px] border border-brand-hairline bg-white px-4 py-2 text-xs font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors"
+                >
+                  Reset all filters
+                </button>
+              )}
             </motion.div>
           )}
         </div>

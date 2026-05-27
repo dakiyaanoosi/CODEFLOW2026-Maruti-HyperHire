@@ -6,6 +6,7 @@
 
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
+import { profileService } from "./profile-service";
 import type {
   StudentEarningsSummary,
   BusinessEarningsSummary,
@@ -59,8 +60,8 @@ function getFallbackStudentEarnings(): StudentEarningsSummary {
     totalEarnings: 0,
     currentMonthIncome: 0,
     pendingPayoutTotal: 0,
-    avgRatePerHour: 22,
-    completionRate: 100,
+    avgRatePerHour: 0,
+    completionRate: 0,
     pendingPayouts: [],
     monthlyHistory: [
       { month: "Dec", year: 2025, amount: 0 },
@@ -86,8 +87,8 @@ function getFallbackBusinessEarnings(): BusinessEarningsSummary {
     currentMonthSpend: 0,
     activeProjectCount: 0,
     hiredCount: 0,
-    avgTimeToHire: 3.5,
-    hiringEfficiencyRate: 100,
+    avgTimeToHire: 0,
+    hiringEfficiencyRate: 0,
     monthlySpend: [
       { month: "Dec", year: 2025, amount: 0 },
       { month: "Jan", year: 2026, amount: 0 },
@@ -183,8 +184,17 @@ export async function getStudentEarnings(
     ];
 
     const totalJobs = acceptedCount + completedCount;
-    const completionRate = totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 100;
-    const avgRatePerHour = 22; // Nice consistent average representing rate/hr
+    const completionRate = totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 0;
+    
+    let avgRatePerHour = 0;
+    try {
+      const profile = await profileService.getProfile(uid);
+      if (profile && profile.hourlyRate) {
+        avgRatePerHour = profile.hourlyRate;
+      }
+    } catch (e) {
+      console.error("Failed to fetch user hourlyRate:", e);
+    }
 
     return {
       totalEarnings: Math.round(totalEarnings),
@@ -257,8 +267,27 @@ export async function getBusinessEarnings(
 
     const hiredCount = applications.filter(a => ["accepted", "collaboration_started", "in_progress", "completed"].includes(a.status)).length;
     const appliedCount = applications.length;
-    const hiringEfficiencyRate = appliedCount > 0 ? Math.round((hiredCount / appliedCount) * 100) : 100;
-    const avgTimeToHire = 3.5;
+    const hiringEfficiencyRate = appliedCount > 0 ? Math.round((hiredCount / appliedCount) * 100) : 0;
+    
+    // Calculate real average time to hire in days
+    const hiredApps = applications.filter(a => ["accepted", "collaboration_started", "in_progress", "completed"].includes(a.status));
+    let totalTimeToHireDays = 0;
+    let hiredWithTimeCount = 0;
+    hiredApps.forEach(a => {
+      if (a.createdAt && a.updatedAt) {
+        const createdTime = new Date(a.createdAt).getTime();
+        const updatedTime = new Date(a.updatedAt).getTime();
+        const diffDays = (updatedTime - createdTime) / (1000 * 60 * 60 * 24);
+        if (diffDays >= 0) {
+          totalTimeToHireDays += diffDays;
+          hiredWithTimeCount++;
+        }
+      }
+    });
+    
+    const avgTimeToHire = hiredWithTimeCount > 0 
+      ? Number((totalTimeToHireDays / hiredWithTimeCount).toFixed(1))
+      : 0;
 
     const monthlySpend = getMonthlyHistory(escrows, "released", "releasedAt", "amount");
 

@@ -100,7 +100,7 @@ def local_job_analysis(title: str, description: str, budget: float = 0.0, delive
         f" Core execution areas: {', '.join(skills[:4])}."
     )
     if budget:
-        summary += f" Suggested scope should fit a budget near ${int(budget)}."
+        summary += f" Suggested scope should fit a budget near ₹{int(budget)}."
     return {
         "aiExtractedSkills": skills,
         "aiGeneratedSummary": summary,
@@ -204,6 +204,7 @@ def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
     sanitized_prompt = (
         system_prompt +
         "\n\nCRITICAL: Do NOT use any Markdown formatting characters (such as '**', '*', '_', '__', '#', or bullet dashes '-' / '*') in any text fields. Return plain text only for all string values."
+        "\n\nCRITICAL: The standard currency system of the platform is Indian Rupees (INR, ₹). All budget suggestions, price quotes, hourly rates, and money values MUST be calculated and represented in INR/₹. Do NOT refer to USD or dollars, and never use the '$' symbol."
     )
     
     body = {

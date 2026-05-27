@@ -355,10 +355,10 @@ export function JobFormModal({
               {/* Budget */}
               <div className="space-y-2">
                 <label htmlFor="budget" className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
-                  Budget (USD) <span className="text-brand-coral">*</span>
+                  Budget (INR) <span className="text-brand-coral">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-muted text-sm font-semibold">$</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-muted text-sm font-semibold">₹</span>
                   <input
                     id="budget"
                     type="number"

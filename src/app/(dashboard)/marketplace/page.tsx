@@ -29,7 +29,7 @@ export default function MarketplacePage() {
       setIsLoading(true);
       try {
         const rawJobs = await jobService.getJobs(undefined, true);
-        const activeJobs = rawJobs && rawJobs.length > 0 ? rawJobs : generateMockJobs();
+        const activeJobs = rawJobs || [];
         
         if (profile.role === "student") {
           try {

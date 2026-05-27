@@ -219,7 +219,7 @@ export function MarketplaceFilterPanel({
           <div className="flex items-center gap-2">
             <div className="flex-1">
               <label className="text-[10px] font-medium text-brand-muted mb-1 block">
-                Min ($)
+                Min (₹)
               </label>
               <input
                 type="number"
@@ -237,7 +237,7 @@ export function MarketplaceFilterPanel({
             <span className="text-brand-muted text-xs mt-4">–</span>
             <div className="flex-1">
               <label className="text-[10px] font-medium text-brand-muted mb-1 block">
-                Max ($)
+                Max (₹)
               </label>
               <input
                 type="number"

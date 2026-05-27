@@ -6,7 +6,7 @@ import {
   Briefcase,
   Calendar,
   MapPin,
-  DollarSign,
+  IndianRupee,
   Flame,
   Zap,
   CheckCircle2,
@@ -203,9 +203,9 @@ export function MarketplaceJobDetailModal({
               <div className="grid grid-cols-3 gap-3">
                 {[
                   {
-                    icon: DollarSign,
+                    icon: IndianRupee,
                     label: "Budget",
-                    value: `$${job.budget.toLocaleString()}`,
+                    value: `₹${job.budget.toLocaleString()}`,
                     color: "text-brand-ink",
                   },
                   {

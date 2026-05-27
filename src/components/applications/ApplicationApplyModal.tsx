@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Loader2, Send, Clock, DollarSign, FileText, MessageSquare, AlertCircle, Sparkles, BrainCircuit } from "lucide-react";
+import { X, Loader2, Send, Clock, IndianRupee, FileText, MessageSquare, AlertCircle, Sparkles, BrainCircuit } from "lucide-react";
 import { Job } from "@/types/job";
 import { ApplicationFormData } from "@/types/application";
 import { applicationService } from "@/lib/application-service";
@@ -335,11 +335,11 @@ export function ApplicationApplyModal({
 
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-1.5 text-sm font-medium text-brand-ink">
-                    <DollarSign className="h-3.5 w-3.5 text-brand-muted" />
-                    Price Quote (USD)
+                    <IndianRupee className="h-3.5 w-3.5 text-brand-muted" />
+                    Price Quote (INR)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">₹</span>
                     <input
                       type="number"
                       min={1}

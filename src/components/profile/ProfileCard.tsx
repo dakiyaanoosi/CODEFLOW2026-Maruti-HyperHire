@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Globe, DollarSign, Clock, GraduationCap, Camera } from "lucide-react";
+import { Globe, IndianRupee, Clock, GraduationCap, Camera } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { ProfileStrengthMeter } from "./ProfileStrengthMeter";
@@ -92,10 +92,10 @@ export function ProfileCard({ profile, isEditing = false, onAvatarClick }: Profi
         <div className="space-y-3">
           <div className="flex items-center justify-between text-[13px]">
             <span className="flex items-center gap-2 text-brand-muted">
-              <DollarSign className="h-3.5 w-3.5" />
+              <IndianRupee className="h-3.5 w-3.5" />
               Hourly Rate
             </span>
-            <span className="font-medium text-brand-ink">${profile.hourlyRate}/hr</span>
+            <span className="font-medium text-brand-ink">₹{profile.hourlyRate}/hr</span>
           </div>
 
           <div className="flex items-center justify-between text-[13px]">

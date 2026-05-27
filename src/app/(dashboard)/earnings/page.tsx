@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
 import {
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Clock,
   Briefcase,
@@ -27,21 +27,21 @@ function StudentEarningsView({ data }: { data: StudentEarningsSummary }) {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <EarningsStatCard
           label="Total Earnings"
-          value={"Rs." + data.totalEarnings.toLocaleString()}
+          value={"₹" + data.totalEarnings.toLocaleString()}
           sub="All-time net"
           accent="bg-brand-peach"
-          icon={<DollarSign className="h-4 w-4 text-brand-ink" />}
+          icon={<IndianRupee className="h-4 w-4 text-brand-ink" />}
         />
         <EarningsStatCard
           label="This Month"
-          value={"Rs." + data.currentMonthIncome.toLocaleString()}
+          value={"₹" + data.currentMonthIncome.toLocaleString()}
           sub="May 2026"
           accent="bg-brand-mint"
           icon={<TrendingUp className="h-4 w-4 text-brand-ink" />}
         />
         <EarningsStatCard
           label="Pending Payout"
-          value={"Rs." + data.pendingPayoutTotal.toLocaleString()}
+          value={"₹" + data.pendingPayoutTotal.toLocaleString()}
           sub={data.pendingPayouts.length + " transactions"}
           accent="bg-brand-yellow"
           icon={<Clock className="h-4 w-4 text-brand-ink" />}
@@ -49,7 +49,7 @@ function StudentEarningsView({ data }: { data: StudentEarningsSummary }) {
         <EarningsStatCard
           label="Completion Rate"
           value={data.completionRate + "%"}
-          sub={"~Rs." + data.avgRatePerHour + "/hr avg"}
+          sub={"~₹" + data.avgRatePerHour + "/hr avg"}
           accent="bg-brand-cream"
           icon={<Briefcase className="h-4 w-4 text-brand-ink" />}
         />
@@ -57,7 +57,7 @@ function StudentEarningsView({ data }: { data: StudentEarningsSummary }) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <EarningsBarChart data={data.monthlyHistory} label="Monthly Income" unit="Rs." />
+          <EarningsBarChart data={data.monthlyHistory} label="Monthly Income" unit="₹" />
         </div>
         <JobStatsGrid stats={data.jobStats} />
       </div>
@@ -73,14 +73,14 @@ function BusinessEarningsView({ data }: { data: BusinessEarningsSummary }) {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <EarningsStatCard
           label="Total Spend"
-          value={"Rs." + data.totalSpend.toLocaleString()}
+          value={"₹" + data.totalSpend.toLocaleString()}
           sub="All-time outflow"
           accent="bg-brand-peach"
-          icon={<DollarSign className="h-4 w-4 text-brand-ink" />}
+          icon={<IndianRupee className="h-4 w-4 text-brand-ink" />}
         />
         <EarningsStatCard
           label="This Month"
-          value={"Rs." + data.currentMonthSpend.toLocaleString()}
+          value={"₹" + data.currentMonthSpend.toLocaleString()}
           sub="May 2026"
           accent="bg-brand-mint"
           icon={<TrendingUp className="h-4 w-4 text-brand-ink" />}
@@ -103,7 +103,7 @@ function BusinessEarningsView({ data }: { data: BusinessEarningsSummary }) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <EarningsBarChart data={data.monthlySpend} label="Monthly Spending" unit="Rs." />
+          <EarningsBarChart data={data.monthlySpend} label="Monthly Spending" unit="₹" />
         </div>
         <HiringEfficiencyCard
           efficiencyRate={data.hiringEfficiencyRate}
