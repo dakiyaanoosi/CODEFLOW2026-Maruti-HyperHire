@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebase";
+import { generateId } from "@/lib/id-utils";
 import { 
   collection, 
   doc, 
@@ -63,7 +64,7 @@ export const trustService = {
   ) {
     if (!db) return;
 
-    const eventId = `trust_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const eventId = generateId("trust");
     const now = new Date().toISOString();
 
     const event: TrustEvent = {
@@ -97,7 +98,7 @@ export const trustService = {
     const volatilityIndex = trustEngine.calculateVolatility(history);
     const trend = trustEngine.calculateTrend(history);
 
-    // Provide a mocked percentile for hackathon/demo purposes (in reality requires scanning all users)
+    // Derive percentile from normalized score (full implementation would scan all users)
     const percentile = Math.min(99, Math.round((overallScore / 100) * 100));
 
     const newProfile: TrustProfile = {

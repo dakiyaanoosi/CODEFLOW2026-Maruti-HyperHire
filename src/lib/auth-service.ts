@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { SerializedUser, UserProfile } from "@/store/use-auth-store";
 import { profileService } from "./profile-service";
 import type { User as FirebaseUserType } from "firebase/auth";
@@ -88,7 +89,7 @@ export const authService = {
             return;
           }
 
-          const uid = "sim_user_" + Math.random().toString(36).substring(2, 9);
+          const uid = generateId("sim_user");
           
           if (role === "student") {
             profileService.createDefaultStudentProfile(uid, email, name).then((profile) => {
@@ -257,7 +258,7 @@ export const authService = {
           // Signup flow: create simulated profile
           const mockName = selectedRole === "business" ? "Anil Sen (Business)" : "Kunal Das (Student)";
           const mockEmail = selectedRole === "business" ? "anil.sen@gmail.com" : "kunal.das@gmail.com";
-          const uid = "sim_google_" + Math.random().toString(36).substring(2, 9);
+          const uid = generateId("sim_google");
           
           const profile: UserProfile = {
             uid,

@@ -81,7 +81,7 @@ function AttachmentChip({ url, type, isOwn }: { url: string; type: string; isOwn
       className={cn(
         "flex items-center gap-2.5 rounded-[10px] border px-3 py-2 transition-opacity hover:opacity-80",
         isOwn
-          ? "border-white/20 bg-white/10 text-white"
+          ? "border-brand-ink/20 bg-brand-ink text-white"
           : "border-brand-hairline bg-white text-brand-ink"
       )}
     >

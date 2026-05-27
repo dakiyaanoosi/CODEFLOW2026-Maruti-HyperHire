@@ -1,5 +1,6 @@
 import { collection, doc, setDoc, getDocs, getDoc, query, where, updateDoc, writeBatch } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { GigInvitation } from "@/types/invitation";
 import { notificationService } from "./notification-service";
 import { applicationService } from "./application-service";
@@ -72,7 +73,7 @@ export const invitationService = {
 
     const invitationId = isFirebaseConfigured && db
       ? doc(collection(db, "gigInvitations")).id
-      : "inv_" + Math.random().toString(36).substring(2, 9);
+      : generateId("inv");
 
     const invitation: GigInvitation = {
       ...data,

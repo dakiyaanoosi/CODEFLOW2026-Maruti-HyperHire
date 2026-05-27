@@ -5,7 +5,6 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { jobService } from "@/lib/job-service";
 import { Job } from "@/types/job";
-import { generateMockJobs } from "@/lib/marketplace-utils";
 import { MarketplaceFeed } from "@/components/marketplace";
 import { Loader2, Store, Target } from "lucide-react";
 import { portfolioService } from "@/lib/portfolio-service";

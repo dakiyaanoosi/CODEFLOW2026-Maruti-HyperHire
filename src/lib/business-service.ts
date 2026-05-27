@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, setDoc, getDocs, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { BusinessProfile } from "@/types/business";
 
 const SIMULATED_BUSINESSES_KEY = "hyperhire_simulated_businesses";
@@ -76,7 +77,7 @@ export const businessService = {
   ): Promise<BusinessProfile> {
     const businessId = isFirebaseConfigured && db
       ? doc(collection(db, "businesses")).id
-      : "bus_" + Math.random().toString(36).substring(2, 9);
+      : generateId("bus");
 
     const now = new Date().toISOString();
     const defaultProfile: BusinessProfile = {

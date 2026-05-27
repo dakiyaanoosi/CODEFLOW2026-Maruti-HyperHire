@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
-import { Briefcase, ArrowRight, Store } from "lucide-react";
+import { Briefcase, Store } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { StudentAIRecommendations } from "@/components/ai/StudentAIRecommendations";
@@ -13,20 +13,6 @@ import { StudentIntelligence } from "@/components/analytics/StudentIntelligence"
 import { jobService } from "@/lib/job-service";
 import { Job } from "@/types/job";
 
-const studentQuickLinks = [
-  { label: "Browse marketplace", href: "/marketplace", desc: "Find gigs matching your skills" },
-  { label: "Build your portfolio", href: "/portfolio", desc: "Showcase your best work" },
-  { label: "Track applications", href: "/applications", desc: "Review submitted proposals" },
-  { label: "Active Workflows", href: "/workflows", desc: "Manage current deliverables" },
-];
-
-const businessQuickLinks = [
-  { label: "Post or edit gigs", href: "/jobs", desc: "Manage active and draft listings" },
-  { label: "Review applications", href: "/applications", desc: "Shortlist, accept, or reject proposals" },
-  { label: "Company profile", href: "/business-profile", desc: "Update hiring preferences" },
-  { label: "Active Workflows", href: "/workflows", desc: "Track project execution" },
-];
-
 export default function DashboardPage() {
   const { user, profile } = useAuthStore();
   const [businessJobs, setBusinessJobs] = React.useState<Job[]>([]);
@@ -35,7 +21,6 @@ export default function DashboardPage() {
   const firstName = profile?.name?.split(" ")[0] || "there";
   const isBusiness = profile?.role === "business";
   const roleLabel = profile?.role === "student" ? "Student Talent" : isBusiness ? "Business" : "User";
-  const quickLinks = isBusiness ? businessQuickLinks : studentQuickLinks;
   const greeting =
     new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
 
@@ -145,28 +130,6 @@ export default function DashboardPage() {
         >
           {/* Market Intelligence Heatmap */}
           <AIHeatmapWidget />
-
-          {/* Quick Links */}
-          <div className="rounded-[10px] border border-brand-hairline bg-white p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-brand-muted">
-              Quick links
-            </p>
-            <div className="space-y-1">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="group flex items-center justify-between rounded-[8px] px-3 py-2.5 transition-colors hover:bg-brand-surface-soft"
-                >
-                  <div>
-                    <p className="text-xs font-semibold text-brand-ink">{link.label}</p>
-                    <p className="mt-0.5 text-[11px] text-brand-muted">{link.desc}</p>
-                  </div>
-                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-brand-muted opacity-0 transition-opacity group-hover:opacity-100" />
-                </Link>
-              ))}
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>

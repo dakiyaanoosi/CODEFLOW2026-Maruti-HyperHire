@@ -63,40 +63,6 @@ export interface BusinessProfile {
   analytics?: ActivityAnalytics;
 }
 
-export const MOCK_BUSINESS_PROFILE: BusinessProfile = {
-  businessId: "sim_bus_nexa",
-  ownerId: "sim_user_owner",
-  companyName: "NexaStack Solutions",
-  industry: "Technology",
-  description:
-    "We build modern SaaS tools for hyperlocal businesses. Our team ships fast, iterates faster, and believes in student talent as the future of the workforce.",
-  budgetRange: "₹30k–₹80k/mo",
-  companySize: "11–50",
-  teamSize: "11–50",
-  location: "Bangalore, India",
-  website: "https://nexastack.dev",
-  hiringPreferences: {
-    remote: true,
-    partTime: true,
-    fullTime: false,
-    internship: true,
-  },
-  logoUrl: "",
-  verificationStatus: "Verified",
-  isVerified: true,
-  logoInitials: "NS",
-  activeJobs: 3,
-  totalHires: 9,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  analytics: {
-    jobsPosted: 14,
-    totalHires: 9,
-    activeListings: 3,
-    avgResponseHours: 6,
-  },
-};
-
 export const ALL_INDUSTRIES: Industry[] = [
   "Technology",
   "Design & Creative",

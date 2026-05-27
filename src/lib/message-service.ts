@@ -1,4 +1,5 @@
 import { db } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { 
   collection, 
   doc, 
@@ -19,9 +20,6 @@ import { Application } from "@/types/application";
 import { getInitials } from "./message-utils";
 import { notificationService } from "./notification-service";
 
-function generateId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
 
 export const messageService = {
   subscribeToConversations(

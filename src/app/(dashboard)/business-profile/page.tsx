@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { businessService } from "@/lib/business-service";
-import { BusinessProfile, MOCK_BUSINESS_PROFILE } from "@/types/business";
+import { BusinessProfile } from "@/types/business";
 import { BusinessProfileCard } from "@/components/business/BusinessProfileCard";
 import { BusinessProfileDetails } from "@/components/business/BusinessProfileDetails";
 import { BusinessProfileEditForm } from "@/components/business/BusinessProfileEditForm";
@@ -67,9 +67,9 @@ export default function BusinessProfilePage() {
           setProfile(busProfile);
           setDraft(busProfile);
         } else {
-          // If student user, show mock company profile in preview mode
-          setProfile(MOCK_BUSINESS_PROFILE);
-          setDraft(MOCK_BUSINESS_PROFILE);
+          // Student users see the empty/preview state — no fake business data
+          setProfile(null);
+          setDraft(null);
         }
       } catch (error) {
         console.error("Failed to load business profile:", error);
@@ -146,7 +146,9 @@ export default function BusinessProfilePage() {
     setTab(t);
   }
 
-  if (isLoading || !profile) {
+  const isBusinessUser = authProfile?.role?.toLowerCase() === "business";
+
+  if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -157,7 +159,24 @@ export default function BusinessProfilePage() {
     );
   }
 
-  const isBusinessUser = authProfile?.role?.toLowerCase() === "business";
+  if (!profile) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 max-w-md text-center">
+          <Info className="h-10 w-10 text-brand-muted" />
+          <h2 className="text-lg font-semibold text-brand-ink">
+            {isBusinessUser ? "No Business Profile Found" : "Business Profiles Only"}
+          </h2>
+          <p className="text-sm text-brand-body leading-relaxed">
+            {isBusinessUser
+              ? "We couldn't load your business profile. Please try refreshing the page."
+              : "This section is only available to business accounts. Switch to a business account to manage your company profile."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const displayProfile = tab === "edit" && draft ? draft : profile;
 
   return (

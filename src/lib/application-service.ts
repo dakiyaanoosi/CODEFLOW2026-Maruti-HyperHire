@@ -1,5 +1,6 @@
 import { Application, ApplicationFormData, ApplicationStatus } from "@/types/application";
 import { db } from "@/lib/firebase";
+import { generateId } from "@/lib/id-utils";
 import { 
   collection, 
   doc, 
@@ -16,8 +17,8 @@ import { workflowService } from "@/lib/workflow-service";
 import { messageService } from "@/lib/message-service";
 import { notificationService } from "@/lib/notification-service";
 
-function generateId(): string {
-  return `app_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+function applicationId(): string {
+  return generateId("app");
 }
 
 const COLLECTION_NAME = "applications";
@@ -47,7 +48,7 @@ export const applicationService = {
       throw new Error("You have already applied to this job.");
     }
 
-    const appId = generateId();
+    const appId = applicationId();
     const appRef = doc(db, COLLECTION_NAME, appId);
     const now = new Date().toISOString();
 

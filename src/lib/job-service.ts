@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, setDoc, getDocs, deleteDoc, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { Job } from "@/types/job";
 
 const SIMULATED_JOBS_KEY = "hyperhire_simulated_jobs";
@@ -217,7 +218,7 @@ export const jobService = {
   ): Promise<Job> {
     const jobId = isFirebaseConfigured && db 
       ? doc(collection(db, "jobs")).id 
-      : "job_" + Math.random().toString(36).substring(2, 9);
+      : generateId("job");
 
     const now = new Date().toISOString();
     

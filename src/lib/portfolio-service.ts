@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, setDoc, getDocs, deleteDoc, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { PortfolioItem } from "@/types/portfolio";
 
 const SIMULATED_PORTFOLIOS_KEY = "hyperhire_simulated_portfolios";
@@ -111,7 +112,7 @@ export const portfolioService = {
   ): Promise<PortfolioItem> {
     const portfolioId = isFirebaseConfigured && db 
       ? doc(collection(db, "portfolios")).id 
-      : "port_" + Math.random().toString(36).substring(2, 9);
+      : generateId("port");
 
     const now = new Date().toISOString();
     

@@ -45,33 +45,6 @@ export interface StudentProfile {
   verifiedProjectsCount?: number;
 }
 
-export const MOCK_PROFILE: StudentProfile = {
-  name: "Student Developer",
-  college: "IIT Bombay",
-  bio:
-    "Full-stack developer passionate about building scalable web applications and intuitive user experiences. Currently pursuing B.Tech in Computer Science with a focus on distributed systems and AI-powered products.",
-  skills: ["React", "TypeScript", "Node.js", "Python", "PostgreSQL", "Tailwind CSS", "Next.js", "GraphQL"],
-  experienceLevel: "Intermediate",
-  availability: "20 hrs/week",
-  preferredCategories: ["Web Development", "UI/UX Design", "Backend Engineering"],
-  hourlyRate: 18,
-  portfolioLinks: [
-    "https://example.com/projects/project-1",
-    "https://example.com/projects/project-2",
-  ],
-  socialLinks: {
-    github: "https://github.com/student-dev",
-    linkedin: "https://linkedin.com/in/student-dev",
-    twitter: "https://twitter.com/student_dev",
-    website: "https://studentdev.dev",
-  },
-  trustScore: 87,
-  isVerified: true,
-  profileStrength: 82,
-  avatarInitials: "SD",
-  avatarUrl: "",
-};
-
 export const EXPERIENCE_LEVELS: ExperienceLevel[] = [
   "Beginner",
   "Intermediate",
