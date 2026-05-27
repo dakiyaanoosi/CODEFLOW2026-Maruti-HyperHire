@@ -58,9 +58,8 @@ export const portfolioService = {
         // Sort in memory to avoid needing a Firestore composite index for ordering
         return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       } catch (error) {
-        console.error("Firestore getPortfolios error, falling back to simulated:", error);
-        // Fall back to simulated database on firestore error (e.g. permission denied)
-        return this.getSimulatedPortfoliosList(userId);
+        console.error("Firestore getPortfolios error:", error);
+        throw error;
       }
     } else {
       return this.getSimulatedPortfoliosList(userId);
@@ -96,8 +95,7 @@ export const portfolioService = {
         return null;
       } catch (error) {
         console.error("Firestore getPortfolioItem error:", error);
-        const portfolios = getSimulatedPortfolios();
-        return portfolios[portfolioId] || null;
+        throw error;
       }
     } else {
       const portfolios = getSimulatedPortfolios();
@@ -145,8 +143,8 @@ export const portfolioService = {
         const docRef = doc(db, "portfolios", portfolioId);
         await setDoc(docRef, cleanFirestoreData(newItem));
       } catch (error) {
-        console.error("Firestore createPortfolioItem error, saving to simulated db:", error);
-        this.saveSimulatedPortfolioItem(newItem);
+        console.error("Firestore createPortfolioItem error:", error);
+        throw error;
       }
     } else {
       this.saveSimulatedPortfolioItem(newItem);
@@ -203,8 +201,8 @@ export const portfolioService = {
         const docRef = doc(db, "portfolios", portfolioId);
         await setDoc(docRef, cleanFirestoreData(updatedItem));
       } catch (error) {
-        console.error("Firestore updatePortfolioItem error, updating in simulated db:", error);
-        this.saveSimulatedPortfolioItem(updatedItem);
+        console.error("Firestore updatePortfolioItem error:", error);
+        throw error;
       }
     } else {
       this.saveSimulatedPortfolioItem(updatedItem);
@@ -222,8 +220,8 @@ export const portfolioService = {
         const docRef = doc(db, "portfolios", portfolioId);
         await deleteDoc(docRef);
       } catch (error) {
-        console.error("Firestore deletePortfolioItem error, deleting from simulated db:", error);
-        this.deleteSimulatedPortfolioItem(portfolioId);
+        console.error("Firestore deletePortfolioItem error:", error);
+        throw error;
       }
     } else {
       this.deleteSimulatedPortfolioItem(portfolioId);

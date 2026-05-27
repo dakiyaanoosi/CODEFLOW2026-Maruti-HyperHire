@@ -49,8 +49,7 @@ export const messageService = {
   ) {
     if (!db) return () => {};
     const q = query(
-      collection(db, "messages"),
-      where("conversationId", "==", conversationId),
+      collection(db, "conversations", conversationId, "messages"),
       orderBy("createdAt", "asc")
     );
 
@@ -95,7 +94,7 @@ export const messageService = {
     const batch = writeBatch(db);
     
     // 1. Create message
-    const msgRef = doc(db, "messages", messageId);
+    const msgRef = doc(db, "conversations", conversationId, "messages", messageId);
     batch.set(msgRef, cleanMessage);
 
     // 2. Update conversation last message and unread counts
@@ -220,7 +219,7 @@ export const messageService = {
       createdAt: now
     };
     
-    batch.set(doc(db, "messages", msgId), sysMessage);
+    batch.set(doc(db, "conversations", conversationId, "messages", msgId), sysMessage);
 
     await batch.commit();
     return conversation;

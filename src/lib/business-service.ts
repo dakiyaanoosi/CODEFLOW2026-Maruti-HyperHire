@@ -49,8 +49,8 @@ export const businessService = {
         }
         return null;
       } catch (error) {
-        console.error("Firestore getBusinessProfileByOwner error, checking simulated:", error);
-        return this.getSimulatedProfileByOwner(ownerId);
+        console.error("Firestore getBusinessProfileByOwner error:", error);
+        throw error;
       }
     } else {
       return this.getSimulatedProfileByOwner(ownerId);
@@ -108,8 +108,8 @@ export const businessService = {
         const docRef = doc(db, "businesses", businessId);
         await setDoc(docRef, cleanFirestoreData(defaultProfile));
       } catch (error) {
-        console.error("Firestore createDefaultBusinessProfile error, saving to simulated db:", error);
-        this.saveSimulatedProfile(defaultProfile);
+        console.error("Firestore createDefaultBusinessProfile error:", error);
+        throw error;
       }
     } else {
       this.saveSimulatedProfile(defaultProfile);
@@ -162,7 +162,8 @@ export const businessService = {
           return updated;
         }
       } catch (error) {
-        console.error("Firestore updateBusinessProfile error, falling back to simulated update:", error);
+        console.error("Firestore updateBusinessProfile error:", error);
+        throw error;
       }
     }
 

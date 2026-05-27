@@ -96,7 +96,7 @@ def local_job_analysis(title: str, description: str, budget: float = 0.0, delive
     sentence = _sentences(description)[:1]
     summary_base = sentence[0] if sentence else f"{title} requires delivery across {category.lower()}."
     summary = (
-        f"{summary_base.rstrip('.')}."
+        f"[Fallback Mode] {summary_base.rstrip('.')}."
         f" Core execution areas: {', '.join(skills[:4])}."
     )
     if budget:
@@ -132,6 +132,7 @@ def local_pitch_enhancement(
     skills = analysis["aiExtractedSkills"][:4]
     opener = "Hi," if tone.lower() == "conversational" else "Dear Hiring Team,"
     cover = (
+        f"[Fallback Mode]\n"
         f"{opener}\n\n"
         f"I'd like to work on {job_title}. Your brief points to {', '.join(skills).lower()} work, "
         f"and I can turn the requirements into clear deliverables with regular progress updates.\n\n"
@@ -139,7 +140,7 @@ def local_pitch_enhancement(
         "I can start by confirming scope, then share a concise execution plan before moving into delivery."
     )
     proposal = (
-        "### Proposed Approach\n"
+        "### Proposed Approach (Fallback Mode)\n"
         "1. Confirm success criteria, assets, timeline, and review points.\n"
         f"2. Execute the core work: {proposal_text.strip() or 'complete the requested deliverables with documented progress'}.\n"
         "3. Share a review build or draft, incorporate feedback, and hand over final files with notes.\n\n"
@@ -252,5 +253,9 @@ def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
 
 
 def call_llm_json(system_prompt: str, user_payload: Dict[str, Any], schema: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # Standardize LLM switching using LLM_PROVIDER
+    provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+    if provider in ["fallback", "deterministic", "offline", "mock"]:
+        return None
     # Always route to Gemini JSON generator
     return call_gemini_json(system_prompt, user_payload, schema)

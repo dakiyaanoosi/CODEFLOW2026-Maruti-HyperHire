@@ -176,14 +176,14 @@ export async function analyzeJobDescription(
   const aiExtractedSkills = Array.from(extractedSkillsSet);
 
   // Generate a summary
-  let aiGeneratedSummary = `Looking for assistance with ${suggestedCategory.toLowerCase()} related deliverables. Tasks include participating in project sprints and shipping features.`;
+  let aiGeneratedSummary = `[Fallback Mode] Looking for assistance with ${suggestedCategory.toLowerCase()} related deliverables. Tasks include participating in project sprints and shipping features.`;
   if (description.trim().length > 30) {
     // Take first sentence or first 120 chars
     const firstSentence = description.split(/[.!?]/)[0];
     if (firstSentence && firstSentence.length > 15) {
-      aiGeneratedSummary = `${firstSentence.trim()}. This role focuses on executing the core requirements efficiently.`;
+      aiGeneratedSummary = `[Fallback Mode] ${firstSentence.trim()}. This role focuses on executing the core requirements efficiently.`;
     } else {
-      aiGeneratedSummary = `${description.substring(0, 100).trim()}... This gig leverages key skills in ${aiExtractedSkills.slice(0, 2).join(" & ")}.`;
+      aiGeneratedSummary = `[Fallback Mode] ${description.substring(0, 100).trim()}... This gig leverages key skills in ${aiExtractedSkills.slice(0, 2).join(" & ")}.`;
     }
   }
 
@@ -278,7 +278,29 @@ export async function enhanceApplicationPitch(params: ApplicationEnhanceParams):
     const data = await res.json();
     return data;
   } catch (err) {
-    console.error("Enhance Application API failed:", err);
-    throw err;
+    console.error("Enhance Application API failed, running local fallback:", err);
+    
+    // Deterministic JS Fallback
+    const opener = params.tone.toLowerCase() === "conversational" ? "Hi," : "Dear Hiring Team,";
+    const enhancedCoverMessage = 
+      `[Fallback Mode]\n` +
+      `${opener}\n\n` +
+      `I'd like to work on ${params.jobTitle}. I can turn your requirements into clear deliverables with regular progress updates.\n\n` +
+      `${params.coverLetter.trim()}\n\n` +
+      `I can start by confirming scope, then share a concise execution plan before moving into delivery.`;
+      
+    const enhancedProposalText = 
+      `### Proposed Approach (Fallback Mode)\n` +
+      `1. Confirm success criteria, assets, timeline, and review points.\n` +
+      `2. Execute the core work: ${params.proposalText.trim() || "complete the requested deliverables with documented progress"}.\n` +
+      `3. Share a review build or draft, incorporate feedback, and hand over final files with notes.`;
+
+    return {
+      enhancedCoverMessage,
+      enhancedProposalText,
+      recommendedPrice: null,
+      recommendedDays: 7,
+      upsellSuggestion: "Add a short handover document and one structured revision round so the business can reuse the work confidently."
+    };
   }
 }

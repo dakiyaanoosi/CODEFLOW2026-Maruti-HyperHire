@@ -122,8 +122,8 @@ export const jobService = {
 
         return sortedJobs;
       } catch (error) {
-        console.error("Firestore getJobs error, falling back to simulated:", error);
-        return this.getSimulatedJobsList(businessId, onlyPublished);
+        console.error("Firestore getJobs error:", error);
+        throw error;
       }
     } else {
       return this.getSimulatedJobsList(businessId, onlyPublished);
@@ -194,15 +194,7 @@ export const jobService = {
         return null;
       } catch (error) {
         console.error("Firestore getJob error:", error);
-        const jobs = getSimulatedJobs();
-        const job = jobs[jobId] || null;
-        if (job) {
-          const bizMap = getSimulatedBusinessesMap();
-          if (bizMap[job.businessId]) {
-            job.companyName = bizMap[job.businessId];
-          }
-        }
-        return job;
+        throw error;
       }
     } else {
       const jobs = getSimulatedJobs();
@@ -241,8 +233,8 @@ export const jobService = {
         const docRef = doc(db, "jobs", jobId);
         await setDoc(docRef, cleanFirestoreData(newJob));
       } catch (error) {
-        console.error("Firestore createJob error, saving to simulated:", error);
-        this.saveSimulatedJob(newJob);
+        console.error("Firestore createJob error:", error);
+        throw error;
       }
     } else {
       this.saveSimulatedJob(newJob);
@@ -283,8 +275,8 @@ export const jobService = {
         const docRef = doc(db, "jobs", jobId);
         await setDoc(docRef, cleanFirestoreData(updatedJob));
       } catch (error) {
-        console.error("Firestore updateJob error, updating in simulated:", error);
-        this.saveSimulatedJob(updatedJob);
+        console.error("Firestore updateJob error:", error);
+        throw error;
       }
     } else {
       this.saveSimulatedJob(updatedJob);
@@ -302,8 +294,8 @@ export const jobService = {
         const docRef = doc(db, "jobs", jobId);
         await deleteDoc(docRef);
       } catch (error) {
-        console.error("Firestore deleteJob error, deleting from simulated:", error);
-        this.deleteSimulatedJob(jobId);
+        console.error("Firestore deleteJob error:", error);
+        throw error;
       }
     } else {
       this.deleteSimulatedJob(jobId);
@@ -337,8 +329,8 @@ export const jobService = {
         });
         await Promise.all(promises);
       } catch (error) {
-        console.error("Firestore updateBusinessJobsCompanyName error, updating simulated:", error);
-        this.updateSimulatedJobsCompanyName(businessId, companyName);
+        console.error("Firestore updateBusinessJobsCompanyName error:", error);
+        throw error;
       }
     } else {
       this.updateSimulatedJobsCompanyName(businessId, companyName);

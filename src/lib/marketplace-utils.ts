@@ -4,8 +4,10 @@ import { JobWithMatchScore, MarketplaceFilters, TRENDING_CATEGORIES } from "@/ty
 // Score fit based on explicit overlap between user skills and job requirements.
 export function computeMatchScore(job: Job, userSkills: string[]): number {
   if (!userSkills || userSkills.length === 0) {
-    // Random plausible score if no profile skills
-    return Math.floor(40 + Math.random() * 55);
+    // Deterministic fallback baseline if no profile skills are set
+    if (job.difficultyLevel === "Advanced") return 45;
+    if (job.difficultyLevel === "Intermediate") return 60;
+    return 75;
   }
   const userSkillsLower = userSkills.map((s) => s.toLowerCase());
   const jobSkillsLower = job.requiredSkills.map((s) => s.toLowerCase());
@@ -16,9 +18,9 @@ export function computeMatchScore(job: Job, userSkills: string[]): number {
     userSkillsLower.some((us) => us.includes(skill) || skill.includes(us))
   ).length;
 
-  const base = Math.round((matches / jobSkillsLower.length) * 70);
-  // bonus for category match and difficulty proximity
-  const bonus = Math.floor(Math.random() * 25);
+  const base = Math.round((matches / jobSkillsLower.length) * 75);
+  // Deterministic bonus: 15 points if there are matches, otherwise 0
+  const bonus = matches > 0 ? 15 : 0;
   return Math.min(99, base + bonus + 10);
 }
 
@@ -31,9 +33,12 @@ export function enrichJobs(jobs: Job[], userSkills: string[]): JobWithMatchScore
     const isNew = now - createdAt < twoDays;
     const isTrending = TRENDING_CATEGORIES.includes(job.category);
 
+    const existingScore = (job as Job & { matchScore?: number }).matchScore;
+    const matchScore = typeof existingScore === "number" ? existingScore : computeMatchScore(job, userSkills);
+
     return {
       ...job,
-      matchScore: computeMatchScore(job, userSkills),
+      matchScore,
       isTrending,
       isNew,
     };
