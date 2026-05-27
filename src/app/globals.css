@@ -39,13 +39,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 22px;
+  --radius-4xl: 26px;
   --color-brand-primary: #181d26;
   --color-brand-primary-active: #0d1218;
   --color-brand-coral: #aa2d00;
@@ -159,4 +160,97 @@
   h3 {
     letter-spacing: 0;
   }
+}
+
+/* ==========================================
+   DESIGN.md Post-Login Dashboard Overrides
+   ========================================== */
+.dashboard-layout {
+  font-family: var(--font-haas-substitute), sans-serif;
+}
+
+/* Enforce modest weights - never bold for its own sake */
+.dashboard-layout .font-semibold,
+.dashboard-layout .font-bold,
+.dashboard-layout font-semibold,
+.dashboard-layout font-bold,
+.dashboard-layout h1,
+.dashboard-layout h2,
+.dashboard-layout h3,
+.dashboard-layout h4,
+.dashboard-layout h5,
+.dashboard-layout h6 {
+  font-weight: 500 !important;
+}
+
+/* Enforce cursor: pointer on all clickable actions */
+.dashboard-layout button,
+.dashboard-layout a,
+.dashboard-layout select,
+.dashboard-layout input[type="button"],
+.dashboard-layout input[type="submit"],
+.dashboard-layout [role="button"],
+.dashboard-layout .cursor-pointer {
+  cursor: pointer !important;
+}
+
+/* Enforce card layout: flat background, minimal shadow, hairline border */
+.dashboard-layout .rounded-xl,
+.dashboard-layout .rounded-lg,
+.dashboard-layout .rounded-md,
+.dashboard-layout .border,
+.dashboard-layout .shadow-sm,
+.dashboard-layout .shadow {
+  box-shadow: none !important;
+}
+
+/* Standardize primary actions (rounded-lg: 12px, font-weight: 500) */
+.dashboard-layout .bg-brand-ink,
+.dashboard-layout .bg-brand-primary {
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* Standardize secondary actions (rounded-lg: 12px, font-weight: 500) */
+.dashboard-layout .border-brand-hairline,
+.dashboard-layout .border-border {
+  font-weight: 500 !important;
+}
+
+/* ==========================================
+   Custom Global Scrollbar Styling
+   ========================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-brand-hairline, #dddddd);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-border-strong, #9297a0);
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-brand-hairline, #dddddd) transparent;
+}
+
+/* Hide native number input spinners for a cleaner, custom interface */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
 }

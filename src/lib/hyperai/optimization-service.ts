@@ -13,14 +13,55 @@ function useOptimization<TPayload>(
   endpoint: string, 
   payload: TPayload, 
   triggerContent: string | number, // Usually the raw text being typed
-  debounceMs: number = 1500
+  debounceMs: number = 1500,
+  manual: boolean = false
 ) {
   const [analysis, setAnalysis] = useState<OptimizationAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const previousScoreRef = useRef<number | null>(null);
 
+  const runAnalysis = async () => {
+    if (typeof triggerContent === "string" && triggerContent.trim().length < 5) {
+      return;
+    }
+    setIsAnalyzing(true);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const fullPayload = {
+        ...payload,
+        previousScore: previousScoreRef.current
+      };
+
+      const res = await aiFetch<OptimizationAnalysis>(
+        endpoint,
+        {
+          method: "POST",
+          body: JSON.stringify(fullPayload),
+          signal: abortControllerRef.current.signal
+        }
+      );
+
+      previousScoreRef.current = res.scores.overall;
+      setAnalysis(res);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.log("[OptimizationService] Request aborted.");
+      } else {
+        console.error(`[OptimizationService] Error fetching ${endpoint}:`, err);
+      }
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   useEffect(() => {
+    if (manual) return;
+
     // Only analyze if there's meaningful content
     if (typeof triggerContent === "string" && triggerContent.trim().length < 5) {
       setAnalysis(null);
@@ -70,9 +111,9 @@ function useOptimization<TPayload>(
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [triggerContent]); // We only trigger re-eval when the raw text/content changes
+  }, [triggerContent, manual]); // We only trigger re-eval when the raw text/content or manual mode changes
 
-  return { analysis, isAnalyzing };
+  return { analysis, isAnalyzing, runAnalysis };
 }
 
 /**
@@ -82,12 +123,15 @@ export function useProposalOptimization(
   text: string,
   jobDescription: string,
   jobRequiredSkills: string[],
-  studentTrustScore: number
+  studentTrustScore: number,
+  manual: boolean = false
 ) {
   return useOptimization<ProposalOptimizationPayload>(
     "/optimization/proposal",
     { text, jobDescription, jobRequiredSkills, studentTrustScore },
-    text
+    text,
+    1500,
+    manual
   );
 }
 

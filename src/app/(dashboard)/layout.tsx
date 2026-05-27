@@ -38,7 +38,7 @@ export default function DashboardLayout({
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 text-brand-primary animate-spin" />
-        <span className="text-xs font-semibold tracking-wider uppercase text-brand-ink font-mono animate-pulse">
+        <span className="text-xs font-medium tracking-wider uppercase text-brand-ink font-mono animate-pulse">
           Authenticating Session...
         </span>
       </div>
@@ -51,7 +51,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white text-brand-ink">
+    <div className="flex h-screen w-screen overflow-hidden bg-white text-brand-ink dashboard-layout">
       <Sidebar />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">

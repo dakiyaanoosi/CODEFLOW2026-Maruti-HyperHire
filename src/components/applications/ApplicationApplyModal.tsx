@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Loader2, Send, Clock, DollarSign, FileText, MessageSquare, AlertCircle, Sparkles } from "lucide-react";
+import { X, Loader2, Send, Clock, DollarSign, FileText, MessageSquare, AlertCircle, Sparkles, BrainCircuit } from "lucide-react";
 import { Job } from "@/types/job";
 import { ApplicationFormData } from "@/types/application";
 import { applicationService } from "@/lib/application-service";
@@ -22,7 +22,7 @@ interface ApplicationApplyModalProps {
   studentAvatar?: string;
 }
 
-const DELIVERY_OPTIONS = [1, 2, 3, 5, 7, 10, 14, 21, 30];
+// Predefined options removed in favor of custom numeric input
 
 export function ApplicationApplyModal({
   job,
@@ -50,11 +50,12 @@ export function ApplicationApplyModal({
   const { profile } = useAuthStore();
   const trustScore = profile?.trustScore || 80;
 
-  const { analysis, isAnalyzing } = useProposalOptimization(
+  const { analysis, isAnalyzing, runAnalysis } = useProposalOptimization(
     form.proposalText, 
     job?.description || "", 
     job?.requiredSkills || [], 
-    trustScore
+    trustScore,
+    true // manual mode
   );
 
   const handleEnhance = async () => {
@@ -77,8 +78,8 @@ export function ApplicationApplyModal({
       
       setForm(f => ({
         ...f,
-        coverLetter: result.enhancedCoverMessage,
-        proposalText: result.enhancedProposalText,
+        coverLetter: result.enhancedCoverMessage ? result.enhancedCoverMessage.replace(/\r\n/g, "\n") : "",
+        proposalText: result.enhancedProposalText ? result.enhancedProposalText.replace(/\r\n/g, "\n") : "",
         estimatedDeliveryDays: result.recommendedDays || f.estimatedDeliveryDays,
         proposedBudget: result.recommendedPrice || f.proposedBudget
       }));
@@ -207,6 +208,14 @@ export function ApplicationApplyModal({
                 </div>
               </div>
 
+              {/* Gig Description */}
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted">Gig Description</p>
+                <div className="text-xs text-brand-body leading-relaxed bg-brand-surface-soft p-4 rounded-[10px] border border-brand-hairline max-h-[128px] overflow-y-auto whitespace-pre-wrap">
+                  {job.description}
+                </div>
+              </div>
+
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-4 text-xs leading-relaxed text-brand-body">
                 <span>
                   Include your relevant experience, concrete deliverables, timeline, and any portfolio links the business should review.
@@ -258,31 +267,46 @@ export function ApplicationApplyModal({
                   placeholder="Introduce yourself and why you're a strong fit for this gig..."
                   rows={3}
                   className={cn(
-                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-brand-muted focus:border-brand-info-border",
+                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-zinc-400 focus:border-brand-info-border",
                     fieldErrors.coverLetter ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
                   )}
                 />
                 {fieldErrors.coverLetter && <p className="text-xs text-red-600">{fieldErrors.coverLetter}</p>}
-                <p className="text-xs text-brand-muted">{form.coverLetter.length} characters</p>
+                <p className="text-xs text-brand-muted">{(form.coverLetter || "").length} characters</p>
               </div>
 
               <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-brand-ink">
                   <FileText className="h-3.5 w-3.5 text-brand-muted" />
                   Proposal / Approach
                 </label>
+                <button
+                  type="button"
+                  onClick={runAnalysis}
+                  disabled={isAnalyzing || form.proposalText.trim().length < 5}
+                  className="flex h-7 items-center gap-1.5 rounded-[6px] border border-brand-primary/30 bg-brand-primary/10 px-2.5 text-[11px] font-medium text-brand-primary hover:bg-brand-primary/15 transition-colors disabled:opacity-50 select-none cursor-pointer"
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <BrainCircuit className="h-3 w-3" />
+                  )}
+                  Analyze Proposal
+                </button>
+              </div>
                 <textarea
                   value={form.proposalText}
                   onChange={(e) => setForm((f) => ({ ...f, proposalText: e.target.value }))}
                   placeholder="Describe your approach, deliverables, and how you'll handle this project..."
                   rows={5}
                   className={cn(
-                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-brand-muted focus:border-brand-info-border",
+                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-zinc-400 focus:border-brand-info-border",
                     fieldErrors.proposalText ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
                   )}
                 />
                 {fieldErrors.proposalText && <p className="text-xs text-red-600">{fieldErrors.proposalText}</p>}
-                <p className="text-xs text-brand-muted">{form.proposalText.length} characters</p>
+                <p className="text-xs text-brand-muted">{(form.proposalText || "").length} characters</p>
                 
                 {/* HyperAI Strategic Proposal Coach */}
                 <OptimizationPanel analysis={analysis} isAnalyzing={isAnalyzing} type="proposal" />
@@ -294,15 +318,19 @@ export function ApplicationApplyModal({
                     <Clock className="h-3.5 w-3.5 text-brand-muted" />
                     Estimated Delivery
                   </label>
-                  <select
-                    value={form.estimatedDeliveryDays}
-                    onChange={(e) => setForm((f) => ({ ...f, estimatedDeliveryDays: Number(e.target.value) }))}
-                    className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-3 text-sm text-brand-ink outline-none focus:border-brand-info-border"
-                  >
-                    {DELIVERY_OPTIONS.map((d) => (
-                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.estimatedDeliveryDays}
+                      onChange={(e) => setForm((f) => ({ ...f, estimatedDeliveryDays: Math.max(1, Number(e.target.value)) }))}
+                      className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white pl-4 pr-12 text-sm text-brand-ink outline-none focus:border-brand-info-border"
+                      placeholder="e.g. 7"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-brand-muted font-medium pointer-events-none">
+                      Days
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">

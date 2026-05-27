@@ -26,7 +26,7 @@ export function OptimizationPanel({ analysis, isAnalyzing, type }: OptimizationP
       >
         <div className="flex items-center gap-2">
           <BrainCircuit className={cn("h-4 w-4", isAnalyzing ? "text-brand-primary animate-pulse" : "text-brand-ink")} />
-          <span className="text-sm font-semibold text-brand-ink">
+          <span className="text-sm font-medium text-brand-ink">
             {type === "proposal" ? "Strategic Proposal Coach" : "Gig Attraction Optimizer"}
           </span>
           {isAnalyzing && (
@@ -38,14 +38,14 @@ export function OptimizationPanel({ analysis, isAnalyzing, type }: OptimizationP
         <div className="flex items-center gap-4">
           {analysis && !isAnalyzing && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-brand-muted">Overall Score</span>
+              <span className="text-xs font-medium text-brand-muted">Overall Score</span>
               <div className="flex items-center gap-1">
                 <span className={cn(
-                  "text-sm font-bold",
+                  "text-sm font-medium",
                   analysis.scores.overall >= 80 ? "text-brand-success" : 
                   analysis.scores.overall >= 60 ? "text-brand-warning" : "text-brand-coral"
                 )}>
-                  {analysis.scores.overall}
+                  {analysis.scores.overall} / 100
                 </span>
                 {analysis.previousOverallScore && analysis.scores.overall > analysis.previousOverallScore && (
                   <TrendingUp className="h-3 w-3 text-brand-success" />
@@ -71,7 +71,7 @@ export function OptimizationPanel({ analysis, isAnalyzing, type }: OptimizationP
               {/* Left Column: Metrics & Confidence */}
               <div className="space-y-5">
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-muted mb-3">Multi-Dimensional Analysis</h4>
+                  <h4 className="text-xs font-medium uppercase tracking-wider text-brand-muted mb-3">Multi-Dimensional Analysis</h4>
                   <div className="space-y-3">
                     <ScoreBar label="Semantic Relevance" score={analysis.scores.relevance} />
                     <ScoreBar label="Clarity & Detail" score={analysis.scores.clarity} />
@@ -82,8 +82,8 @@ export function OptimizationPanel({ analysis, isAnalyzing, type }: OptimizationP
 
                 <div className="bg-brand-surface-soft rounded-lg p-3 border border-brand-hairline">
                   <div className="flex items-start justify-between mb-1">
-                    <span className="text-xs font-bold text-brand-ink">AI Confidence: {analysis.confidence}%</span>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-success">Top {analysis.percentile}%</span>
+                    <span className="text-xs font-medium text-brand-ink">AI Confidence: {analysis.confidence}%</span>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-brand-success">Top {analysis.percentile}%</span>
                   </div>
                   <p className="text-[11px] text-brand-body italic">
                     "{analysis.confidenceReasoning}"
@@ -95,7 +95,7 @@ export function OptimizationPanel({ analysis, isAnalyzing, type }: OptimizationP
               <div className="space-y-5">
                 {analysis.weaknesses.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-coral mb-3 flex items-center gap-1">
+                    <h4 className="text-xs font-medium uppercase tracking-wider text-brand-coral mb-3 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" /> Semantic Weaknesses
                     </h4>
                     <div className="space-y-2">
@@ -116,7 +116,7 @@ export function OptimizationPanel({ analysis, isAnalyzing, type }: OptimizationP
 
                 {analysis.insights.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-primary mb-3 flex items-center gap-1">
+                    <h4 className="text-xs font-medium uppercase tracking-wider text-brand-primary mb-3 flex items-center gap-1">
                       <Lightbulb className="h-3 w-3" /> Strategic Insights
                     </h4>
                     <div className="space-y-2">
@@ -157,7 +157,7 @@ function ScoreBar({ label, score }: { label: string, score: number }) {
     <div>
       <div className="flex justify-between items-end mb-1">
         <span className="text-[11px] font-medium text-brand-body">{label}</span>
-        <span className="text-[10px] font-bold text-brand-ink">{score}</span>
+        <span className="text-[10px] font-medium text-brand-ink">{score} / 100</span>
       </div>
       <div className="h-1.5 w-full bg-brand-hairline rounded-full overflow-hidden">
         <div 

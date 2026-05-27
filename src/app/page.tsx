@@ -1,6 +1,5 @@
 import { Header } from "@/components/landing/header";
 import { Hero } from "@/components/landing/hero";
-import { Stats } from "@/components/landing/stats";
 import { Features } from "@/components/landing/features";
 import { AIIntelligence } from "@/components/landing/ai-intelligence";
 import { Workflow } from "@/components/landing/workflow";
@@ -17,7 +16,6 @@ export default function Home() {
       {/* Main Page Layout Sections */}
       <div className="flex-1 flex flex-col">
         <Hero />
-        <Stats />
         <Features />
         <AIIntelligence />
         <Workflow />
