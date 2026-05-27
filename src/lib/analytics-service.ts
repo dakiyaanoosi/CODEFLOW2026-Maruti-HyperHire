@@ -446,7 +446,7 @@ export const analyticsService = {
           uid: p.uid,
           name: p.name,
           avatarUrl: p.avatarUrl || undefined,
-          trustScore: p.trustScore ?? 80,
+          trustScore: p.trustScore ?? 0,
           completedCount: completedCountMap[p.uid] || 0
         }))
         .sort((a, b) => {

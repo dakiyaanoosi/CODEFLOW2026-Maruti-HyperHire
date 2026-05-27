@@ -144,7 +144,8 @@ export function useGigOptimization(
   budget: number,
   category: string,
   skills: string[],
-  businessTrustScore: number
+  businessTrustScore: number,
+  manual: boolean = false
 ) {
   // We trigger on description length or budget changes
   const trigger = description + budget.toString();
@@ -152,6 +153,8 @@ export function useGigOptimization(
   return useOptimization<GigOptimizationPayload>(
     "/optimization/gig",
     { title, description, budget, category, skills, businessTrustScore },
-    trigger
+    trigger,
+    1500,
+    manual
   );
 }

@@ -5,9 +5,6 @@ import { X, AlertCircle, Loader2, CheckSquare } from "lucide-react";
 import { ALL_CATEGORIES } from "@/types/profile";
 import { Job, JobStatus, JobDifficulty, WorkMode } from "@/types/job";
 import { jobService } from "@/lib/job-service";
-import { useGigOptimization } from "@/lib/hyperai/optimization-service";
-import { OptimizationPanel } from "@/components/ai/hyperai/OptimizationPanel";
-import { useAuthStore } from "@/store/use-auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface JobFormModalProps {
@@ -49,18 +46,6 @@ export function JobFormModal({
   // Status States
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  const { profile } = useAuthStore();
-  const trustScore = profile?.trustScore || 80;
-
-  const { analysis, isAnalyzing } = useGigOptimization(
-    description,
-    title,
-    budget,
-    category,
-    requiredSkills,
-    trustScore
-  );
 
   // Initialize fields on open
   React.useEffect(() => {
@@ -287,9 +272,6 @@ export function JobFormModal({
                 className="w-full px-4 py-3 text-sm bg-white rounded-[6px] border border-brand-hairline outline-none focus:border-brand-info-border resize-none leading-relaxed"
                 required
               />
-              
-              {/* HyperAI Gig Attraction Optimizer */}
-              <OptimizationPanel analysis={analysis} isAnalyzing={isAnalyzing} type="gig" />
             </div>
 
             {/* Category / Workmode Row */}

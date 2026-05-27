@@ -15,6 +15,9 @@ import { profileService, computeProfileStrength, getAvatarInitials } from "@/lib
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
 import { uploadFile } from "@/lib/cloudinary";
 import { portfolioService } from "@/lib/portfolio-service";
+import { PortfolioGrid } from "@/components/portfolio/PortfolioGrid";
+import { PortfolioDetailModal } from "@/components/portfolio/PortfolioDetailModal";
+import { PortfolioItem } from "@/types/portfolio";
 
 type Tab = "view" | "edit";
 
@@ -45,6 +48,26 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = React.useState(false);
   const [showToast, setShowToast] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  const [portfolioItems, setPortfolioItems] = React.useState<PortfolioItem[]>([]);
+  const [isLoadingPortfolios, setIsLoadingPortfolios] = React.useState(true);
+  const [selectedDetailItem, setSelectedDetailItem] = React.useState<PortfolioItem | null>(null);
+
+  React.useEffect(() => {
+    async function loadPortfolios() {
+      if (!user?.uid) return;
+      setIsLoadingPortfolios(true);
+      try {
+        const fetched = await portfolioService.getPortfolios(user.uid);
+        setPortfolioItems(fetched);
+      } catch (err) {
+        console.error("Failed to load portfolio items", err);
+      } finally {
+        setIsLoadingPortfolios(false);
+      }
+    }
+    loadPortfolios();
+  }, [user]);
 
   // ── HyperAI context injection ──────────────────────────────────────────────
   // Push the student profile + portfolio into HyperAI whenever they load or change.
@@ -91,7 +114,7 @@ export default function ProfilePage() {
               hourlyRate: fetched.hourlyRate || 0,
               portfolioLinks: fetched.portfolioLinks || [],
               socialLinks: fetched.socialLinks || {},
-              trustScore: fetched.trustScore || 80,
+              trustScore: fetched.trustScore ?? 0,
               isVerified: fetched.verificationStatus === "Verified" || (fetched as any).isVerified || false,
               profileStrength: fetched.profileStrength || 10,
               avatarInitials: fetched.avatarInitials || getAvatarInitials(fetched.name),
@@ -114,7 +137,7 @@ export default function ProfilePage() {
               hourlyRate: seeded.hourlyRate || 0,
               portfolioLinks: seeded.portfolioLinks || [],
               socialLinks: seeded.socialLinks || {},
-              trustScore: seeded.trustScore || 80,
+              trustScore: seeded.trustScore ?? 0,
               isVerified: seeded.verificationStatus === "Verified",
               profileStrength: seeded.profileStrength || 10,
               avatarInitials: seeded.avatarInitials || "ST",
@@ -216,7 +239,7 @@ export default function ProfilePage() {
         hourlyRate: updated.hourlyRate || 0,
         portfolioLinks: updated.portfolioLinks || [],
         socialLinks: updated.socialLinks || {},
-        trustScore: updated.trustScore || 80,
+        trustScore: updated.trustScore ?? 0,
         isVerified: updated.verificationStatus === "Verified" || (updated as any).isVerified || false,
         profileStrength: updated.profileStrength || 10,
         avatarInitials: updated.avatarInitials || "ST",
@@ -306,8 +329,22 @@ export default function ProfilePage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -8 }}
                 transition={{ duration: 0.2 }}
+                className="space-y-6"
               >
                 <ProfileDetails profile={profile} />
+                
+                <div className="border-t border-brand-hairline pt-6">
+                  <h2 className="text-xl font-normal leading-[1.2] text-brand-ink mb-4">
+                    Portfolio Projects
+                  </h2>
+                  <PortfolioGrid
+                    items={portfolioItems}
+                    isLoading={isLoadingPortfolios}
+                    onCardClick={(item) => setSelectedDetailItem(item)}
+                    onAddClick={() => {}}
+                    canManage={false}
+                  />
+                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -371,6 +408,15 @@ export default function ProfilePage() {
       />
 
       <SaveToast visible={showToast} />
+
+      <PortfolioDetailModal
+        item={selectedDetailItem}
+        isOpen={!!selectedDetailItem}
+        onClose={() => setSelectedDetailItem(null)}
+        onEdit={() => {}}
+        onDeleteSuccess={() => {}}
+        canManage={false}
+      />
     </>
   );
 }

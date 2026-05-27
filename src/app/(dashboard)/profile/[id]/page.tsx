@@ -7,6 +7,10 @@ import { ProfileCard } from "@/components/profile/ProfileCard";
 import { ProfileDetails } from "@/components/profile/ProfileDetails";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { portfolioService } from "@/lib/portfolio-service";
+import { PortfolioGrid } from "@/components/portfolio/PortfolioGrid";
+import { PortfolioDetailModal } from "@/components/portfolio/PortfolioDetailModal";
+import { PortfolioItem } from "@/types/portfolio";
 
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = React.use(params);
@@ -14,6 +18,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   
   const [profile, setProfile] = React.useState<StudentProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  
+  const [portfolioItems, setPortfolioItems] = React.useState<PortfolioItem[]>([]);
+  const [isLoadingPortfolios, setIsLoadingPortfolios] = React.useState(true);
+  const [selectedDetailItem, setSelectedDetailItem] = React.useState<PortfolioItem | null>(null);
+  
   const router = useRouter();
 
   React.useEffect(() => {
@@ -33,7 +42,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             hourlyRate: fetched.hourlyRate || 0,
             portfolioLinks: fetched.portfolioLinks || [],
             socialLinks: fetched.socialLinks || {},
-            trustScore: fetched.trustScore || 80,
+            trustScore: fetched.trustScore ?? 0,
             isVerified: fetched.verificationStatus === "Verified" || (fetched as any).isVerified || false,
             profileStrength: fetched.profileStrength || 10,
             avatarInitials: fetched.avatarInitials || getAvatarInitials(fetched.name),
@@ -47,6 +56,22 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       }
     }
     loadProfile();
+  }, [id]);
+
+  React.useEffect(() => {
+    async function loadPortfolios() {
+      if (!id) return;
+      setIsLoadingPortfolios(true);
+      try {
+        const fetched = await portfolioService.getPortfolios(id);
+        setPortfolioItems(fetched);
+      } catch (err) {
+        console.error("Failed to load public portfolio items", err);
+      } finally {
+        setIsLoadingPortfolios(false);
+      }
+    }
+    loadPortfolios();
   }, [id]);
 
   if (isLoading) {
@@ -73,36 +98,60 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => router.back()}
-          className="h-10 w-10 flex items-center justify-center rounded-full bg-white border border-brand-hairline hover:bg-brand-surface text-brand-muted hover:text-brand-ink transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div>
-          <h1 className="text-[32px] font-normal leading-[1.2] text-brand-ink">{profile.name}'s Profile</h1>
-          <p className="mt-1.5 text-sm text-brand-body">
-            Public workspace profile and portfolio details.
-          </p>
+    <>
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => router.back()}
+            className="h-10 w-10 flex items-center justify-center rounded-full bg-white border border-brand-hairline hover:bg-brand-surface text-brand-muted hover:text-brand-ink transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="text-[32px] font-normal leading-[1.2] text-brand-ink">{profile.name}'s Profile</h1>
+            <p className="mt-1.5 text-sm text-brand-body">
+              Public workspace profile and portfolio details.
+            </p>
+          </div>
+        </div>
+
+        {/* Layout */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <ProfileCard
+              profile={profile}
+              isEditing={false}
+            />
+          </div>
+
+          <div className="space-y-6">
+            <ProfileDetails profile={profile} />
+            
+            <div className="border-t border-brand-hairline pt-6">
+              <h2 className="text-xl font-normal leading-[1.2] text-brand-ink mb-4">
+                Portfolio Projects
+              </h2>
+              <PortfolioGrid
+                items={portfolioItems}
+                isLoading={isLoadingPortfolios}
+                onCardClick={(item) => setSelectedDetailItem(item)}
+                onAddClick={() => {}}
+                canManage={false}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Layout */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-        <div className="lg:sticky lg:top-6 lg:self-start">
-          <ProfileCard
-            profile={profile}
-            isEditing={false}
-          />
-        </div>
-
-        <div>
-          <ProfileDetails profile={profile} />
-        </div>
-      </div>
-    </div>
+      <PortfolioDetailModal
+        item={selectedDetailItem}
+        isOpen={!!selectedDetailItem}
+        onClose={() => setSelectedDetailItem(null)}
+        onEdit={() => {}}
+        onDeleteSuccess={() => {}}
+        canManage={false}
+      />
+    </>
   );
 }

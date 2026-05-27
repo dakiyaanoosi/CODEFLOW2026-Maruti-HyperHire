@@ -48,7 +48,7 @@ export function ApplicationApplyModal({
   const [upsellMsg, setUpsellMsg] = React.useState<string | null>(null);
 
   const { profile } = useAuthStore();
-  const trustScore = profile?.trustScore || 80;
+  const trustScore = profile?.trustScore ?? 0;
 
   const { analysis, isAnalyzing, runAnalysis } = useProposalOptimization(
     form.proposalText, 

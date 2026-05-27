@@ -15,7 +15,10 @@ export function ConfidenceIndicator({ score, rank, className }: ConfidenceIndica
   let indicatorColor = "bg-brand-muted";
   let label = "Unknown";
 
-  if (score >= 90) {
+  if (!score || score === 0) {
+    indicatorColor = "bg-brand-muted";
+    label = "New Candidate";
+  } else if (score >= 90) {
     indicatorColor = "bg-brand-success";
     label = "High Confidence";
   } else if (score >= 70) {

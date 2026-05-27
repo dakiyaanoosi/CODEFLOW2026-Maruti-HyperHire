@@ -7,6 +7,7 @@ export interface AIJobAnalysis {
   aiDifficultyScore: number; // 1-10
   difficultyLevel: JobDifficulty;
   suggestedCategory: string;
+  deliverables?: string[];
 }
 
 /**
@@ -33,6 +34,7 @@ export async function analyzeJobDescription(
         aiDifficultyScore: data.aiDifficultyScore || 5,
         difficultyLevel: (data.difficultyLevel || "Intermediate") as JobDifficulty,
         suggestedCategory: data.suggestedCategory || "Web Development",
+        deliverables: data.deliverables || [],
       };
     }
   } catch (err) {
@@ -219,12 +221,22 @@ export async function analyzeJobDescription(
     suggestedCategory = ALL_CATEGORIES[0] || "Web Development";
   }
 
+  const deliverables: string[] = [];
+  if (combinedText.includes("design") || combinedText.includes("ui")) {
+    deliverables.push("Wireframes/Mockups", "Interactive Prototype", "Figma Design Tokens");
+  } else if (combinedText.includes("api") || combinedText.includes("database") || combinedText.includes("backend")) {
+    deliverables.push("API Schema & Routes", "Database Setup", "Integration Tests");
+  } else {
+    deliverables.push("Initial requirements draft", "Project implementation code", "Handover documentation");
+  }
+
   return {
     aiExtractedSkills,
     aiGeneratedSummary,
     aiDifficultyScore,
     difficultyLevel,
     suggestedCategory,
+    deliverables,
   };
 }
 
