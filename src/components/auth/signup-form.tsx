@@ -73,13 +73,16 @@ export function SignupForm({ role, onBackToRoleSelection, onSuccess }: SignupFor
     try {
       setLoading(true);
       const res = await authService.loginWithGoogle(role);
-      setUser(res.user);
-      setProfile(res.profile);
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push("/dashboard");
+      if (res.status === "existing") {
+        setUser(res.user);
+        setProfile(res.profile);
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard");
+        }
       }
+      // When role is provided (signup page), status is always "existing"
     } catch (err: any) {
       console.error(err);
       setErrorMsg(getFriendlyAuthErrorMessage(err));
