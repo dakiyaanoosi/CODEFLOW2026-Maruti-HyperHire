@@ -29,10 +29,19 @@ export function TalentIntelligenceCard({ data }: TalentIntelligenceCardProps) {
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-semibold text-brand-ink leading-none">{profile.name}</h3>
-              <div className="flex items-center gap-2 text-xs text-brand-body">
+              <div className="flex items-center gap-2 text-xs text-brand-body flex-wrap">
                 <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" /> {profile.experienceLevel}</span>
                 <span className="text-brand-hairline">•</span>
                 <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {profile.college}</span>
+                {profile.reviewCount && profile.reviewCount > 0 ? (
+                  <>
+                    <span className="text-brand-hairline">•</span>
+                    <span className="flex items-center gap-0.5 text-brand-ink font-semibold">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      {profile.averageRating?.toFixed(1)} ({profile.reviewCount})
+                    </span>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>

@@ -13,6 +13,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { reviewService } from "@/lib/review-service";
+import { BusinessReviewModal } from "@/components/reviews/BusinessReviewModal";
+import { StudentReviewModal } from "@/components/reviews/StudentReviewModal";
 
 export default function WorkspacePage({ params }: { params: Promise<{ workflowId: string }> }) {
   const router = useRouter();
@@ -35,6 +38,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
 
+  // Review states
+  const [isBusinessReviewOpen, setIsBusinessReviewOpen] = React.useState(false);
+  const [isStudentReviewOpen, setIsStudentReviewOpen] = React.useState(false);
+  const [hasSubmittedReview, setHasSubmittedReview] = React.useState(false);
+
   // AI Insights State
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [aiInsight, setAiInsight] = React.useState<{ summary: string; insight: string; risk: string } | null>(null);
@@ -53,6 +61,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       }
       setWorkflow(data);
     });
+
+    reviewService.hasSubmittedReview(user.uid, workflowId).then(setHasSubmittedReview);
 
     const unSubCols = workflowService.subscribeToColumns(workflowId, setColumns);
     const unSubTasks = workflowService.subscribeToTasks(workflowId, (newTasks) => {
@@ -149,6 +159,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setIsReviewModalOpen(false);
       // Force update workflow status in state
       setWorkflow((prev) => (prev ? { ...prev, status: "Paid" } : null));
+      setIsBusinessReviewOpen(true);
     } catch (e: any) {
       setActionError(e.message || "Failed to release escrow.");
     } finally {
@@ -245,6 +256,37 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           )}
         </div>
       </div>
+
+      {/* Pending Review Prompt Banner */}
+      {escrow?.status === "released" && !hasSubmittedReview && (
+        <div className="mt-4 rounded-[10px] bg-brand-mint/10 border border-brand-success/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-success/10 text-brand-success">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-brand-ink">Project Completed & Payment Released!</p>
+              <p className="text-xs text-brand-muted mt-0.5">
+                {isBusiness 
+                  ? `Please evaluate your experience collaborating with ${workflow.studentName} to build marketplace trust.` 
+                  : `Please evaluate your experience collaborating with ${workflow.businessName}.`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (isBusiness) {
+                setIsBusinessReviewOpen(true);
+              } else {
+                setIsStudentReviewOpen(true);
+              }
+            }}
+            className="shrink-0 rounded-[8px] bg-brand-ink px-4 py-2 text-xs font-semibold text-white hover:bg-brand-primary-active transition-colors shadow-sm"
+          >
+            Leave a Review
+          </button>
+        </div>
+      )}
 
       <AnimatePresence>
         {aiInsight && (
@@ -387,6 +429,26 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </div>
         </div>
       )}
+
+      {/* Business Review Modal */}
+      <BusinessReviewModal
+        isOpen={isBusinessReviewOpen}
+        onClose={() => setIsBusinessReviewOpen(false)}
+        workflowId={workflow.workflowId}
+        studentName={workflow.studentName}
+        businessId={workflow.businessId}
+        onSuccess={() => setHasSubmittedReview(true)}
+      />
+
+      {/* Student Review Modal */}
+      <StudentReviewModal
+        isOpen={isStudentReviewOpen}
+        onClose={() => setIsStudentReviewOpen(false)}
+        workflowId={workflow.workflowId}
+        businessName={workflow.businessName}
+        studentId={workflow.studentId}
+        onSuccess={() => setHasSubmittedReview(true)}
+      />
     </div>
   );
 }

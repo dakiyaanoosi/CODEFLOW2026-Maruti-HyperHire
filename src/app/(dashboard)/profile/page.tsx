@@ -119,6 +119,10 @@ export default function ProfilePage() {
               profileStrength: fetched.profileStrength || 10,
               avatarInitials: fetched.avatarInitials || getAvatarInitials(fetched.name),
               avatarUrl: fetched.avatarUrl || "",
+              averageRating: (fetched as any).averageRating ?? 0,
+              reviewCount: (fetched as any).reviewCount ?? 0,
+              repeatClientRate: (fetched as any).repeatClientRate ?? 0,
+              verifiedProjectsCount: (fetched as any).verifiedProjectsCount ?? 0,
             });
           } else {
             const seeded = await profileService.createDefaultStudentProfile(
@@ -142,6 +146,10 @@ export default function ProfilePage() {
               profileStrength: seeded.profileStrength || 10,
               avatarInitials: seeded.avatarInitials || "ST",
               avatarUrl: seeded.avatarUrl || "",
+              averageRating: (seeded as any).averageRating ?? 0,
+              reviewCount: (seeded as any).reviewCount ?? 0,
+              repeatClientRate: (seeded as any).repeatClientRate ?? 0,
+              verifiedProjectsCount: (seeded as any).verifiedProjectsCount ?? 0,
             });
           }
         } catch (error) {
@@ -331,7 +339,7 @@ export default function ProfilePage() {
                 transition={{ duration: 0.2 }}
                 className="space-y-6"
               >
-                <ProfileDetails profile={profile} />
+                <ProfileDetails profile={profile} userId={user?.uid || ""} />
                 
                 <div className="border-t border-brand-hairline pt-6">
                   <h2 className="text-xl font-normal leading-[1.2] text-brand-ink mb-4">

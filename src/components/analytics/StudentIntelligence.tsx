@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import { 
   Loader2, TrendingUp, CheckCircle, Activity, Wallet, ShieldCheck, 
-  Briefcase, Award, Calendar, ChevronRight, Eye, Sparkles, AlertCircle
+  Briefcase, Award, Calendar, ChevronRight, Eye, Sparkles, AlertCircle, Star
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -76,12 +76,13 @@ export function StudentIntelligence() {
           <Activity className="w-3.5 h-3.5" />
           Productivity Overview
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <KPICard label="Active Workflows" value={data.activeWorkflows} icon={Activity} />
           <KPICard label="Workflows Done" value={data.completedWorkflows} icon={CheckCircle} highlight={data.completedWorkflows > 0} />
           <KPICard label="Tasks Completed" value={data.tasksCompleted} icon={ShieldCheck} />
           <KPICard label="Revision Count" value={data.revisionCount} icon={Briefcase} highlight={data.revisionCount > 3} highlightColor="text-brand-warning" />
           <KPICard label="Completion Speed" value={data.averageCompletionSpeed} icon={TrendingUp} />
+          <KPICard label="Client Rating" value={data.reviewCount > 0 ? `${data.averageCollaborationRating.toFixed(1)} ★` : "—"} icon={Star} highlight={data.averageCollaborationRating >= 4.5} />
         </div>
       </div>
 

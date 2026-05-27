@@ -345,7 +345,7 @@ export const escrowService = {
         tags: ["hyperhire", "verified", "escrow"],
         aiSummary: `Verified proof of milestone completion for "${current.jobTitle}" via HyperHire Escrow contract.`,
         isVerified: true,
-        verifiedProofLabel: "Completed via HyperHire Marketplace",
+        verifiedProofLabel: "Verified Client Project • Completed via HyperHire • Pending Client Review",
         linkedClient: current.businessName,
         linkedWorkflowId: current.workflowId,
         linkedJobId: current.jobId

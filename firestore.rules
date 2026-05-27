@@ -145,10 +145,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // 12. Reviews (Secure Placeholders)
+    // 12. Reviews (Secure Reputation Validation)
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuthenticated() && (request.resource.data.reviewerId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+        // 1. Reviewer matches authenticated user
+        request.resource.data.reviewerId == request.auth.uid &&
+        // 2. Reviewer is a participant of the workflow
+        (request.auth.uid == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.studentId ||
+         request.auth.uid == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.businessId) &&
+        // 3. Prevent self-reviews
+        request.resource.data.reviewerId != request.resource.data.revieweeId &&
+        // 4. Reviewee is a participant of the workflow
+        (request.resource.data.revieweeId == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.studentId ||
+         request.resource.data.revieweeId == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.businessId) &&
+        // 5. Escrow must be released
+        get(/databases/$(database)/documents/escrows/$(request.resource.data.escrowId)).data.status == "released" &&
+        // 6. Review ID must match format to prevent duplicates
+        reviewId == "rev_" + request.resource.data.reviewerId + "_" + request.resource.data.workflowId;
       allow update, delete: if false;
     }
 

@@ -37,6 +37,12 @@ export interface StudentProfile {
   profileStrength: number;
   avatarInitials: string;
   avatarUrl?: string;
+
+  // Reputation Lifecycle Extensions
+  averageRating?: number;
+  reviewCount?: number;
+  repeatClientRate?: number;
+  verifiedProjectsCount?: number;
 }
 
 export const MOCK_PROFILE: StudentProfile = {

@@ -5,6 +5,7 @@ import { Job } from "@/types/job";
 import { Workflow, WorkflowTask, WorkflowActivity } from "@/types/workflow";
 import { TrustProfile, TrustEvent } from "@/types/trust";
 import { EscrowTransaction } from "@/types/escrow";
+import { Review } from "@/types/review";
 
 // Helper to parse potential Firestore Timestamps or strings/Dates into standard JS Dates
 const parseToDate = (dateVal: any): Date => {
@@ -44,6 +45,11 @@ export interface StudentAnalytics {
   verifiedWorkCount: number;
   mostViewedProject: string;
   completionGeneratedPortfolioEntries: number;
+
+  // Reviews Extensions
+  averageCollaborationRating: number;
+  reviewCount: number;
+  repeatClientRate: number;
 }
 
 export interface BusinessAnalytics {
@@ -68,6 +74,10 @@ export interface BusinessAnalytics {
   escrowedFunds: number;
   releasedPayouts: number;
   monthlySpendTrend: { month: string; year: number; amount: number }[];
+
+  // Reviews Extensions
+  averageCollaborationRating: number;
+  reviewCount: number;
 }
 
 export const analyticsService = {
@@ -100,7 +110,10 @@ export const analyticsService = {
           portfolioCount: 0,
           verifiedWorkCount: 0,
           mostViewedProject: "None",
-          completionGeneratedPortfolioEntries: 0
+          completionGeneratedPortfolioEntries: 0,
+          averageCollaborationRating: 0,
+          reviewCount: 0,
+          repeatClientRate: 0
         });
       }, 0);
       return () => clearTimeout(timer);
@@ -115,6 +128,7 @@ export const analyticsService = {
     let portfolios: any[] = [];
     let publishedJobs: Job[] = [];
     let escrows: EscrowTransaction[] = [];
+    let reviews: Review[] = [];
 
     const updateAnalytics = () => {
       const totalApplications = apps.length;
@@ -240,6 +254,18 @@ export const analyticsService = {
         p.description?.toLowerCase().includes("completion")
       ).length;
 
+      // Reviews Metrics
+      const reviewCount = reviews.length;
+      const averageCollaborationRating = reviewCount > 0 
+        ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(2)) 
+        : 0;
+      const clientCounts: Record<string, number> = {};
+      reviews.forEach(r => {
+        clientCounts[r.reviewerId] = (clientCounts[r.reviewerId] || 0) + 1;
+      });
+      const repeatClientCount = reviews.filter(r => clientCounts[r.reviewerId] > 1).length;
+      const repeatClientRate = reviewCount > 0 ? Math.round((repeatClientCount / reviewCount) * 100) : 0;
+
       onUpdate({
         totalApplications,
         acceptedApplications,
@@ -263,7 +289,10 @@ export const analyticsService = {
         portfolioCount,
         verifiedWorkCount,
         mostViewedProject,
-        completionGeneratedPortfolioEntries
+        completionGeneratedPortfolioEntries,
+        averageCollaborationRating,
+        reviewCount,
+        repeatClientRate
       });
     };
 
@@ -341,6 +370,14 @@ export const analyticsService = {
       }
     );
 
+    const reviewsUnsub = onSnapshot(
+      query(collection(db, "reviews"), where("revieweeId", "==", studentId), where("status", "==", "submitted")),
+      (snap) => {
+        reviews = snap.docs.map(doc => doc.data() as Review);
+        updateAnalytics();
+      }
+    );
+
     return () => {
       appsUnsub();
       workflowsUnsub();
@@ -351,6 +388,7 @@ export const analyticsService = {
       portfoliosUnsub();
       jobsUnsub();
       escrowsUnsub();
+      reviewsUnsub();
     };
   },
 
@@ -378,7 +416,9 @@ export const analyticsService = {
           revisionHeavyProjects: [],
           escrowedFunds: 0,
           releasedPayouts: 0,
-          monthlySpendTrend: []
+          monthlySpendTrend: [],
+          averageCollaborationRating: 0,
+          reviewCount: 0
         });
       }, 0);
       return () => clearTimeout(timer);
@@ -391,6 +431,7 @@ export const analyticsService = {
     let activities: WorkflowActivity[] = [];
     let escrows: EscrowTransaction[] = [];
     let studentProfiles: any[] = [];
+    let reviews: Review[] = [];
 
     const updateAnalytics = () => {
       const totalJobs = jobs.length;
@@ -511,6 +552,12 @@ export const analyticsService = {
         };
       });
 
+      // Reviews Metrics
+      const reviewCount = reviews.length;
+      const averageCollaborationRating = reviewCount > 0 
+        ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(2)) 
+        : 0;
+
       onUpdate({
         totalJobs,
         totalApplicationsReceived,
@@ -529,7 +576,9 @@ export const analyticsService = {
         revisionHeavyProjects,
         escrowedFunds,
         releasedPayouts,
-        monthlySpendTrend
+        monthlySpendTrend,
+        averageCollaborationRating,
+        reviewCount
       });
     };
 
@@ -589,6 +638,14 @@ export const analyticsService = {
       }
     );
 
+    const reviewsUnsub = onSnapshot(
+      query(collection(db, "reviews"), where("revieweeId", "==", businessId), where("status", "==", "submitted")),
+      (snap) => {
+        reviews = snap.docs.map(doc => doc.data() as Review);
+        updateAnalytics();
+      }
+    );
+
     return () => {
       jobsUnsub();
       appsUnsub();
@@ -597,6 +654,7 @@ export const analyticsService = {
       activitiesUnsub();
       escrowsUnsub();
       studentsUnsub();
+      reviewsUnsub();
     };
   }
 };
