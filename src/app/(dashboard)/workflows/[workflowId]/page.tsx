@@ -7,24 +7,14 @@ import { collaborationService } from "@/lib/collaboration-service";
 import { aiWorkflowService } from "@/lib/ai-workflow-service";
 import { escrowService } from "@/lib/escrow-service";
 import { milestoneService } from "@/lib/milestone-service";
+import { deliverableService } from "@/lib/deliverable-service";
 import { Milestone } from "@/types/milestone";
 import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
-import { Collaboration, CollaborationStatus } from "@/types/collaboration";
+import { Collaboration } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
 import { Deliverable } from "@/types/deliverable";
-import { WorkflowBoard } from "@/components/workflows/WorkflowBoard";
-import { 
-  Loader2, 
-  ArrowLeft, 
-  BrainCircuit, 
-  CheckCircle2, 
-  Send, 
-  Banknote, 
-  ShieldAlert, 
-  Clock, 
-  Wallet, 
-  Landmark
-} from "lucide-react";
+import { WorkflowTaskDetail } from "@/components/workflows/WorkflowTaskDetail";
+import { Loader2, ArrowLeft, BrainCircuit } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -32,27 +22,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { reviewService } from "@/lib/review-service";
 import { BusinessReviewModal } from "@/components/reviews/BusinessReviewModal";
 import { StudentReviewModal } from "@/components/reviews/StudentReviewModal";
-import { 
-  canSubmitMilestone,
-  canReviewMilestone
-} from "@/lib/collaboration/permission-policy";
-import { EscrowStatusBadge } from "@/components/escrow/EscrowStatusBadge";
-import { EscrowTimeline } from "@/components/escrow/EscrowTimeline";
-import { WorkflowActivityFeed } from "@/components/workflows/WorkflowActivityFeed";
 
-// ─── Status Configuration ────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<CollaborationStatus, { label: string; color: string; bgColor: string }> = {
-  setup_pending: { label: "Setup Pending", color: "text-brand-ink", bgColor: "bg-brand-surface-strong" },
-  scope_review: { label: "Scope Review", color: "text-brand-info", bgColor: "bg-brand-info/10" },
-  awaiting_funding: { label: "Awaiting Funding", color: "text-[#8a6200]", bgColor: "bg-brand-mustard/10" },
-  active: { label: "Active", color: "text-brand-ink", bgColor: "bg-brand-primary/10" },
-  in_review: { label: "In Review", color: "text-brand-info", bgColor: "bg-brand-info/10" },
-  revision_requested: { label: "Revision Requested", color: "text-brand-warning", bgColor: "bg-brand-warning/10" },
-  completed: { label: "Completed", color: "text-brand-success", bgColor: "bg-brand-success/10" },
-  cancelled: { label: "Cancelled", color: "text-brand-coral", bgColor: "bg-brand-coral/10" },
-  disputed: { label: "Disputed", color: "text-brand-coral", bgColor: "bg-brand-coral/10" },
-};
+// Import restructured workspace components
+import { CollaborationOverviewHeader } from "@/components/workflows/CollaborationOverviewHeader";
+import { ExecutionWorkspace } from "@/components/workflows/ExecutionWorkspace";
+import { ReviewWorkspace } from "@/components/workflows/ReviewWorkspace";
+import { FinancialWorkspace } from "@/components/workflows/FinancialWorkspace";
+import { CollaborationTimeline } from "@/components/workflows/CollaborationTimeline";
 
 export default function WorkspacePage({ params }: { params: Promise<{ workflowId: string }> }) {
   const router = useRouter();
@@ -67,6 +43,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const [columns, setColumns] = React.useState<WorkflowColumn[]>([]);
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([]);
   const [activities, setActivities] = React.useState<WorkflowActivity[]>([]);
+  const [deliverables, setDeliverables] = React.useState<Deliverable[]>([]);
   const [escrow, setEscrow] = React.useState<Escrow | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -90,6 +67,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const [isBusinessReviewOpen, setIsBusinessReviewOpen] = React.useState(false);
   const [isStudentReviewOpen, setIsStudentReviewOpen] = React.useState(false);
   const [hasSubmittedReview, setHasSubmittedReview] = React.useState(false);
+
+  // Task drawer overlay details
+  const [selectedTask, setSelectedTask] = React.useState<WorkflowTask | null>(null);
 
   // AI Insights State
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
@@ -172,6 +152,16 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     };
   }, [workflowId, router, user, profile]);
 
+  // Subscribe to deliverables of the active milestone
+  React.useEffect(() => {
+    if (!activeMilestoneId) {
+      setDeliverables([]);
+      return;
+    }
+    const unsub = deliverableService.subscribeToMilestoneDeliverables(activeMilestoneId, setDeliverables);
+    return () => unsub();
+  }, [activeMilestoneId]);
+
   // ─── Actions derived from collaboration.status ──────────────────────────────
 
   const handleSubmitWork = async () => {
@@ -183,7 +173,17 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await milestoneService.submitMilestoneForReview(activeMilestoneId, submitNote.trim(), user.uid);
+      // Create a milestone-level deliverable entry in database
+      const collabId = collaboration?.collaborationId || `wf_${workflowId}`;
+      await deliverableService.submitDeliverable({
+        collaborationId: collabId,
+        milestoneId: activeMilestoneId,
+        submittedBy: user.uid,
+        title: `Deliverables submission for Milestone ${milestones.findIndex(m => m.milestoneId === activeMilestoneId) + 1}`,
+        description: submitNote.trim(),
+        files: [],
+      });
+
       setIsSubmitModalOpen(false);
       setSubmitNote("");
     } catch (e: unknown) {
@@ -214,7 +214,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     }
   };
 
-  // Operational approval transitions milestone status to 'approved'
   const handleApproveProject = async () => {
     if (!activeMilestoneId || !user || !profile) return;
     setIsSubmitting(true);
@@ -231,7 +230,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     }
   };
 
-  // Financial payout release updates escrow status to 'released'
   const handleReleaseEscrow = async () => {
     if (!escrow || !collaboration || !user || !profile) return;
     setIsSubmitting(true);
@@ -254,7 +252,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     let milestoneDeliverables: Deliverable[] = [];
     if (activeMilestoneId) {
       try {
-        const { deliverableService } = await import("@/lib/deliverable-service");
         milestoneDeliverables = await deliverableService.getDeliverablesByMilestone(activeMilestoneId);
       } catch (err) {
         console.error("Error loading deliverables for AI analysis:", err);
@@ -309,6 +306,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     const newTask: Omit<WorkflowTask, "taskId" | "createdAt" | "updatedAt"> = {
       workflowId: workflow.workflowId,
       columnId: defaultColumn,
+      milestoneId: activeMilestoneId || undefined,
       title: taskTitle.trim(),
       description: taskDescription.trim(),
       priority: taskPriority,
@@ -340,6 +338,130 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     }
   };
 
+  // ─── Direct Task Start and Deliverable-level Review Handlers ──────────────────
+
+  const handleStartTask = async (taskId: string) => {
+    if (!user || !profile || !workflow) return;
+    try {
+      const targetCol = columns.find((c) => c.name === "Execution Work");
+      const updates: Partial<WorkflowTask> = { status: "in_progress" };
+      if (targetCol) {
+        updates.columnId = targetCol.columnId;
+      }
+      await workflowService.updateTask(taskId, updates, user.uid, profile.role as "student" | "business");
+      await workflowService.logActivity({
+        workflowId: workflow.workflowId,
+        taskId,
+        type: "task_moved",
+        message: `started work on execution task`,
+        actorId: user.uid,
+        actorName,
+        studentId: workflow.studentId,
+        businessId: workflow.businessId,
+      });
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to start task.");
+    }
+  };
+
+  const handleApproveDeliverable = async (deliverableId: string) => {
+    if (!user || !profile || !workflow) return;
+    setIsSubmitting(true);
+    try {
+      await deliverableService.reviewDeliverable(
+        deliverableId,
+        user.uid,
+        actorName,
+        profile.role as "student" | "business",
+        "approved",
+        "Deliverables approved, task completed."
+      );
+      await workflowService.logActivity({
+        workflowId: workflow.workflowId,
+        type: "task_completed",
+        message: `approved task deliverable`,
+        actorId: user.uid,
+        actorName,
+        studentId: workflow.studentId,
+        businessId: workflow.businessId,
+      });
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to approve deliverable.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRequestRevisionDeliverable = async (deliverableId: string, feedback: string) => {
+    if (!user || !profile || !workflow) return;
+    setIsSubmitting(true);
+    try {
+      await deliverableService.reviewDeliverable(
+        deliverableId,
+        user.uid,
+        actorName,
+        profile.role as "student" | "business",
+        "revision_requested",
+        feedback
+      );
+      await workflowService.logActivity({
+        workflowId: workflow.workflowId,
+        type: "task_moved",
+        message: `requested revision feedback on deliverable`,
+        actorId: user.uid,
+        actorName,
+        studentId: workflow.studentId,
+        businessId: workflow.businessId,
+      });
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to request revision.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddCommentDeliverable = async (deliverableId: string, text: string) => {
+    if (!user || !profile) return;
+    try {
+      await deliverableService.addComment(
+        deliverableId,
+        user.uid,
+        actorName,
+        profile.role as "student" | "business",
+        text
+      );
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to add comment.");
+    }
+  };
+
+  const handleOpenDisputeEscrow = async (reason: string) => {
+    if (!escrow || !user || !profile || !workflow) return;
+    setIsSubmitting(true);
+    try {
+      const { openDispute } = await import("@/lib/escrow-service");
+      await openDispute(escrow.escrowId, reason, user.uid, profile.role as "student" | "business");
+      await workflowService.logActivity({
+        workflowId: workflow.workflowId,
+        type: "task_moved",
+        message: `raised a formal dispute on contract payment: ${reason}`,
+        actorId: user.uid,
+        actorName,
+        studentId: workflow.studentId,
+        businessId: workflow.businessId,
+      });
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to open dispute.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!user || !profile || isLoading || !workflow) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -351,182 +473,72 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   // ─── Derive display state from collaboration ─────────────────────────────────
 
   const collabStatus = collaboration?.status || "active";
-  const statusConfig = STATUS_CONFIG[collabStatus] || STATUS_CONFIG.active;
+  const activeMilestone = milestones.find(m => m.milestoneId === activeMilestoneId);
 
   // Calculate Progress (Dynamic based on completed tasks)
   const completedTasks = tasks.filter(t => t.status === "approved" || columns.find(c => c.columnId === t.columnId)?.name === "Completed Work").length;
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
 
-  // ─── Action Visibility (derived from activeMilestone.status) ────────────────────
-
-  const activeMilestone = milestones.find(m => m.milestoneId === activeMilestoneId);
-  const canStudentSubmit = activeMilestone && (collabStatus === "active" || collabStatus === "revision_requested")
-    ? canSubmitMilestone(profile.role as "student" | "business", activeMilestone.status)
-    : false;
-  const canBusinessReview = activeMilestone ? canReviewMilestone(profile.role as "student" | "business", activeMilestone.status) : false;
-  const canLeaveReview = collabStatus === "completed" && escrow?.status === "released" && !hasSubmittedReview;
-
   return (
-    <div className="flex h-[calc(100vh-6rem)] flex-col space-y-4 overflow-y-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-hairline pb-4 gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/workflows" className="p-2 -ml-2 rounded-md hover:bg-brand-surface-soft text-brand-muted hover:text-brand-ink transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-brand-ink">{workflow.jobTitle}</h1>
-              <span className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase",
-                statusConfig.bgColor,
-                statusConfig.color
-              )}>
-                {statusConfig.label}
-              </span>
-            </div>
-            <p className="text-sm text-brand-muted mt-0.5">
-              Collaboration between <span className="font-medium text-brand-ink">{workflow.businessName}</span> and <span className="font-medium text-brand-ink">{workflow.studentName}</span>
-            </p>
-          </div>
-        </div>
- 
-        <div className="flex items-center gap-3.5 flex-wrap">
-          <div className="hidden md:flex items-center gap-2 mr-2">
-            <div className="w-32 h-2 bg-brand-surface-soft rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-brand-primary transition-all duration-500" 
-                style={{ width: `${progressPercent}%` }} 
-              />
-            </div>
-            <span className="text-xs font-semibold text-brand-ink">{progressPercent}%</span>
-          </div>
- 
-          {/* Action Buttons based on Operational Loop */}
-          {canStudentSubmit && (
-            <button
-              onClick={() => {
-                setActionError(null);
-                setIsSubmitModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand-ink text-white rounded-[8px] text-sm font-semibold hover:bg-brand-primary transition-colors shadow-sm"
-            >
-              <Send className="w-4 h-4" />
-              Submit Milestone for Review
-            </button>
-          )}
+    <div className="flex h-[calc(100vh-6rem)] flex-col space-y-4 overflow-y-auto dashboard-layout">
+      {/* Back and AI control header */}
+      <div className="flex items-center justify-between border-b border-brand-hairline pb-2.5">
+        <Link href="/workflows" className="flex items-center gap-2 p-2 -ml-2 rounded-md hover:bg-brand-surface-soft text-brand-muted hover:text-brand-ink transition-colors font-medium">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Workspaces</span>
+        </Link>
 
-          {canBusinessReview && (
-            <button
-              onClick={() => {
-                setActionError(null);
-                setIsReviewModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand-success text-white rounded-[8px] text-sm font-semibold hover:bg-brand-success/90 transition-colors shadow-sm"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Review Milestone Submission
-            </button>
-          )}
-
-          <button 
-            onClick={handleRunAiAnalysis}
-            disabled={isAnalyzing}
-            className="flex items-center gap-2 px-3.5 py-2 bg-brand-secondary text-white rounded-[8px] text-sm font-semibold hover:bg-brand-secondary/90 transition-colors disabled:opacity-70"
-          >
-            {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
-            AI Analyze
-          </button>
-        </div>
+        <button 
+          onClick={handleRunAiAnalysis}
+          disabled={isAnalyzing}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white hover:bg-brand-primary-active rounded-[8px] text-xs font-medium transition-colors disabled:opacity-70 cursor-pointer shadow-sm"
+        >
+          {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5" />}
+          Run HyperAI Project Analysis
+        </button>
       </div>
 
-      {/* Lifesycle Banners */}
-      {collabStatus === "revision_requested" && (
-        <div className="rounded-[10px] bg-brand-warning/5 border border-brand-warning/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-warning/10 text-brand-warning">
-              <ShieldAlert className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-brand-ink">Revision Requested</p>
-              <p className="text-xs text-brand-muted mt-0.5">
-                {isBusiness 
-                  ? `Waiting for ${workflow.studentName} to address your revision notes.` 
-                  : `${workflow.businessName} has requested changes. Please review their feedback and resubmit.`}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
- 
-      {collabStatus === "in_review" && !isBusiness && (
-        <div className="rounded-[10px] bg-brand-info/5 border border-brand-info/20 p-4 flex items-center gap-3 animate-in fade-in duration-300">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-info/10 text-brand-info">
-            <Clock className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-brand-ink">Deliverables Under Review</p>
-            <p className="text-xs text-brand-muted mt-0.5">
-              {workflow.businessName} is reviewing your submission. You will be notified of the outcome.
-            </p>
-          </div>
-        </div>
-      )}
- 
-      {/* Completed + Review Prompt Banner */}
-      {canLeaveReview && (
-        <div className="rounded-[10px] bg-brand-mint/10 border border-brand-success/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-success/10 text-brand-success">
-              <CheckCircle2 className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-brand-ink">Project Completed & Payout Done!</p>
-              <p className="text-xs text-brand-muted mt-0.5">
-                {isBusiness 
-                  ? `Please evaluate your experience collaborating with ${workflow.studentName} to build marketplace trust.` 
-                  : `Please evaluate your experience collaborating with ${workflow.businessName}.`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              if (isBusiness) {
-                setIsBusinessReviewOpen(true);
-              } else {
-                setIsStudentReviewOpen(true);
-              }
-            }}
-            className="shrink-0 rounded-[8px] bg-brand-ink px-4 py-2 text-xs font-semibold text-white hover:bg-brand-primary-active transition-colors shadow-sm"
-          >
-            Leave a Review
-          </button>
-        </div>
-      )}
- 
+      {/* Structured Collaboration Overview Header */}
+      <CollaborationOverviewHeader
+        collaboration={collaboration}
+        activeMilestone={activeMilestone || null}
+        escrow={escrow}
+        progressPercent={progressPercent}
+        isBusiness={isBusiness}
+        hasSubmittedReview={hasSubmittedReview}
+        onLeaveReviewTrigger={() => {
+          if (isBusiness) setIsBusinessReviewOpen(true);
+          else setIsStudentReviewOpen(true);
+        }}
+        onFundEscrowTrigger={() => {
+          router.push("/escrow");
+        }}
+        onReleaseEscrowTrigger={handleReleaseEscrow}
+      />
+
       <AnimatePresence>
         {aiInsight && (
           <motion.div 
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
-            animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 12 }}
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
             className="rounded-[10px] bg-brand-surface-soft border border-brand-hairline p-4 flex gap-4 items-start animate-in fade-in"
           >
-            <div className="bg-white p-2 rounded-md shadow-sm border border-brand-hairline shrink-0">
+            <div className="bg-white p-2 rounded-md border border-brand-hairline shrink-0">
               <BrainCircuit className="w-5 h-5 text-brand-secondary" />
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-semibold text-brand-ink flex items-center gap-2">
+              <h4 className="text-xs font-semibold text-brand-ink flex items-center gap-2">
                 HyperAI Project Analysis
                 <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded uppercase font-bold",
-                  aiInsight.risk === "High" ? "bg-brand-warning/10 text-brand-warning" : 
-                  aiInsight.risk === "Medium" ? "bg-[#d9a441]/10 text-[#8a6200]" : "bg-brand-success/10 text-brand-success"
+                  "text-[9px] px-1.5 py-0.5 rounded uppercase font-bold border",
+                  aiInsight.risk === "High" ? "bg-brand-warning/10 text-brand-warning border-brand-warning/20" : 
+                  aiInsight.risk === "Medium" ? "bg-brand-mustard/10 text-brand-mustard border-brand-mustard/20" : "bg-brand-success/10 text-brand-success border-brand-success/20"
                 )}>
-                  Risk: {aiInsight.risk}
+                  Risk Level: {aiInsight.risk}
                 </span>
               </h4>
-              <p className="text-sm text-brand-muted mt-1 leading-relaxed">{aiInsight.summary}</p>
+              <p className="text-xs text-brand-muted mt-1 leading-relaxed">{aiInsight.summary}</p>
               <div className="mt-2 text-xs font-medium text-brand-secondary flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-secondary" />
                 {aiInsight.insight}
@@ -534,7 +546,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             </div>
             <button 
               onClick={() => setAiInsight(null)}
-              className="text-brand-muted hover:text-brand-ink p-1"
+              className="text-brand-muted hover:text-brand-ink p-1 cursor-pointer text-xs"
             >
               ✕
             </button>
@@ -542,13 +554,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         )}
       </AnimatePresence>
 
-      {/* ────────────────── TWO COLUMN WORKSPACE GRID ────────────────── */}
+      {/* ────────────────── THREE COLUMN RESPONSIVE GRID ────────────────── */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
         
-        {/* Left/Main Column: Work Execution Domain */}
-        <div className="lg:col-span-3 flex flex-col min-h-0 overflow-y-auto pr-1">
-          {/* Milestones Horizontal Navigation */}
-          <div className="mb-6 flex gap-4 overflow-x-auto pb-2.5 scrollbar-thin">
+        {/* Left Column: Milestone Progression Navigator */}
+        <div className="lg:col-span-1 flex flex-col space-y-3.5 overflow-y-auto pr-1">
+          <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-wider mb-1">Milestone Phases</h3>
+          <div className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-x-visible pb-3.5 lg:pb-0 scrollbar-thin">
             {milestones.map((m) => {
               const isActive = m.milestoneId === activeMilestoneId;
               return (
@@ -556,34 +568,34 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   key={m.milestoneId}
                   onClick={() => setActiveMilestoneId(m.milestoneId)}
                   className={cn(
-                    "flex flex-col text-left p-4 rounded-xl border min-w-[200px] max-w-[240px] transition-all relative shrink-0",
+                    "flex flex-col text-left p-4 rounded-xl border min-w-[200px] lg:min-w-0 transition-all cursor-pointer",
                     isActive 
-                      ? "bg-white border-brand-ink shadow-sm ring-1 ring-brand-ink/10"
-                      : "bg-brand-surface-soft/40 border-brand-hairline hover:bg-brand-surface-soft hover:border-brand-muted/30"
+                      ? "bg-white border-brand-ink shadow-sm ring-1 ring-brand-ink/5"
+                      : "bg-brand-surface-soft/40 border-brand-hairline hover:bg-brand-surface-soft"
                   )}
                 >
                   <div className="flex justify-between items-start w-full gap-2 mb-1.5">
-                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Milestone {m.order + 1}</span>
+                    <span className="text-[9px] font-bold text-brand-muted uppercase tracking-wider">Phase {m.order + 1}</span>
                     <span className={cn(
-                      "text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider",
-                      m.status === "approved" ? "bg-brand-success/10 text-brand-success" :
-                      m.status === "in_review" ? "bg-brand-info/10 text-brand-info" :
-                      m.status === "revision_requested" ? "bg-brand-warning/10 text-brand-warning" :
-                      m.status === "active" ? "bg-brand-primary/10 text-brand-primary" :
-                      "bg-brand-surface-strong text-brand-muted"
+                      "text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border",
+                      m.status === "approved" ? "bg-brand-success/15 text-brand-success border-brand-success/20" :
+                      m.status === "in_review" ? "bg-brand-info/10 text-brand-info border-brand-info/20" :
+                      m.status === "revision_requested" ? "bg-brand-coral/10 text-brand-coral border-brand-coral/20" :
+                      m.status === "active" ? "bg-brand-primary/10 text-brand-primary border-brand-hairline" :
+                      "bg-brand-surface-strong text-brand-muted border-brand-hairline"
                     )}>
                       {m.status.replace("_", " ")}
                     </span>
                   </div>
-                  <h4 className="text-xs font-bold text-brand-ink truncate w-full mb-2">{m.title}</h4>
+                  <h4 className="text-xs font-semibold text-brand-ink truncate w-full mb-2">{m.title}</h4>
                   
                   {/* Progress bar */}
                   <div className="w-full mt-auto">
                     <div className="flex justify-between items-center text-[9px] text-brand-muted font-medium mb-1">
-                      <span>Progress</span>
+                      <span>Completion</span>
                       <span>{m.progress}%</span>
                     </div>
-                    <div className="w-full h-1 bg-brand-surface-strong rounded-full overflow-hidden">
+                    <div className="w-full h-1 bg-brand-surface-strong rounded-full overflow-hidden border border-brand-hairline/80">
                       <div 
                         className={cn(
                           "h-full transition-all duration-300",
@@ -597,216 +609,85 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               );
             })}
           </div>
+        </div>
 
-          {/* Active Milestone Card */}
-          {activeMilestone && (
-            <div className="mb-6 p-4 rounded-xl border border-brand-hairline bg-white shadow-sm space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-hairline pb-2.5">
-                <div>
-                  <h3 className="text-sm font-bold text-brand-ink flex items-center gap-2">
-                    {activeMilestone.title}
-                    {activeMilestone.eligibleForRelease && (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
-                        Eligible for Release
-                      </span>
-                    )}
-                  </h3>
-                  {activeMilestone.description && (
-                    <p className="text-xs text-brand-muted mt-1 leading-relaxed">{activeMilestone.description}</p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {canStudentSubmit && (
-                    <button
-                      onClick={() => {
-                        setActionError(null);
-                        setIsSubmitModalOpen(true);
-                      }}
-                      className="px-3.5 py-1.5 bg-brand-ink text-white rounded-lg text-xs font-semibold hover:bg-brand-primary transition-colors flex items-center gap-1.5"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      Submit Milestone
-                    </button>
-                  )}
-                  {canBusinessReview && (
-                    <button
-                      onClick={() => {
-                        setActionError(null);
-                        setIsReviewModalOpen(true);
-                      }}
-                      className="px-3.5 py-1.5 bg-brand-success text-white rounded-lg text-xs font-semibold hover:bg-brand-success/90 transition-colors flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Review Submission
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Status block info */}
-              {activeMilestone.status === "revision_requested" && activeMilestone.revisionNote && (
-                <div className="p-3 rounded-lg border border-brand-warning/20 bg-brand-warning/5 text-xs text-brand-ink">
-                  <span className="font-bold text-brand-warning">Revision Feedback:</span> {activeMilestone.revisionNote}
-                </div>
-              )}
-              {activeMilestone.status === "in_review" && (
-                <div className="p-3 rounded-lg border border-brand-info/20 bg-brand-info/5 text-xs text-brand-muted">
-                  Milestone submitted for review. Client is evaluating deliverables.
-                </div>
-              )}
-              {activeMilestone.status === "approved" && (
-                <div className="p-3 rounded-lg border border-brand-success/20 bg-brand-success/5 text-xs text-brand-success font-medium">
-                  ✓ Milestone approved and eligible for escrow payout release.
-                </div>
-              )}
-            </div>
-          )}
-
-          <WorkflowBoard 
+        {/* Center Workspace (Main execution & review containers) */}
+        <div className="lg:col-span-2 flex flex-col space-y-6 overflow-y-auto pr-1">
+          {/* Execution Workspace Card */}
+          <ExecutionWorkspace
             workflow={workflow}
-            columns={columns}
+            activeMilestone={activeMilestone || null}
             tasks={tasks.filter(t => {
               if (!t.milestoneId) {
                 return activeMilestoneId === milestones[0]?.milestoneId;
               }
               return t.milestoneId === activeMilestoneId;
             })}
-            actorId={user.uid}
-            actorName={actorName}
             actorRole={profile.role as "student" | "business"}
             collaborationStatus={collabStatus}
-            activeMilestoneStatus={activeMilestone?.status}
-            onOpenCreateTask={(type) => {
+            onAddTaskClick={(type) => {
               setCreateTaskType(type);
               setIsCreateTaskModalOpen(true);
+            }}
+            onTaskClick={setSelectedTask}
+            onStartTask={handleStartTask}
+            onSubmitWorkClick={setSelectedTask}
+          />
+
+          {/* Dedicated Deliverables Review & Submission Center */}
+          <ReviewWorkspace
+            workflow={workflow}
+            activeMilestone={activeMilestone || null}
+            deliverables={deliverables}
+            actorRole={profile.role as "student" | "business"}
+            isSubmitting={isSubmitting}
+            onApproveDeliverable={handleApproveDeliverable}
+            onRequestRevision={handleRequestRevisionDeliverable}
+            onAddComment={handleAddCommentDeliverable}
+            onSubmitDeliverableClick={() => {
+              setActionError(null);
+              setIsSubmitModalOpen(true);
             }}
           />
         </div>
 
-        {/* Right Sidebar: Escrow Payment Domain & Activity Timeline */}
-        <div className="lg:col-span-1 flex flex-col space-y-6 border-t lg:border-t-0 lg:border-l border-brand-hairline pt-6 lg:pt-0 lg:pl-6 overflow-y-auto shrink-0 min-w-[320px]">
-          
-          {/* Financial Workspace Escrow Panel */}
-          {escrow && (
-            <div className="rounded-xl border border-brand-hairline bg-brand-surface-soft/10 p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-brand-hairline pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded bg-brand-primary/10 text-brand-primary">
-                    <Wallet className="w-4 h-4" />
-                  </span>
-                  <h3 className="text-xs font-bold text-brand-ink uppercase tracking-wide">Financial Ledger</h3>
-                </div>
-                <EscrowStatusBadge status={escrow.status} />
-              </div>
+        {/* Right Sidebar: Trust Ledger and Workspace Timeline */}
+        <div className="lg:col-span-1 flex flex-col space-y-6 overflow-y-auto pr-1">
+          <FinancialWorkspace
+            escrow={escrow}
+            milestones={milestones}
+            isBusiness={isBusiness}
+            isSubmitting={isSubmitting}
+            onFundEscrow={async () => {
+              router.push("/escrow");
+            }}
+            onReleaseEscrow={handleReleaseEscrow}
+            onOpenDispute={handleOpenDisputeEscrow}
+          />
 
-              {/* Budget Ledger Details */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-brand-muted font-medium">Total Project Budget</span>
-                  <span className="font-bold text-brand-ink">₹{escrow.amount.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-brand-muted font-medium">Platform Fee (10%)</span>
-                  <span className="text-brand-muted">₹{(escrow.platformFee ?? escrow.amount * 0.1).toLocaleString("en-IN")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs border-t border-brand-hairline pt-2">
-                  <span className="text-brand-ink font-semibold">Net Student Payout</span>
-                  <span className="text-sm font-bold text-brand-success">₹{(escrow.payoutAmount ?? escrow.amount * 0.9).toLocaleString("en-IN")}</span>
-                </div>
-              </div>
-
-              {/* Milestone Release Progress */}
-              <div className="border-t border-brand-hairline pt-3">
-                <h4 className="text-[10px] font-bold text-brand-ink uppercase tracking-wider mb-2">Milestone Release Progress</h4>
-                <div className="space-y-1.5">
-                  {milestones.map((m) => (
-                    <div key={m.milestoneId} className="flex items-center justify-between text-xs p-2 rounded bg-white border border-brand-hairline shadow-sm">
-                      <span className="font-medium text-brand-ink truncate max-w-[150px]">{m.title}</span>
-                      <span className={cn(
-                        "text-[9px] px-1.5 py-0.5 rounded font-bold uppercase",
-                        m.status === "approved" ? "bg-brand-success/15 text-brand-success" : "bg-brand-surface-strong text-brand-muted"
-                      )}>
-                        {m.status === "approved" ? "Released" : "Locked"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Escrow Timeline */}
-              <div className="border-t border-brand-hairline pt-3">
-                <h4 className="text-[10px] font-bold text-brand-ink uppercase tracking-wider mb-3">Escrow Payout Timeline</h4>
-                <EscrowTimeline events={escrow.timeline} />
-              </div>
-
-              {/* Payment Release Authority Panel */}
-              <div className="border-t border-brand-hairline pt-3 mt-1">
-                {escrow.status === "pending_funding" ? (
-                  isBusiness ? (
-                    <Link
-                      href="/escrow"
-                      className="w-full py-2 bg-brand-ink hover:bg-brand-primary-active text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <Landmark className="w-3.5 h-3.5" />
-                      Fund Contract Escrow
-                    </Link>
-                  ) : (
-                    <div className="p-2.5 rounded-md border border-brand-mustard/20 bg-brand-mustard/5 text-center text-xs font-medium text-brand-mustard">
-                      Awaiting contract funding from business client.
-                    </div>
-                  )
-                ) : escrow.status === "funded" ? (
-                  <div className="p-2.5 rounded-md border border-emerald-500/20 bg-emerald-500/5 text-center text-xs font-medium text-emerald-600">
-                    Escrow Funded • Task execution unlocked.
-                  </div>
-                ) : escrow.status === "eligible_for_release" ? (
-                  isBusiness ? (
-                    <button
-                      onClick={handleReleaseEscrow}
-                      disabled={isSubmitting}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1.5"
-                    >
-                      {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Banknote className="w-3.5 h-3.5" />}
-                      Release Escrow Payment
-                    </button>
-                  ) : (
-                    <div className="p-2.5 rounded-md border border-teal-500/20 bg-teal-500/5 text-center text-xs font-medium text-teal-600">
-                      Milestone Approved. Payment release pending client action.
-                    </div>
-                  )
-                ) : escrow.status === "released" ? (
-                  <div className="p-2.5 rounded-md border border-emerald-500/20 bg-emerald-500/5 text-center text-xs font-semibold text-emerald-600">
-                    ✓ Escrow Payout Released
-                  </div>
-                ) : escrow.status === "disputed" ? (
-                  <div className="p-2.5 rounded-md border border-brand-coral/20 bg-brand-coral/5 text-center text-xs font-bold text-brand-coral">
-                    ⚠️ Escrow Disputed • Project Paused
-                  </div>
-                ) : (
-                  <div className="p-2.5 rounded-md border border-brand-hairline bg-white text-center text-xs text-brand-muted capitalize">
-                    Payment status: {escrow.status.replace("_", " ")}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Chronological Activity Feed Panel */}
-          <div className="flex-1 min-h-[300px]">
-            <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-wider mb-3">Workspace Activity Feed</h3>
-            <WorkflowActivityFeed activities={activities} />
-          </div>
+          <CollaborationTimeline activities={activities} />
         </div>
 
       </div>
+
+      {/* Task Drawer Overlay */}
+      <WorkflowTaskDetail
+        task={selectedTask}
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        actorId={user.uid}
+        actorRole={profile.role as "student" | "business"}
+        actorName={actorName}
+        workflow={workflow}
+        columns={columns}
+      />
 
       {/* Role-Aware Task Creation Dialog */}
       {isCreateTaskModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsCreateTaskModalOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10">
-            <h3 className="text-lg font-semibold text-brand-ink">Create New Task</h3>
+          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10 border border-brand-hairline">
+            <h3 className="text-base font-semibold text-brand-ink">Create New Task</h3>
             <p className="text-xs text-brand-muted">
               {profile.role === "student" 
                 ? "Define a new execution task for your project queue." 
@@ -842,7 +723,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   <select
                     value={taskPriority}
                     onChange={(e) => setTaskPriority(e.target.value as "Low" | "Medium" | "High")}
-                    className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
+                    className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary cursor-pointer"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -855,7 +736,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   <select
                     value={createTaskType}
                     onChange={(e) => setCreateTaskType(e.target.value as WorkflowTask["taskType"])}
-                    className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
+                    className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary cursor-pointer"
                   >
                     {profile.role === "student" ? (
                       <>
@@ -887,13 +768,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             <div className="flex justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setIsCreateTaskModalOpen(false)}
-                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors"
+                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateTask}
-                className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold hover:bg-brand-primary-active transition-colors"
+                className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold hover:bg-brand-primary-active transition-colors cursor-pointer"
               >
                 Create Task
               </button>
@@ -906,29 +787,29 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       {isSubmitModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsSubmitModalOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10">
-            <h3 className="text-lg font-semibold text-brand-ink">Submit Milestone for Review</h3>
+          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10 border border-brand-hairline">
+            <h3 className="text-base font-semibold text-brand-ink">Submit Milestone for Review</h3>
             <p className="text-xs text-brand-muted">Provide a description of your work, links to deliverables, and notes for the client.</p>
             <textarea
               value={submitNote}
               onChange={(e) => setSubmitNote(e.target.value)}
               rows={4}
               placeholder="E.g., I have finished the tasks for this milestone. You can find the links here..."
-              className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary"
+              className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary bg-white text-brand-ink"
             />
             {actionError && <p className="text-xs text-brand-coral">{actionError}</p>}
             <div className="flex justify-end gap-2.5">
               <button
                 onClick={() => setIsSubmitModalOpen(false)}
                 disabled={isSubmitting}
-                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors"
+                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitWork}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-primary-active transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-primary-active transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Submit Milestone
@@ -942,12 +823,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       {isReviewModalOpen && activeMilestone && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsReviewModalOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 z-10 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-brand-ink">Review Milestone Submission</h3>
+          <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 z-10 max-h-[90vh] overflow-y-auto border border-brand-hairline">
+            <h3 className="text-base font-semibold text-brand-ink">Review Milestone Submission</h3>
             
             <div className="bg-brand-surface-soft border border-brand-hairline rounded-lg p-4 space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Student&apos;s Submission Note</span>
-              <p className="text-sm text-brand-body leading-relaxed">{activeMilestone.submissionNote || "No submission note provided."}</p>
+              <span className="text-[9px] font-bold uppercase tracking-wider text-brand-muted">Student&apos;s Submission Note</span>
+              <p className="text-xs text-brand-body leading-relaxed">{activeMilestone.submissionNote || "No submission note provided."}</p>
             </div>
  
             <div className="space-y-1.5">
@@ -957,7 +838,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                 onChange={(e) => setReviewNote(e.target.value)}
                 rows={3}
                 placeholder="E.g., Please fix the color contrast on the landing page..."
-                className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary"
+                className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary bg-white text-brand-ink"
               />
             </div>
             
@@ -967,7 +848,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               <button
                 onClick={() => setIsReviewModalOpen(false)}
                 disabled={isSubmitting}
-                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors text-center"
+                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors text-center cursor-pointer"
               >
                 Cancel
               </button>
@@ -976,14 +857,14 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                 <button
                   onClick={handleRequestRevision}
                   disabled={isSubmitting}
-                  className="px-4 py-2 border border-brand-coral text-brand-coral hover:bg-brand-coral/5 rounded-md text-sm font-semibold disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 border border-brand-coral text-brand-coral hover:bg-brand-coral/5 rounded-md text-sm font-semibold disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Request Revision
                 </button>
                 <button
                   onClick={handleApproveProject}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-brand-success text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-success/90 transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 bg-brand-success text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-success/90 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   Approve Milestone
