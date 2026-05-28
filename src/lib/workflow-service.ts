@@ -16,13 +16,14 @@ import {
   WorkflowColumn,
   WorkflowTask,
   WorkflowActivity,
+  TaskStatus,
 } from "@/types/workflow";
 import { Application } from "@/types/application";
 import { notificationService } from "@/lib/notification-service";
 import { trustService } from "@/lib/trust/trust-service";
-import { canCreateTask, canMoveTask, canEditTask } from "./collaboration/permission-policy";
+import { canCreateTask, canEditTask, canTransitionTaskStatus } from "./collaboration/permission-policy";
 
-const DEFAULT_COLUMNS = ["Pending", "In Progress", "Revision", "Completed", "Paid"];
+const DEFAULT_COLUMNS = ["Execution Work", "Deliverables", "Review/Revisions", "Completed Work"];
 
 export const workflowService = {
   /**
@@ -93,7 +94,7 @@ export const workflowService = {
           assigneeId: app.studentId,
           attachments: [],
           aiSuggestions: [],
-          status: "active",
+          status: "pending" as TaskStatus,
           studentId: app.studentId,
           businessId: app.businessId,
           createdAt: new Date().toISOString(),
@@ -101,7 +102,9 @@ export const workflowService = {
           createdBy: "system",
           ownerId: app.studentId,
           ownerRole: "student",
-          taskType: "general",
+          assignedTo: app.studentId,
+          assignedRole: "student",
+          taskType: "execution",
         });
       });
     } else {
@@ -117,7 +120,7 @@ export const workflowService = {
         assigneeId: app.studentId,
         attachments: [],
         aiSuggestions: [],
-        status: "active",
+        status: "pending" as TaskStatus,
         studentId: app.studentId,
         businessId: app.businessId,
         createdAt: new Date().toISOString(),
@@ -125,7 +128,9 @@ export const workflowService = {
         createdBy: "system",
         ownerId: app.studentId,
         ownerRole: "student",
-        taskType: "general",
+        assignedTo: app.studentId,
+        assignedRole: "student",
+        taskType: "execution",
       };
       batch.set(taskRef, newTask);
     }
@@ -251,21 +256,37 @@ export const workflowService = {
 
     const actorRole = actorId === studentId ? "student" : "business";
 
-    // Get the old column name
-    const oldColumnSnap = await getDoc(doc(db!, "workflowColumns", taskData.columnId));
-    const oldColumnName = oldColumnSnap.exists() ? oldColumnSnap.data().name : "Pending";
+    // Map columns to target statuses
+    let targetStatus: TaskStatus;
+    if (newColumnName === "Execution Work") {
+      targetStatus = "in_progress";
+    } else if (newColumnName === "Deliverables") {
+      targetStatus = "submitted";
+    } else if (newColumnName === "Review/Revisions") {
+      targetStatus = "revision_requested";
+    } else if (newColumnName === "Completed Work") {
+      targetStatus = "approved";
+    } else {
+      // Fallbacks
+      if (newColumnName === "Pending") targetStatus = "pending";
+      else if (newColumnName === "In Progress") targetStatus = "in_progress";
+      else if (newColumnName === "Revision") targetStatus = "revision_requested";
+      else if (newColumnName === "Completed" || newColumnName === "Paid") targetStatus = "approved";
+      else throw new Error(`Invalid column name: '${newColumnName}'`);
+    }
 
-    if (!canMoveTask(actorId, actorRole, collab.status, taskData, oldColumnName, newColumnName)) {
-      throw new Error(`Permission denied: Cannot move task from '${oldColumnName}' to '${newColumnName}' as a '${actorRole}'.`);
+    if (!canTransitionTaskStatus(actorId, actorRole, collab.status, taskData, targetStatus)) {
+      throw new Error(`Permission denied: Cannot transition task status to '${targetStatus}' as a '${actorRole}'.`);
     }
 
     const batch = writeBatch(db!);
     batch.update(taskRef, {
       columnId: newColumnId,
+      status: targetStatus,
       updatedAt: new Date().toISOString(),
     });
 
-    if (newColumnName === "In Progress") {
+    if (targetStatus === "in_progress") {
       const workflowRef = doc(db!, "workflows", workflowId);
       batch.update(workflowRef, {
         status: "In Progress",
@@ -280,7 +301,7 @@ export const workflowService = {
       workflowId,
       taskId,
       type: "task_moved",
-      message: `Moved task to ${newColumnName}`,
+      message: `Moved task to ${newColumnName} (Status: ${targetStatus})`,
       actorId,
       actorName,
       studentId,
@@ -296,14 +317,14 @@ export const workflowService = {
       userId: recipientId,
       type: "workflow",
       title: "Task Moved",
-      description: `${actorName} moved a task to ${newColumnName}`,
+      description: `${actorName} transitioned task to status ${targetStatus}`,
       relatedEntityId: workflowId,
       relatedEntityType: "workflow",
       actionUrl: `/workflows/${workflowId}`
     });
 
     // Trust Intelligence Logging
-    if (newColumnName === "Completed") {
+    if (targetStatus === "approved") {
       const studentImpact = actorId === studentId ? 2 : 1; // Student delivering gets +2
       await trustService.logTrustEvent(
         studentId,
@@ -314,13 +335,13 @@ export const workflowService = {
         taskId,
         "task"
       );
-    } else if (newColumnName === "Review" || newColumnName === "Revision") {
+    } else if (targetStatus === "submitted" || targetStatus === "revision_requested") {
       await trustService.logTrustEvent(
         studentId,
         "student",
         "collaboration",
         1,
-        "Submitted a deliverable for review",
+        targetStatus === "submitted" ? "Submitted a deliverable for review" : "Requested revision on task",
         taskId,
         "task"
       );

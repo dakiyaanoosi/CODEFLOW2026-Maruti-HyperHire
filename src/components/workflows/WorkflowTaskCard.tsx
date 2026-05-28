@@ -21,7 +21,7 @@ export function WorkflowTaskCard({
   onDragEnd,
   isDragging,
 }: WorkflowTaskCardProps) {
-  const isOverdue = task.dueDate ? new Date(task.dueDate) < new Date() && task.status !== "completed" : false;
+  const isOverdue = task.dueDate ? new Date(task.dueDate) < new Date() && task.status !== "approved" : false;
 
   return (
     <div
@@ -32,8 +32,8 @@ export function WorkflowTaskCard({
       className={cn(
         "group relative flex cursor-grab flex-col gap-3 rounded-[10px] border border-brand-hairline bg-white p-3.5 shadow-sm transition-all hover:border-brand-primary hover:shadow-md active:cursor-grabbing",
         isDragging && "opacity-50 ring-2 ring-brand-primary/20",
-        task.status === "completed" && "opacity-80",
-        task.status === "blocked" && "border-brand-warning/40 bg-[#fffbf0]"
+        task.status === "approved" && "opacity-80",
+        task.status === "revision_requested" && "border-brand-warning/40 bg-[#fffbf0]"
       )}
     >
       <div className="flex items-start justify-between gap-2">

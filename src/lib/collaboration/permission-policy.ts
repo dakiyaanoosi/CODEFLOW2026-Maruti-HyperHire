@@ -6,26 +6,65 @@ export type UserRole = "student" | "business";
 /**
  * Checks if the actor can create a task of the specified type.
  */
+import { TaskStatus } from "@/types/workflow";
+
 export function canCreateTask(
   actorRole: UserRole,
   collabStatus: CollaborationStatus,
   taskType: WorkflowTask["taskType"]
 ): boolean {
-  // Tasks can only be created in active execution states
   if (!["active", "in_review", "revision_requested"].includes(collabStatus)) {
     return false;
   }
   
   if (actorRole === "student") {
-    // Student can only create execution tasks
-    return taskType === "general" || taskType === "deliverable";
+    return taskType === "execution" || taskType === "deliverable";
   }
   
   if (actorRole === "business") {
-    // Business can create review, revision, feedback, or milestone tasks
     return taskType === "revision" || taskType === "feedback" || taskType === "milestone";
   }
   
+  return false;
+}
+
+/**
+ * Checks if the actor can transition a task to a target status.
+ */
+export function canTransitionTaskStatus(
+  actorId: string,
+  actorRole: UserRole,
+  collabStatus: CollaborationStatus,
+  task: WorkflowTask,
+  toStatus: TaskStatus
+): boolean {
+  if (!["active", "in_review", "revision_requested"].includes(collabStatus)) {
+    return false;
+  }
+
+  const fromStatus = task.status;
+
+  if (actorRole === "student") {
+    // Student can only modify execution or deliverable tasks assigned to them (or owned by them)
+    if (actorId !== task.assignedTo && actorId !== task.ownerId && actorId !== task.studentId) {
+      return false;
+    }
+
+    if (fromStatus === "pending" && toStatus === "in_progress") return true;
+    if (fromStatus === "in_progress" && toStatus === "submitted") return true;
+    if (fromStatus === "revision_requested" && toStatus === "in_progress") return true;
+  }
+
+  if (actorRole === "business") {
+    // Business can only transition tasks under their collaboration
+    if (actorId !== task.businessId) {
+      return false;
+    }
+
+    if (fromStatus === "submitted" && toStatus === "approved") return true;
+    if (fromStatus === "submitted" && toStatus === "revision_requested") return true;
+  }
+
   return false;
 }
 
@@ -40,30 +79,26 @@ export function canMoveTask(
   fromColumnName: string,
   toColumnName: string
 ): boolean {
-  if (!["active", "in_review", "revision_requested"].includes(collabStatus)) {
-    return false;
+  let targetStatus: TaskStatus;
+
+  if (toColumnName === "Execution Work") {
+    targetStatus = "in_progress";
+  } else if (toColumnName === "Deliverables") {
+    targetStatus = "submitted";
+  } else if (toColumnName === "Review/Revisions") {
+    targetStatus = "revision_requested";
+  } else if (toColumnName === "Completed Work") {
+    targetStatus = "approved";
+  } else {
+    // Backwards compatibility/fallback mapping
+    if (toColumnName === "Pending") targetStatus = "pending";
+    else if (toColumnName === "In Progress") targetStatus = "in_progress";
+    else if (toColumnName === "Revision") targetStatus = "revision_requested";
+    else if (toColumnName === "Completed" || toColumnName === "Paid") targetStatus = "approved";
+    else return false;
   }
 
-  // Only task owner may progress execution: Pending (todo) -> In Progress -> Completed
-  if (fromColumnName === "Pending" && toColumnName === "In Progress") {
-    return actorId === task.ownerId;
-  }
-  if (fromColumnName === "In Progress" && toColumnName === "Completed") {
-    return actorId === task.ownerId;
-  }
-
-  // Business may request revision: Completed -> Revision
-  if (fromColumnName === "Completed" && toColumnName === "Revision") {
-    return actorRole === "business" && actorId === task.businessId;
-  }
-
-  // Student may address revision: Revision -> In Progress
-  if (fromColumnName === "Revision" && toColumnName === "In Progress") {
-    return actorRole === "student" && actorId === task.studentId;
-  }
-
-  // Otherwise, default to owner-only movement (prevent arbitrary cross-role manipulation)
-  return actorId === task.ownerId;
+  return canTransitionTaskStatus(actorId, actorRole, collabStatus, task, targetStatus);
 }
 
 /**

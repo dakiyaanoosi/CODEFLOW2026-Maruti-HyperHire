@@ -66,7 +66,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
 
   // Task creation states
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = React.useState(false);
-  const [createTaskType, setCreateTaskType] = React.useState<WorkflowTask["taskType"]>("general");
+  const [createTaskType, setCreateTaskType] = React.useState<WorkflowTask["taskType"]>("execution");
   const [taskTitle, setTaskTitle] = React.useState("");
   const [taskDescription, setTaskDescription] = React.useState("");
   const [taskPriority, setTaskPriority] = React.useState<"Low" | "Medium" | "High">("Medium");
@@ -226,15 +226,14 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
 
     let ownerId = workflow.studentId;
     let ownerRole: "student" | "business" = "student";
+    let assignedTo = workflow.studentId;
+    let assignedRole: "student" | "business" = "student";
 
     if (profile.role === "business") {
-      if (createTaskType === "feedback") {
-        ownerId = workflow.businessId;
-        ownerRole = "business";
-      } else {
-        ownerId = workflow.studentId;
-        ownerRole = "student";
-      }
+      ownerId = workflow.businessId;
+      ownerRole = "business";
+      assignedTo = workflow.studentId;
+      assignedRole = "student";
     }
 
     const newTask: Omit<WorkflowTask, "taskId" | "createdAt" | "updatedAt"> = {
@@ -243,16 +242,18 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       title: taskTitle.trim(),
       description: taskDescription.trim(),
       priority: taskPriority,
-      assigneeId: ownerId,
+      assigneeId: assignedTo,
       dueDate: taskDueDate || undefined,
       attachments: [],
       aiSuggestions: [],
-      status: "active",
+      status: "pending",
       studentId: workflow.studentId,
       businessId: workflow.businessId,
       createdBy: user.uid,
       ownerId,
       ownerRole,
+      assignedTo,
+      assignedRole,
       taskType: createTaskType,
     };
 
@@ -282,7 +283,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const statusConfig = STATUS_CONFIG[collabStatus] || STATUS_CONFIG.active;
 
   // Calculate Progress (Dynamic based on completed tasks)
-  const completedTasks = tasks.filter(t => t.status === "completed" || columns.find(c => c.columnId === t.columnId)?.name === "Completed").length;
+  const completedTasks = tasks.filter(t => t.status === "approved" || columns.find(c => c.columnId === t.columnId)?.name === "Completed Work").length;
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
 
   // ─── Action Visibility (derived from collaboration.status) ────────────────────
@@ -603,7 +604,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   >
                     {profile.role === "student" ? (
                       <>
-                        <option value="general">Execution (General)</option>
+                        <option value="execution">Execution (General)</option>
                         <option value="deliverable">Execution (Deliverable)</option>
                       </>
                     ) : (

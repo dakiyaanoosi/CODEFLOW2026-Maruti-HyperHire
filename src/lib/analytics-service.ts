@@ -138,10 +138,10 @@ export const analyticsService = {
       const completedWorkflows = workflows.filter(w => w.status === "completed").length;
 
       // Tasks Completed
-      const tasksCompleted = tasks.filter(t => t.status === "completed").length;
+      const tasksCompleted = tasks.filter(t => t.status === "approved").length;
 
       // Average Completion Speed
-      const compTasks = tasks.filter(t => t.status === "completed" && t.createdAt && t.updatedAt);
+      const compTasks = tasks.filter(t => t.status === "approved" && t.createdAt && t.updatedAt);
       let averageCompletionSpeed = "N/A";
       if (compTasks.length > 0) {
         const totalMs = compTasks.reduce((acc, t) => acc + (new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime()), 0);
@@ -478,7 +478,7 @@ export const analyticsService = {
       const activeWfIds = new Set(workflows.filter(w => w.status === "active").map(w => w.workflowId));
       const delayedTasks = tasks.filter(t => 
         activeWfIds.has(t.workflowId) && 
-        t.status !== "completed" && 
+        t.status !== "approved" && 
         t.dueDate && 
         new Date(t.dueDate).getTime() < Date.now()
       );

@@ -35,6 +35,10 @@ export interface WorkflowTaskAttachment {
   size?: number;
 }
 
+export type TaskStatus = "pending" | "in_progress" | "submitted" | "revision_requested" | "approved";
+
+export type TaskType = "execution" | "deliverable" | "revision" | "feedback" | "milestone";
+
 export interface WorkflowTask {
   taskId: string;
   workflowId: string;
@@ -46,7 +50,7 @@ export interface WorkflowTask {
   dueDate?: string;
   attachments: WorkflowTaskAttachment[];
   aiSuggestions: string[];
-  status: "active" | "blocked" | "completed";
+  status: TaskStatus;
   studentId: string;
   businessId: string;
   createdAt: string;
@@ -56,7 +60,9 @@ export interface WorkflowTask {
   createdBy: string;
   ownerId: string;
   ownerRole: "student" | "business";
-  taskType: "general" | "deliverable" | "revision" | "feedback" | "milestone";
+  assignedTo: string;
+  assignedRole: "student" | "business";
+  taskType: TaskType;
 }
 
 export type WorkflowActivityType = 

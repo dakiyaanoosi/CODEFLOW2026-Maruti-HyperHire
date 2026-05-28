@@ -23,7 +23,7 @@ export const aiWorkflowService = {
     
     // Calculate overdue count
     const overdueCount = currentTasks.filter(t => 
-      t.status !== "completed" && 
+      t.status !== "approved" && 
       t.dueDate && 
       new Date(t.dueDate).getTime() < now.getTime()
     ).length;
