@@ -12,7 +12,6 @@ import {
   AlertTriangle, 
   Loader2, 
   CheckCircle,
-  HelpCircle,
   Clock,
   ShieldCheck
 } from "lucide-react";
@@ -25,7 +24,6 @@ interface FinancialWorkspaceProps {
   isSubmitting: boolean;
   onFundEscrow: () => Promise<void>;
   onReleaseEscrow: () => Promise<void>;
-  onOpenDispute: (reason: string) => Promise<void>;
 }
 
 export function FinancialWorkspace({
@@ -35,10 +33,7 @@ export function FinancialWorkspace({
   isSubmitting,
   onFundEscrow,
   onReleaseEscrow,
-  onOpenDispute,
 }: FinancialWorkspaceProps) {
-  const [disputeReason, setDisputeReason] = React.useState("");
-  const [isDisputeOpen, setIsDisputeOpen] = React.useState(false);
 
   if (!escrow) {
     return (
@@ -65,24 +60,9 @@ export function FinancialWorkspace({
     }
   };
 
-  const handleDisputeLocal = async () => {
-    if (!disputeReason.trim()) {
-      alert("Please provide a reason for opening this dispute.");
-      return;
-    }
-    try {
-      await onOpenDispute(disputeReason.trim());
-      setDisputeReason("");
-      setIsDisputeOpen(false);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   // Actions checks
   const canFund = isBusiness && escrow.status === "pending_funding";
   const canRelease = isBusiness && escrow.status === "eligible_for_release";
-  const canDispute = isBusiness && ["funded", "eligible_for_release"].includes(escrow.status);
 
   return (
     <div className="rounded-xl border border-brand-hairline bg-white p-5 space-y-4">
@@ -197,47 +177,6 @@ export function FinancialWorkspace({
             >
               {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Banknote className="w-3.5 h-3.5" />}
               Release Escrow Payout
-            </button>
-          </div>
-        )}
-
-        {/* Dispute initiation */}
-        {canDispute && !isDisputeOpen && (
-          <button
-            onClick={() => setIsDisputeOpen(true)}
-            className="w-full py-2 border border-brand-coral/40 text-brand-coral hover:bg-brand-coral/5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-2"
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Raise Payout Dispute
-          </button>
-        )}
-
-        {isDisputeOpen && (
-          <div className="p-3 bg-brand-surface-soft/60 border border-brand-hairline rounded-xl space-y-3 animate-in slide-in-from-top-2 duration-150 mt-2">
-            <div className="flex justify-between items-center border-b border-brand-hairline pb-1.5">
-              <span className="text-[9px] font-bold text-brand-coral uppercase tracking-wider">File Dispute Form</span>
-              <button 
-                onClick={() => setIsDisputeOpen(false)}
-                className="text-[10px] text-brand-muted hover:text-brand-ink cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <textarea
-              value={disputeReason}
-              onChange={(e) => setDisputeReason(e.target.value)}
-              rows={2}
-              placeholder="State clear reasons why payment should be held..."
-              className="w-full rounded-md border border-brand-hairline p-2 text-xs bg-white text-brand-ink focus:outline-none focus:border-brand-primary resize-none"
-            />
-            
-            <button
-              onClick={handleDisputeLocal}
-              disabled={isSubmitting || !disputeReason.trim()}
-              className="w-full py-1.5 bg-brand-coral hover:bg-[#aa2d00] text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1 cursor-pointer"
-            >
-              Confirm Dispute Lock
             </button>
           </div>
         )}

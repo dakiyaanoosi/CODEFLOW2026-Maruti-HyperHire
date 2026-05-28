@@ -250,7 +250,7 @@ export function ApplicationDetailModal({
                 </div>
               )}
 
-              {isBusiness && application.status !== "submitted" && (
+              {isBusiness && application.status === "shortlisted" && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
                     Change Status

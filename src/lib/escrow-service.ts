@@ -251,78 +251,6 @@ export const escrowService = {
     });
   },
 
-  /**
-   * Business opens a dispute on the escrow ledger.
-   */
-  async openDispute(escrowId: string, reason: string, actorId: string, actorRole: "student" | "business"): Promise<Escrow> {
-    if (!db) throw new Error("Firestore is not initialized.");
-    if (actorRole !== "business") {
-      throw new Error("Permission denied: Only business clients can open disputes.");
-    }
-    const current = await this.getEscrowById(escrowId);
-    if (!current) throw new Error("Escrow not found");
-    if (current.status !== "funded" && current.status !== "eligible_for_release") {
-      throw new Error(`Cannot dispute escrow in status: ${current.status}`);
-    }
-
-    const now = Timestamp.now();
-    const timelineEvent: EscrowEvent = {
-      type: "disputed",
-      timestamp: now as any,
-      note: `Dispute opened: ${reason}`
-    };
-
-    const docRef = doc(db, COLLECTION_NAME, escrowId);
-    await updateDoc(docRef, {
-      status: "disputed" as EscrowStatus,
-      disputeReason: reason,
-      updatedAt: now,
-      timeline: [...(current.timeline || []), timelineEvent]
-    });
-
-    // Update collaboration status to disputed
-    try {
-      const { collaborationService } = await import("@/lib/collaboration-service");
-      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
-      if (collab) {
-        await messageService.sendSystemMessage(
-          collab.conversationId,
-          collab.collaborationId,
-          `Escrow dispute raised: ${reason}`,
-          "escrow",
-          escrowId
-        );
-        await collaborationService.transitionCollaboration(
-          collab.collaborationId,
-          "disputed",
-          actorId,
-          "business",
-          { message: `Dispute raised: ${reason}` }
-        );
-      }
-    } catch (e) {
-      console.error("Error transitioning collaboration on dispute:", e);
-    }
-
-    // Notify student
-    try {
-      const { notificationService } = await import("@/lib/notification-service");
-      await notificationService.createNotification({
-        userId: current.studentId,
-        type: "warning",
-        title: "Dispute Raised ⚠️",
-        description: `${current.businessName} has raised a dispute on "${current.jobTitle}".`,
-        relatedEntityId: escrowId,
-        relatedEntityType: "escrow",
-        actionUrl: `/workflows/${current.workflowId}`
-      });
-    } catch (e) {
-      console.error("Error sending dispute notification:", e);
-    }
-
-    const updated = await this.getEscrowById(escrowId);
-    return updated!;
-  },
 
   /**
    * Fetch all escrows for a specific user
@@ -576,6 +504,31 @@ export const escrowService = {
       updatedAt: nowISO,
     });
 
+    // 2a. Update workflow → completed
+    const workflowDocRef = doc(db, "workflows", current.workflowId);
+    batch.update(workflowDocRef, {
+      status: "completed",
+      updatedAt: nowISO,
+    });
+
+    // 2b. Update job → Completed
+    if (current.jobId) {
+      const jobDocRef = doc(db, "jobs", current.jobId);
+      batch.update(jobDocRef, {
+        status: "Completed",
+        updatedAt: nowISO,
+      });
+    }
+
+    // 2c. Update application → completed
+    if (current.applicationId) {
+      const appDocRef = doc(db, "applications", current.applicationId);
+      batch.update(appDocRef, {
+        status: "completed",
+        updatedAt: nowISO,
+      });
+    }
+
     // 3. Commit atomically — ALL OR NOTHING
     await batch.commit();
 
@@ -715,5 +668,5 @@ export const submitWork = (escrowId: string, note: string, actorId?: string, act
 export const requestRevision = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.requestRevision(escrowId, note, actorId, actorRole);
 export const approveWork = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.approveWork(escrowId, note, actorId, actorRole);
 export const fundEscrow = (escrowId: string, actorId: string, actorRole: "student" | "business") => escrowService.fundEscrow(escrowId, actorId, actorRole);
-export const openDispute = (escrowId: string, reason: string, actorId: string, actorRole: "student" | "business") => escrowService.openDispute(escrowId, reason, actorId, actorRole);
+
 

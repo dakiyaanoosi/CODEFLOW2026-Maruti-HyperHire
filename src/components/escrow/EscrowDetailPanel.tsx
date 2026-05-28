@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import { X, Banknote, Loader2, AlertTriangle, Landmark } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { EscrowStatusBadge } from "./EscrowStatusBadge";
 import { EscrowTimeline } from "./EscrowTimeline";
-import { releaseEscrow, fundEscrow, openDispute } from "@/lib/escrow-service";
+import { releaseEscrow, fundEscrow } from "@/lib/escrow-service";
 import type { EscrowTransaction } from "@/types/escrow";
 import { useAuthStore } from "@/store/use-auth-store";
-import { canFundEscrow, canReleaseEscrow, canDisputeEscrow } from "@/lib/collaboration/permission-policy";
+import { canFundEscrow, canReleaseEscrow } from "@/lib/collaboration/permission-policy";
 
 interface EscrowDetailPanelProps {
   txn: EscrowTransaction;
@@ -18,7 +17,6 @@ interface EscrowDetailPanelProps {
 }
 
 export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetailPanelProps) {
-  const [note, setNote] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [flash, setFlash] = React.useState<string | null>(null);
 
@@ -30,7 +28,6 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   const { user } = useAuthStore();
   const canFund = canFundEscrow(role, txn.status);
   const canRelease = canReleaseEscrow(role, txn.status);
-  const canDispute = canDisputeEscrow(role, txn.status);
 
   async function handleFund() {
     if (!user) return;
@@ -62,25 +59,6 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
     }
   }
 
-  async function handleOpenDispute() {
-    if (!user) return;
-    if (!note.trim()) {
-      showFlash("Please enter a reason for opening this dispute.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const updated = await openDispute(txn.escrowId, note.trim(), user.uid, role);
-      onUpdate(updated);
-      setNote("");
-      showFlash("Dispute opened. The collaboration has been paused.");
-    } catch (e: unknown) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      showFlash("Error opening dispute: " + err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -197,56 +175,26 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
             </div>
           )}
 
-          {(canRelease || canDispute) && (
-            <div className="rounded-[12px] border border-brand-hairline bg-brand-surface-soft px-5 py-5 space-y-5">
-              {canRelease && (
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-[0.16px] mb-1">
-                      Release Payment
-                    </h3>
-                    <p className="text-xs text-brand-muted leading-[1.35]">
-                      The milestone has been approved. You can now release the escrowed funds to the student.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleRelease}
-                    disabled={busy}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-emerald-700"
-                  >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                    Approve & Release Payment — ₹{(txn.payoutAmount ?? txn.amount * 0.9).toLocaleString("en-IN")}
-                  </button>
+          {canRelease && (
+            <div className="rounded-[12px] border border-brand-hairline bg-brand-surface-soft px-5 py-5">
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-[0.16px] mb-1">
+                    Release Payment
+                  </h3>
+                  <p className="text-xs text-brand-muted leading-[1.35]">
+                    The milestone has been approved. You can now release the escrowed funds to the student.
+                  </p>
                 </div>
-              )}
-
-              {canDispute && (
-                <div className={cn("space-y-3", canRelease && "border-t border-brand-hairline pt-4")}>
-                  <div>
-                    <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-[0.16px] mb-1">
-                      Raise Contract Dispute
-                    </h3>
-                    <p className="text-xs text-brand-muted leading-[1.35]">
-                      If there are unresolved issues with the deliverable quality or collaboration, you can raise a dispute to halt the contract.
-                    </p>
-                  </div>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    rows={3}
-                    placeholder="Reason for opening dispute..."
-                    className="w-full rounded-[6px] border border-brand-hairline bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-muted resize-none focus:outline-none focus:border-brand-info"
-                  />
-                  <button
-                    onClick={handleOpenDispute}
-                    disabled={busy || !note.trim()}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] border border-brand-coral text-brand-coral hover:bg-brand-coral/5 px-4 py-2.5 text-sm font-medium disabled:opacity-50 transition-colors"
-                  >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
-                    Open Dispute
-                  </button>
-                </div>
-              )}
+                <button
+                  onClick={handleRelease}
+                  disabled={busy}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-emerald-700"
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  Approve & Release Payment — ₹{(txn.payoutAmount ?? txn.amount * 0.9).toLocaleString("en-IN")}
+                </button>
+              </div>
             </div>
           )}
         </div>

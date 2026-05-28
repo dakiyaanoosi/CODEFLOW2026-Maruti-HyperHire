@@ -59,7 +59,7 @@ export default function DashboardLayout({
 
         <main className="flex-1 overflow-y-auto bg-brand-surface-soft p-4 md:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl w-full">
-            <StrategicAdvisorWidget />
+            {profile?.role !== "business" && <StrategicAdvisorWidget />}
             {children}
           </div>
         </main>

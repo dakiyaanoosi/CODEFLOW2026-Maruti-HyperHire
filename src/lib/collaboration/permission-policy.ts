@@ -129,12 +129,6 @@ export function canReleaseEscrow(actorRole: UserRole, escrowStatus: EscrowStatus
   return actorRole === "business" && escrowStatus === "eligible_for_release";
 }
 
-/**
- * Checks if the actor can dispute the escrow.
- */
-export function canDisputeEscrow(actorRole: UserRole, escrowStatus: EscrowStatus): boolean {
-  return actorRole === "business" && ["funded", "eligible_for_release"].includes(escrowStatus);
-}
 
 /**
  * Checks if the actor can submit a deliverable.

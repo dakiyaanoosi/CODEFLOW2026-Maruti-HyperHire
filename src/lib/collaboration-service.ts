@@ -650,8 +650,39 @@ export const collaborationService = {
     const eventId = generateId("cact");
     const activityRef = doc(db, ACTIVITY_COLLECTION, eventId);
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const cleanUndefined = (obj: any): any => {
+      if (obj === undefined) return undefined;
+      if (obj === null) return null;
+      if (Array.isArray(obj)) {
+        return obj.map(cleanUndefined).filter((v) => v !== undefined);
+      }
+      if (typeof obj === "object") {
+        if (
+          obj.constructor &&
+          obj.constructor.name !== "Object" &&
+          obj.constructor.name !== "Array"
+        ) {
+          return obj;
+        }
+        const clean: any = {};
+        Object.keys(obj).forEach((key) => {
+          const val = obj[key];
+          const cleaned = cleanUndefined(val);
+          if (cleaned !== undefined) {
+            clean[key] = cleaned;
+          }
+        });
+        return clean;
+      }
+      return obj;
+    };
+
+    const cleanEvent = cleanUndefined(event);
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+
     await setDoc(activityRef, {
-      ...event,
+      ...cleanEvent,
       eventId,
       timestamp: new Date().toISOString(),
     });

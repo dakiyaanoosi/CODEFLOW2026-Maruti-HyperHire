@@ -28,6 +28,7 @@ export function JobCard({ job, onClick }: JobCardProps) {
   const statusColors = {
     Draft: "bg-brand-surface-strong text-brand-muted border-brand-hairline",
     Published: "bg-brand-success/15 text-brand-success border-brand-success/20",
+    Completed: "bg-brand-info/10 text-brand-info border-brand-info/20",
   };
 
   return (

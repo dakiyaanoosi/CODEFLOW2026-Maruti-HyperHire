@@ -16,6 +16,19 @@ import { Deliverable } from "@/types/deliverable";
 import { generateId } from "@/lib/id-utils";
 import { messageService } from "./message-service";
 
+// Helper to remove undefined properties before writing to Firestore
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cleanFirestoreData(data: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const clean: any = {};
+  Object.keys(data).forEach((key) => {
+    if (data[key] !== undefined) {
+      clean[key] = data[key];
+    }
+  });
+  return clean;
+}
+
 // Helper to serialize deliverable dates for the client
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function serializeDeliverable(data: any, id: string): Deliverable {
@@ -79,7 +92,7 @@ export const deliverableService = {
       updatedAt: now,
     };
 
-    await setDoc(doc(db, "deliverables", deliverableId), newDeliverable);
+    await setDoc(doc(db, "deliverables", deliverableId), cleanFirestoreData(newDeliverable));
 
     // Propagate status side-effects
     if (params.taskId) {

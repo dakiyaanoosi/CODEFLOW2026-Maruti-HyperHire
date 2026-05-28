@@ -25,7 +25,7 @@ interface ApplicationDashboardProps {
   isBusiness?: boolean;
 }
 
-const ALL_STATUSES: ApplicationStatus[] = ["submitted", "shortlisted", "accepted", "rejected"];
+const ALL_STATUSES: ApplicationStatus[] = ["submitted", "shortlisted", "accepted", "rejected", "completed"];
 
 export function ApplicationDashboard({
   applications,
@@ -43,6 +43,7 @@ export function ApplicationDashboard({
       shortlisted: applications.filter((a) => a.status === "shortlisted").length,
       accepted: applications.filter((a) => a.status === "accepted").length,
       rejected: applications.filter((a) => a.status === "rejected").length,
+      completed: applications.filter((a) => a.status === "completed").length,
     };
   }, [applications]);
 
@@ -90,6 +91,12 @@ export function ApplicationDashboard({
       icon: XCircle,
       color: "text-brand-coral",
     },
+    {
+      label: "completed",
+      value: stats.completed,
+      icon: CheckCircle2,
+      color: "text-brand-info",
+    },
   ];
 
   if (isLoading) {
@@ -121,7 +128,7 @@ export function ApplicationDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         {statCards.map((item) => (
           <div
             key={item.label}

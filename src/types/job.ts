@@ -1,6 +1,6 @@
 import { WorkCategory } from "./profile";
 
-export type JobStatus = "Draft" | "Published";
+export type JobStatus = "Draft" | "Published" | "Completed";
 export type WorkMode = "Remote" | "On-site" | "Hybrid";
 export type JobDifficulty = "Beginner" | "Intermediate" | "Advanced";
 

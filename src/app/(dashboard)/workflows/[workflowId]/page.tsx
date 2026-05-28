@@ -457,29 +457,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     }
   };
 
-  const handleOpenDisputeEscrow = async (reason: string) => {
-    if (!escrow || !user || !profile || !workflow) return;
-    setIsSubmitting(true);
-    try {
-      const { openDispute } = await import("@/lib/escrow-service");
-      await openDispute(escrow.escrowId, reason, user.uid, profile.role as "student" | "business");
-      await workflowService.logActivity({
-        workflowId: workflow.workflowId,
-        type: "task_moved",
-        message: `raised a formal dispute on contract payment: ${reason}`,
-        actorId: user.uid,
-        actorName,
-        studentId: workflow.studentId,
-        businessId: workflow.businessId,
-      });
-    } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      alert(error.message || "Failed to open dispute.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleNavigateToContext = React.useCallback((contextType: string, contextId: string) => {
     if (contextType === "task") {
       const task = tasks.find((t) => t.taskId === contextId);
@@ -785,7 +762,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   router.push("/escrow");
                 }}
                 onReleaseEscrow={handleReleaseEscrow}
-                onOpenDispute={handleOpenDisputeEscrow}
               />
 
               <CollaborationTimeline activities={activities} />

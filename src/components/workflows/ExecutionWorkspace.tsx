@@ -6,7 +6,6 @@ import { Milestone } from "@/types/milestone";
 import { 
   CheckCircle2, 
   Clock, 
-  AlertCircle, 
   Play, 
   Send, 
   Plus, 
@@ -151,7 +150,7 @@ export function ExecutionWorkspace({
             </span>
             <h4 className="text-xs font-semibold text-brand-ink uppercase tracking-wider">Milestone Execution Tasks</h4>
           </div>
-          {isStudent && activeMilestone.status !== "approved" && ["active", "revision_requested"].includes(collaborationStatus) && (
+          {isStudent && activeMilestone.status !== "approved" && ["active", "revision_requested", "in_review"].includes(collaborationStatus) && (
             <button
               onClick={() => onAddTaskClick("execution")}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-brand-hairline bg-white hover:bg-brand-surface-soft text-xs font-semibold text-brand-ink rounded-[8px] transition-all cursor-pointer shadow-sm"
