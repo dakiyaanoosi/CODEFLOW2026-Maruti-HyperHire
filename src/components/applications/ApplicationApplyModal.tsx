@@ -70,7 +70,6 @@ export function ApplicationApplyModal({
         coverLetter: result.enhancedCoverMessage ? result.enhancedCoverMessage.replace(/\r\n/g, "\n") : "",
         proposalText: result.enhancedProposalText ? result.enhancedProposalText.replace(/\r\n/g, "\n") : "",
         estimatedDeliveryDays: result.recommendedDays || f.estimatedDeliveryDays,
-        proposedBudget: result.recommendedPrice || f.proposedBudget
       }));
       
       if (result.upsellSuggestion) {

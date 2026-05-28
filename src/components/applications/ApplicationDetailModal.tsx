@@ -11,13 +11,15 @@ import {
   User,
   Sparkles,
   Bot,
-  Calendar
+  Calendar,
+  ExternalLink
 } from "lucide-react";
 import { Application, ApplicationStatus } from "@/types/application";
 import { ApplicationStatusBadge } from "./ApplicationStatusBadge";
 import { applicationService } from "@/lib/application-service";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface ApplicationDetailModalProps {
   application: Application | null;
@@ -146,15 +148,21 @@ export function ApplicationDetailModal({
               </div>
 
               {isBusiness && (
-                <div className="rounded-[10px] bg-brand-surface-soft border border-brand-hairline p-4 flex items-center gap-3">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-surface-strong text-brand-muted">
+                <Link
+                  href={`/profile/${application.studentId}`}
+                  className="rounded-[10px] bg-brand-surface-soft border border-brand-hairline p-4 flex items-center gap-3 hover:bg-brand-surface-strong transition-colors cursor-pointer group/namecard w-full"
+                >
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-surface-strong text-brand-muted group-hover/namecard:bg-brand-primary group-hover/namecard:text-white transition-colors">
                     <User className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-brand-ink">{application.studentName}</p>
-                    <p className="text-xs text-brand-muted">Applicant</p>
+                    <p className="text-sm font-semibold text-brand-ink group-hover/namecard:text-brand-link transition-colors flex items-center gap-1.5">
+                      {application.studentName}
+                      <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover/namecard:opacity-100 transition-opacity" />
+                    </p>
+                    <p className="text-xs text-brand-muted">Applicant • Click to view profile</p>
                   </div>
-                </div>
+                </Link>
               )}
 
               <div className="space-y-2">
@@ -219,9 +227,9 @@ export function ApplicationDetailModal({
               )}
 
               {isBusiness && application.status === "submitted" && (
-                <div className="rounded-[12px] bg-brand-surface-dark p-5 space-y-3">
-                  <p className="text-sm font-medium text-white">Review Application</p>
-                  <p className="text-xs text-white/60 leading-relaxed">
+                <div className="rounded-[12px] bg-brand-surface-soft border border-brand-hairline p-5 space-y-3">
+                  <p className="text-sm font-semibold text-brand-ink">Review Application</p>
+                  <p className="text-xs text-brand-muted leading-relaxed">
                     Choose an action to update the status of this application.
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -231,7 +239,7 @@ export function ApplicationDetailModal({
                         disabled={!!isUpdating}
                         onClick={() => handleStatusChange(action.status)}
                         className={cn(
-                          "rounded-[10px] px-4 py-2 text-xs font-semibold bg-white/10 text-white border-white/20 border disabled:opacity-50",
+                          "rounded-[10px] px-4 py-2 text-xs font-semibold disabled:opacity-50",
                           action.className
                         )}
                       >

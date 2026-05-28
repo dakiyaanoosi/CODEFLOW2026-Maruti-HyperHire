@@ -18,6 +18,7 @@ import { TrendingJobsStrip } from "./TrendingJobsStrip";
 import { MarketplaceJobDetailModal } from "./MarketplaceJobDetailModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 9;
 
@@ -44,6 +45,9 @@ export function MarketplaceFeed({
   isLoading,
   userSkills = [],
 }: MarketplaceFeedProps) {
+  const searchParams = useSearchParams();
+  const targetJobId = searchParams.get("jobId") || searchParams.get("gigId");
+
   const [filters, setFilters] = React.useState<MarketplaceFilters>(DEFAULT_FILTERS);
   const [page, setPage] = React.useState(1);
   const [selectedJob, setSelectedJob] = React.useState<JobWithMatchScore | null>(null);
@@ -78,6 +82,16 @@ export function MarketplaceFeed({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [filters]);
+
+  // Auto-open job detail if jobId is present in query parameters
+  React.useEffect(() => {
+    if (targetJobId && enrichedJobs.length > 0) {
+      const match = enrichedJobs.find((j) => j.jobId === targetJobId);
+      if (match) {
+        setSelectedJob(match);
+      }
+    }
+  }, [targetJobId, enrichedJobs]);
 
   // Infinite scroll via IntersectionObserver
   React.useEffect(() => {

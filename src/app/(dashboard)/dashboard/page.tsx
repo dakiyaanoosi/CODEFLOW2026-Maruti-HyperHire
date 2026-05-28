@@ -83,12 +83,12 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Main Grids */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className={`grid grid-cols-1 gap-6 ${isBusiness ? "" : "lg:grid-cols-3"}`}>
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
-          className="lg:col-span-2 space-y-6"
+          className={`${isBusiness ? "w-full" : "lg:col-span-2"} space-y-6`}
         >
           {/* AI Match Recommendations */}
           {isBusiness ? (
@@ -122,15 +122,17 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
-          className="space-y-6"
-        >
-          {/* Market Intelligence Heatmap */}
-          <AIHeatmapWidget />
-        </motion.div>
+        {!isBusiness && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
+            className="space-y-6"
+          >
+            {/* Market Intelligence Heatmap */}
+            <AIHeatmapWidget />
+          </motion.div>
+        )}
       </div>
     </div>
   );

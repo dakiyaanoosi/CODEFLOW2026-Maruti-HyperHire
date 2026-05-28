@@ -223,11 +223,10 @@ def application_enhance_endpoint(request: ApplicationEnhanceRequest):
             "properties": {
                 "enhancedCoverMessage": {"type": "string"},
                 "enhancedProposalText": {"type": "string"},
-                "recommendedPrice": {"type": ["number", "null"]},
                 "recommendedDays": {"type": ["integer", "null"]},
                 "upsellSuggestion": {"type": ["string", "null"]}
             },
-            "required": ["enhancedCoverMessage", "enhancedProposalText", "recommendedPrice", "recommendedDays", "upsellSuggestion"],
+            "required": ["enhancedCoverMessage", "enhancedProposalText", "recommendedDays", "upsellSuggestion"],
             "additionalProperties": False
         })
         
@@ -235,7 +234,7 @@ def application_enhance_endpoint(request: ApplicationEnhanceRequest):
             return ApplicationEnhanceResponse(
                 enhancedCoverMessage=llm_result.get("enhancedCoverMessage", ""),
                 enhancedProposalText=llm_result.get("enhancedProposalText", ""),
-                recommendedPrice=llm_result.get("recommendedPrice"),
+                recommendedPrice=None,
                 recommendedDays=llm_result.get("recommendedDays"),
                 upsellSuggestion=llm_result.get("upsellSuggestion")
             )
@@ -256,7 +255,7 @@ def application_enhance_endpoint(request: ApplicationEnhanceRequest):
         return ApplicationEnhanceResponse(
             enhancedCoverMessage=local_res["enhancedCoverMessage"],
             enhancedProposalText=local_res["enhancedProposalText"],
-            recommendedPrice=local_res["recommendedPrice"],
+            recommendedPrice=None,
             recommendedDays=local_res["recommendedDays"],
             upsellSuggestion=local_res["upsellSuggestion"]
         )

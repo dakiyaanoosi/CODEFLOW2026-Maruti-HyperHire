@@ -346,33 +346,7 @@ export function StudentIntelligence() {
             )}
           </div>
 
-          {/* ─── PORTFOLIO INTELLIGENCE ─── */}
-          <div className="rounded-[12px] border border-brand-hairline bg-white p-5 shadow-sm space-y-4">
-            <h3 className="text-sm font-semibold text-brand-ink flex items-center gap-1.5">
-              <Eye className="w-4 h-4 text-brand-primary" />
-              Portfolio Intelligence
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[8px] bg-brand-surface-soft p-3">
-                <p className="text-[10px] font-medium text-brand-muted uppercase">Portfolio Projects</p>
-                <p className="text-xl font-bold text-brand-ink mt-1">{data.portfolioCount}</p>
-              </div>
-              <div className="rounded-[8px] bg-brand-surface-soft p-3">
-                <p className="text-[10px] font-medium text-brand-muted uppercase">Verified Works</p>
-                <p className="text-xl font-bold text-brand-success mt-1">{data.verifiedWorkCount}</p>
-              </div>
-            </div>
-            
-            <div className="rounded-[8px] border border-brand-hairline p-3">
-              <p className="text-[9px] font-semibold uppercase text-brand-muted">Most Viewed Project</p>
-              <p className="text-xs font-semibold text-brand-ink mt-1 truncate">{data.mostViewedProject}</p>
-            </div>
 
-            <div className="flex items-center justify-between text-xs text-brand-muted">
-              <span>Workflow-generated entries:</span>
-              <span className="font-semibold text-brand-ink">{data.completionGeneratedPortfolioEntries}</span>
-            </div>
-          </div>
         </div>
 
       </div>

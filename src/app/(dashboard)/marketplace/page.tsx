@@ -133,7 +133,13 @@ export default function MarketplacePage() {
 
       <div className="border-t border-brand-hairline" />
 
-      <MarketplaceFeed jobs={jobs} isLoading={isLoading} userSkills={userSkills} />
+      <React.Suspense fallback={
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
+        </div>
+      }>
+        <MarketplaceFeed jobs={jobs} isLoading={isLoading} userSkills={userSkills} />
+      </React.Suspense>
     </div>
   );
 }

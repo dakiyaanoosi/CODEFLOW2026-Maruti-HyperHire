@@ -100,8 +100,8 @@ export const analyticsService = {
           pendingEscrow: 0,
           releasedEscrow: 0,
           monthlyEarningsTrend: [],
-          currentTrustScore: 80,
-          trustRank: "Gold",
+          currentTrustScore: 0,
+          trustRank: "Bronze",
           recentTrustChanges: [],
           trustGrowthTrend: [],
           mostRequestedSkills: [],
@@ -193,8 +193,8 @@ export const analyticsService = {
       });
 
       // Trust Score
-      const currentTrustScore = trustProfile?.overallScore ?? 80;
-      const trustRank = trustProfile?.rank ?? "Gold";
+      const currentTrustScore = trustProfile?.overallScore ?? 0;
+      const trustRank = trustProfile?.rank ?? "Bronze";
       const recentTrustChanges = trustHistory.slice(0, 5);
 
       const sortedHistory = [...trustHistory].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
