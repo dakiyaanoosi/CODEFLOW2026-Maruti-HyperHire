@@ -1,16 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { X, CheckCircle2, Banknote, Send, Loader2 } from "lucide-react";
+import { X, Banknote, Loader2, AlertTriangle, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EscrowStatusBadge } from "./EscrowStatusBadge";
 import { EscrowTimeline } from "./EscrowTimeline";
-import { releaseEscrow, submitWork, requestRevision } from "@/lib/escrow-service";
-import { collaborationService } from "@/lib/collaboration-service";
+import { releaseEscrow, fundEscrow, openDispute } from "@/lib/escrow-service";
 import type { EscrowTransaction } from "@/types/escrow";
-import type { Collaboration } from "@/types/collaboration";
 import { useAuthStore } from "@/store/use-auth-store";
-import { canSubmitDeliverable, canReleaseEscrow } from "@/lib/collaboration/permission-policy";
+import { canFundEscrow, canReleaseEscrow, canDisputeEscrow } from "@/lib/collaboration/permission-policy";
 
 interface EscrowDetailPanelProps {
   txn: EscrowTransaction;
@@ -23,16 +21,6 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   const [note, setNote] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [flash, setFlash] = React.useState<string | null>(null);
-  const [collaboration, setCollaboration] = React.useState<Collaboration | null>(null);
-
-  // Fetch collaboration for status validation
-  React.useEffect(() => {
-    if (txn.collaborationId) {
-      collaborationService.getCollaboration(txn.collaborationId).then(setCollaboration);
-    } else {
-      collaborationService.getCollaborationByWorkflowId(txn.workflowId).then(setCollaboration);
-    }
-  }, [txn.collaborationId, txn.workflowId]);
 
   const showFlash = (msg: string) => {
     setFlash(msg);
@@ -40,9 +28,24 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   };
 
   const { user } = useAuthStore();
-  const collabStatus = collaboration?.status || "active";
-  const canRelease = canReleaseEscrow(role, collabStatus);
-  const canSubmit = canSubmitDeliverable(role, collabStatus);
+  const canFund = canFundEscrow(role, txn.status);
+  const canRelease = canReleaseEscrow(role, txn.status);
+  const canDispute = canDisputeEscrow(role, txn.status);
+
+  async function handleFund() {
+    if (!user) return;
+    setBusy(true);
+    try {
+      const updated = await fundEscrow(txn.escrowId, user.uid, role);
+      onUpdate(updated);
+      showFlash("Escrow funded successfully! Execution is now unlocked.");
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      showFlash("Error funding escrow: " + err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleRelease() {
     if (!user) return;
@@ -51,46 +54,29 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
       const updated = await releaseEscrow(txn.escrowId, user.uid, role);
       onUpdate(updated);
       showFlash("₹" + (updated.payoutAmount ?? updated.amount * 0.9).toLocaleString("en-IN") + " released to " + txn.studentName + ".");
-    } catch (e: any) {
-      showFlash("Error releasing escrow: " + e.message);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      showFlash("Error releasing escrow: " + err.message);
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleRequestRevision() {
+  async function handleOpenDispute() {
     if (!user) return;
     if (!note.trim()) {
-      showFlash("Please describe why you're requesting a revision.");
+      showFlash("Please enter a reason for opening this dispute.");
       return;
     }
     setBusy(true);
     try {
-      const updated = await requestRevision(txn.escrowId, note.trim(), user.uid, role);
+      const updated = await openDispute(txn.escrowId, note.trim(), user.uid, role);
       onUpdate(updated);
       setNote("");
-      showFlash("Revision requested. Student notified.");
-    } catch (e: any) {
-      showFlash("Error requesting revision: " + e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleSubmit() {
-    if (!user) return;
-    if (!note.trim()) {
-      showFlash("Please describe what you delivered.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const updated = await submitWork(txn.escrowId, note.trim(), user.uid, role);
-      onUpdate(updated);
-      setNote("");
-      showFlash("Work submitted! Awaiting business review.");
-    } catch (e: any) {
-      showFlash("Error submitting work: " + e.message);
+      showFlash("Dispute opened. The collaboration has been paused.");
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      showFlash("Error opening dispute: " + err.message);
     } finally {
       setBusy(false);
     }
@@ -176,51 +162,90 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
             <EscrowTimeline events={txn.timeline} />
           </div>
 
+          {/* Active Dispute Banner */}
+          {txn.status === "disputed" && txn.disputeReason && (
+            <div className="rounded-[10px] bg-brand-coral/10 border border-brand-coral/25 px-4 py-4 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-brand-coral shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-brand-coral uppercase tracking-[0.16px] mb-1">
+                  Active Contract Dispute
+                </p>
+                <p className="text-sm text-brand-body leading-[1.4]">{txn.disputeReason}</p>
+              </div>
+            </div>
+          )}
+
           {/* Action Box */}
-          {(canRelease || canSubmit) && (
+          {canFund && (
             <div className="rounded-[12px] border border-brand-hairline bg-brand-surface-soft px-5 py-5 space-y-4">
-              <p className="text-xs font-medium uppercase tracking-[0.16px] text-brand-muted">
-                {canRelease ? "Review Deliverable" : "Add a note"}
-              </p>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                placeholder={
-                  canRelease
-                    ? "Provide optional feedback or revision request details…"
-                    : "Describe what you've delivered (links, details)…"
-                }
-                className="w-full rounded-[6px] border border-brand-hairline bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-muted resize-none focus:outline-none focus:border-brand-info"
-              />
+              <div>
+                <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-[0.16px] mb-1">
+                  Escrow Funding Pending
+                </h3>
+                <p className="text-xs text-brand-muted leading-[1.35]">
+                  This contract requires funding to unlock execution. The student will not be able to start task execution or submit deliverables until funding is initiated.
+                </p>
+              </div>
+              <button
+                onClick={handleFund}
+                disabled={busy}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-brand-ink px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-brand-primary-active"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}
+                Fund Contract Escrow — ₹{txn.amount.toLocaleString("en-IN")}
+              </button>
+            </div>
+          )}
+
+          {(canRelease || canDispute) && (
+            <div className="rounded-[12px] border border-brand-hairline bg-brand-surface-soft px-5 py-5 space-y-5">
               {canRelease && (
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <button
-                    onClick={handleRequestRevision}
-                    disabled={busy}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-[8px] border border-brand-coral text-brand-coral hover:bg-brand-coral/5 px-4 py-2.5 text-sm font-medium disabled:opacity-50 transition-colors"
-                  >
-                    Request Revision
-                  </button>
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-[0.16px] mb-1">
+                      Release Payment
+                    </h3>
+                    <p className="text-xs text-brand-muted leading-[1.35]">
+                      The milestone has been approved. You can now release the escrowed funds to the student.
+                    </p>
+                  </div>
                   <button
                     onClick={handleRelease}
                     disabled={busy}
-                    className="inline-flex flex-[2] items-center justify-center gap-2 rounded-[8px] bg-brand-success px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-emerald-700"
                   >
-                    {busy ? <Loader2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
                     Approve & Release Payment — ₹{(txn.payoutAmount ?? txn.amount * 0.9).toLocaleString("en-IN")}
                   </button>
                 </div>
               )}
-              {canSubmit && (
-                <button
-                  onClick={handleSubmit}
-                  disabled={busy}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-brand-ink px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 transition-colors hover:bg-brand-primary-active"
-                >
-                  {busy ? <Loader2 className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-                  Submit Deliverable
-                </button>
+
+              {canDispute && (
+                <div className={cn("space-y-3", canRelease && "border-t border-brand-hairline pt-4")}>
+                  <div>
+                    <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-[0.16px] mb-1">
+                      Raise Contract Dispute
+                    </h3>
+                    <p className="text-xs text-brand-muted leading-[1.35]">
+                      If there are unresolved issues with the deliverable quality or collaboration, you can raise a dispute to halt the contract.
+                    </p>
+                  </div>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    placeholder="Reason for opening dispute..."
+                    className="w-full rounded-[6px] border border-brand-hairline bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-muted resize-none focus:outline-none focus:border-brand-info"
+                  />
+                  <button
+                    onClick={handleOpenDispute}
+                    disabled={busy || !note.trim()}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] border border-brand-coral text-brand-coral hover:bg-brand-coral/5 px-4 py-2.5 text-sm font-medium disabled:opacity-50 transition-colors"
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+                    Open Dispute
+                  </button>
+                </div>
               )}
             </div>
           )}

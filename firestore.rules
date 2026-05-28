@@ -218,10 +218,24 @@ service cloud.firestore {
           // Business can update escrow details or transition status under specific rules
           (request.auth.uid == resource.data.businessId &&
            (
+             // 1. Status remains the same
              request.resource.data.status == resource.data.status ||
-             request.resource.data.status == "disputed" ||
-             request.resource.data.status == "refunded" ||
-             (request.resource.data.status == "released" && get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.status == "completed")
+             (
+               // Ensure state is not already released, cancelled, or disputed
+               resource.data.status != "released" &&
+               resource.data.status != "cancelled" &&
+               resource.data.status != "disputed" &&
+               (
+                 // 2. Fund: transition from pending_funding -> funded
+                 (resource.data.status == "pending_funding" && request.resource.data.status == "funded") ||
+                 // 3. Dispute: transition from funded/eligible_for_release -> disputed
+                 ((resource.data.status == "funded" || resource.data.status == "eligible_for_release") && request.resource.data.status == "disputed") ||
+                 // 4. Release: transition from eligible_for_release -> released
+                 (resource.data.status == "eligible_for_release" && request.resource.data.status == "released") ||
+                 // 5. Cancel: transition from pending_funding -> cancelled
+                 (resource.data.status == "pending_funding" && request.resource.data.status == "cancelled")
+               )
+             )
            ))
         )
       );

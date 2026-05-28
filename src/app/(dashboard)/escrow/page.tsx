@@ -11,11 +11,12 @@ import { getEscrowSummary } from "@/lib/escrow-service";
 import type { EscrowSummary, EscrowTransaction, EscrowStatus } from "@/types/escrow";
 const FILTER_TABS: { label: string; value: EscrowStatus | "all" }[] = [
   { label: "All",      value: "all" },
-  { label: "Pending",  value: "pending" },
+  { label: "Pending Funding",  value: "pending_funding" },
   { label: "Funded",   value: "funded" },
+  { label: "Eligible for Release", value: "eligible_for_release" },
   { label: "Released", value: "released" },
-  { label: "Refunded", value: "refunded" },
   { label: "Disputed", value: "disputed" },
+  { label: "Cancelled", value: "cancelled" },
 ];
 export default function EscrowPage() {
   const { user, profile } = useAuthStore();
@@ -26,7 +27,7 @@ export default function EscrowPage() {
   const [selected, setSelected] = React.useState<EscrowTransaction | null>(null);
   React.useEffect(() => {
     if (!user?.uid) return;
-    setLoading(true);
+    Promise.resolve().then(() => setLoading(true));
     getEscrowSummary(user.uid, role)
       .then(setSummary)
       .finally(() => setLoading(false));

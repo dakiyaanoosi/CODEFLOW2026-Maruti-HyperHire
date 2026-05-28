@@ -281,7 +281,7 @@ export const collaborationService = {
 
     // 4. Auto-advance status: setup_pending → scope_review → awaiting_funding → active
     // (Auto-funding mode — collaborations start at "active" immediately)
-    const initialStatus: CollaborationStatus = "active";
+    const initialStatus: CollaborationStatus = "awaiting_funding";
 
     // 5. Create collaboration document
     const collaboration: Collaboration = {

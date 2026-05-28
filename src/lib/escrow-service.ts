@@ -32,8 +32,9 @@ function serializeEscrow(data: any, id: string): Escrow {
   return {
     ...data,
     escrowId: id,
-    fundedAt: data.fundedAt?.toDate ? data.fundedAt.toDate().toISOString() : data.fundedAt,
-    releasedAt: data.releasedAt?.toDate ? data.releasedAt.toDate().toISOString() : data.releasedAt,
+    fundedAt: data.fundedAt?.toDate ? data.fundedAt.toDate().toISOString() : data.fundedAt || null,
+    releasedAt: data.releasedAt?.toDate ? data.releasedAt.toDate().toISOString() : data.releasedAt || null,
+    releaseEligibleAt: data.releaseEligibleAt?.toDate ? data.releaseEligibleAt.toDate().toISOString() : data.releaseEligibleAt || null,
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
     updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
     timeline: (data.timeline || []).map((ev: any) => ({
@@ -61,7 +62,7 @@ function cleanFirestoreData(data: any) {
  */
 function compileSummary(txns: Escrow[]): EscrowSummary {
   return {
-    totalFunded:     txns.reduce((s, t) => s + t.amount, 0),
+    totalFunded:     txns.filter((t) => t.status !== "pending_funding" && t.status !== "cancelled").reduce((s, t) => s + t.amount, 0),
     totalReleased:   txns.filter((t) => t.status === "released").reduce((s, t) => s + (t.payoutAmount || t.amount * 0.9), 0),
     pendingApproval: txns.filter((t) => t.status === "funded" && t.timeline && t.timeline.length > 0 && t.timeline[t.timeline.length - 1].type === "submitted").length,
     inReview:        txns.filter((t) => t.status === "funded" && t.timeline && t.timeline.length > 0 && t.timeline[t.timeline.length - 1].type === "submitted").length,
@@ -95,28 +96,27 @@ export const escrowService = {
       amount,
       platformFee,
       payoutAmount,
-      status: "funded" as EscrowStatus,
-      fundedAt: now,
+      status: "pending_funding" as EscrowStatus,
       createdAt: now,
       updatedAt: now,
       jobTitle: app.jobTitle,
       businessName: app.companyName,
       studentName: app.studentName,
       timeline: [
-        { type: "funded", timestamp: now, note: "Escrow funded. Awaiting student delivery." }
+        { type: "created", timestamp: now, note: "Escrow contract setup. Awaiting business client funding." }
       ]
     };
 
     await setDoc(escrowRef, cleanFirestoreData(newEscrow));
 
-    // Send notification
+    // Send notification to business about funding pending
     try {
       const { notificationService } = await import("@/lib/notification-service");
       await notificationService.createNotification({
-        userId: app.studentId,
-        type: "success",
-        title: "Escrow Funded! 💰",
-        description: `Escrow has been funded for "${app.jobTitle}" by ${app.companyName}.`,
+        userId: app.businessId,
+        type: "info",
+        title: "Escrow Funding Required 💳",
+        description: `Please fund the escrow for "${app.jobTitle}" to initiate execution.`,
         relatedEntityId: escrowId,
         relatedEntityType: "escrow",
         actionUrl: "/escrow"
@@ -126,6 +126,186 @@ export const escrowService = {
     }
 
     return serializeEscrow(newEscrow, escrowId);
+  },
+
+  /**
+   * Business funds the escrow contract.
+   * Transitions escrow to "funded" and unlocks execution.
+   */
+  async fundEscrow(escrowId: string, actorId: string, actorRole: "student" | "business"): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+    if (actorRole !== "business") {
+      throw new Error("Permission denied: Only business clients can fund escrows.");
+    }
+
+    const current = await this.getEscrowById(escrowId);
+    if (!current) throw new Error("Escrow not found");
+    if (current.status !== "pending_funding") {
+      throw new Error(`Escrow is already funded or in status: ${current.status}`);
+    }
+
+    const now = Timestamp.now();
+    const timelineEvent: EscrowEvent = {
+      type: "funded",
+      timestamp: now as any,
+      note: "Escrow funded. Project execution unlocked."
+    };
+
+    const docRef = doc(db, COLLECTION_NAME, escrowId);
+    await updateDoc(docRef, {
+      status: "funded" as EscrowStatus,
+      fundedAt: now,
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+
+    // Propagate status side-effects to collaboration
+    try {
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (collab) {
+        await collaborationService.logActivity({
+          collaborationId: collab.collaborationId,
+          actorId,
+          actorRole: "business",
+          entityType: "escrow",
+          entityId: escrowId,
+          action: "escrow_funded",
+          message: `Business funded escrow for "${current.jobTitle}".`,
+        });
+
+        // Transition collaboration to active
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "active",
+          actorId,
+          "business",
+          { message: "Escrow funded. Execution work unlocked." }
+        );
+      }
+    } catch (e) {
+      console.error("Error transitioning collaboration on fundEscrow:", e);
+    }
+
+    // Trigger notification to student
+    try {
+      const { notificationService } = await import("@/lib/notification-service");
+      await notificationService.createNotification({
+        userId: current.studentId,
+        type: "success",
+        title: "Escrow Funded! 💰",
+        description: `${current.businessName} has funded the escrow for "${current.jobTitle}". Execution is unlocked.`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: `/workflows/${current.workflowId}`
+      });
+    } catch (e) {
+      console.error("Error sending fund notification:", e);
+    }
+
+    const updated = await this.getEscrowById(escrowId);
+    return updated!;
+  },
+
+  /**
+   * Set escrow release eligibility based on milestone approval status.
+   */
+  async setReleaseEligibility(collaborationId: string, milestoneId: string, isEligible: boolean): Promise<void> {
+    if (!db) return;
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("collaborationId", "==", collaborationId)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return;
+
+    const docRef = snap.docs[0].ref;
+    const current = snap.docs[0].data() as Escrow;
+
+    const now = Timestamp.now();
+    const newStatus: EscrowStatus = isEligible ? "eligible_for_release" : "funded";
+    
+    // Add timeline event
+    const timelineEvent: EscrowEvent = {
+      type: isEligible ? "eligible_for_release" : "funded",
+      timestamp: now as any,
+      note: isEligible 
+        ? `Milestone approved. Escrow is now eligible for release.` 
+        : `Escrow set back to funded state.`
+    };
+
+    await updateDoc(docRef, {
+      status: newStatus,
+      releaseEligibleAt: isEligible ? now : null,
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+  },
+
+  /**
+   * Business opens a dispute on the escrow ledger.
+   */
+  async openDispute(escrowId: string, reason: string, actorId: string, actorRole: "student" | "business"): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+    if (actorRole !== "business") {
+      throw new Error("Permission denied: Only business clients can open disputes.");
+    }
+    const current = await this.getEscrowById(escrowId);
+    if (!current) throw new Error("Escrow not found");
+    if (current.status !== "funded" && current.status !== "eligible_for_release") {
+      throw new Error(`Cannot dispute escrow in status: ${current.status}`);
+    }
+
+    const now = Timestamp.now();
+    const timelineEvent: EscrowEvent = {
+      type: "disputed",
+      timestamp: now as any,
+      note: `Dispute opened: ${reason}`
+    };
+
+    const docRef = doc(db, COLLECTION_NAME, escrowId);
+    await updateDoc(docRef, {
+      status: "disputed" as EscrowStatus,
+      disputeReason: reason,
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+
+    // Update collaboration status to disputed
+    try {
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (collab) {
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "disputed",
+          actorId,
+          "business",
+          { message: `Dispute raised: ${reason}` }
+        );
+      }
+    } catch (e) {
+      console.error("Error transitioning collaboration on dispute:", e);
+    }
+
+    // Notify student
+    try {
+      const { notificationService } = await import("@/lib/notification-service");
+      await notificationService.createNotification({
+        userId: current.studentId,
+        type: "warning",
+        title: "Dispute Raised ⚠️",
+        description: `${current.businessName} has raised a dispute on "${current.jobTitle}".`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: `/workflows/${current.workflowId}`
+      });
+    } catch (e) {
+      console.error("Error sending dispute notification:", e);
+    }
+
+    const updated = await this.getEscrowById(escrowId);
+    return updated!;
   },
 
   /**
@@ -327,10 +507,8 @@ export const escrowService = {
     if (!current) throw new Error("Escrow not found");
 
     if (actorId && actorRole) {
-      const { collaborationService } = await import("@/lib/collaboration-service");
-      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
-      if (!collab || !canReleaseEscrow(actorRole, collab.status)) {
-        throw new Error(`Permission denied: Cannot release escrow in status '${collab?.status}' as a '${actorRole}'.`);
+      if (!canReleaseEscrow(actorRole, current.status)) {
+        throw new Error(`Permission denied: Cannot release escrow in status '${current.status}' as a '${actorRole}'.`);
       }
     }
 
@@ -363,6 +541,15 @@ export const escrowService = {
           action: "payment_released",
           message: `Escrow payment released for "${current.jobTitle}".`,
         });
+
+        // Set collaboration to completed financially
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "completed",
+          current.businessId,
+          "business",
+          { message: "Escrow funds released. Collaboration successfully closed." }
+        );
       }
     } catch (e) {
       console.error("Error logging collaboration activity in releaseEscrow:", e);
@@ -469,3 +656,6 @@ export const releaseEscrow = (escrowId: string, actorId?: string, actorRole?: "s
 export const submitWork = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.submitWork(escrowId, note, actorId, actorRole);
 export const requestRevision = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.requestRevision(escrowId, note, actorId, actorRole);
 export const approveWork = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.approveWork(escrowId, note, actorId, actorRole);
+export const fundEscrow = (escrowId: string, actorId: string, actorRole: "student" | "business") => escrowService.fundEscrow(escrowId, actorId, actorRole);
+export const openDispute = (escrowId: string, reason: string, actorId: string, actorRole: "student" | "business") => escrowService.openDispute(escrowId, reason, actorId, actorRole);
+

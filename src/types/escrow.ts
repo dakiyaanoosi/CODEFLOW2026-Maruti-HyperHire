@@ -1,11 +1,12 @@
 import { Timestamp } from "firebase/firestore";
 
 export type EscrowStatus =
-  | "pending"
+  | "pending_funding"
   | "funded"
+  | "eligible_for_release"
   | "released"
-  | "refunded"
-  | "disputed";
+  | "disputed"
+  | "cancelled";
 
 export interface EscrowEvent {
   type: string;
@@ -31,6 +32,10 @@ export interface Escrow {
 
   fundedAt?: Timestamp | { toDate?: () => Date } | string | null;
   releasedAt?: Timestamp | { toDate?: () => Date } | string | null;
+  releaseEligibleAt?: Timestamp | { toDate?: () => Date } | string | null;
+  
+  disputeReason?: string;
+
   createdAt: Timestamp | { toDate?: () => Date } | string;
   updatedAt: Timestamp | { toDate?: () => Date } | string;
 

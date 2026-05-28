@@ -113,25 +113,27 @@ export function canEditTask(
   return actorId === task.createdBy || actorId === task.ownerId;
 }
 
+import { EscrowStatus } from "@/types/escrow";
+
 /**
  * Checks if the actor can fund the escrow.
  */
-export function canFundEscrow(actorRole: UserRole, collabStatus: CollaborationStatus): boolean {
-  return actorRole === "business" && collabStatus === "awaiting_funding";
+export function canFundEscrow(actorRole: UserRole, escrowStatus: EscrowStatus): boolean {
+  return actorRole === "business" && escrowStatus === "pending_funding";
 }
 
 /**
  * Checks if the actor can release the escrow payment.
  */
-export function canReleaseEscrow(actorRole: UserRole, collabStatus: CollaborationStatus): boolean {
-  return actorRole === "business" && collabStatus === "completed";
+export function canReleaseEscrow(actorRole: UserRole, escrowStatus: EscrowStatus): boolean {
+  return actorRole === "business" && escrowStatus === "eligible_for_release";
 }
 
 /**
  * Checks if the actor can dispute the escrow.
  */
-export function canDisputeEscrow(actorRole: UserRole, collabStatus: CollaborationStatus): boolean {
-  return actorRole === "business" && ["active", "in_review", "revision_requested"].includes(collabStatus);
+export function canDisputeEscrow(actorRole: UserRole, escrowStatus: EscrowStatus): boolean {
+  return actorRole === "business" && ["funded", "eligible_for_release"].includes(escrowStatus);
 }
 
 /**

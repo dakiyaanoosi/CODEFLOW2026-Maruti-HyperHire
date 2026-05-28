@@ -82,8 +82,9 @@ export function WorkflowBoard({
         workflow.studentId,
         workflow.businessId
       );
-    } catch (err: any) {
-      alert(err.message || "Failed to move task.");
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to move task.");
     }
 
     setDraggingId(null);
@@ -101,7 +102,7 @@ export function WorkflowBoard({
           {columns.map((col) => {
             // Determine if column can receive new tasks
             let onAddTask: (() => void) | undefined;
-            if (activeMilestoneStatus !== "approved") {
+            if (activeMilestoneStatus !== "approved" && ["active", "in_review", "revision_requested"].includes(collaborationStatus)) {
               if (col.name === "Execution Work" && actorRole === "student") {
                 onAddTask = () => onOpenCreateTask("execution");
               } else if (col.name === "Review/Revisions" && actorRole === "business") {

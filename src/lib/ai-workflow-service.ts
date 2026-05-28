@@ -20,7 +20,11 @@ export const aiWorkflowService = {
     applicationText: string,
     currentTasks: WorkflowTask[],
     role?: "student" | "business",
-    deliverables?: Deliverable[]
+    deliverables?: Deliverable[],
+    escrowStatus?: string,
+    collaborationStatus?: string,
+    escrowUpdatedAt?: unknown,
+    releaseEligibleAt?: unknown
   ): Promise<WorkflowAnalysisResult> {
     const now = new Date();
     
@@ -67,7 +71,11 @@ export const aiWorkflowService = {
           deliverable_signals: deliverableSignals,
           inactivity_days: inactivityDays,
           overdue_count: overdueCount,
-          role: role || null
+          role: role || null,
+          escrow_status: escrowStatus || null,
+          collaboration_status: collaborationStatus || null,
+          escrow_updated_at: escrowUpdatedAt || null,
+          release_eligible_at: releaseEligibleAt || null
         }),
       });
 
@@ -94,7 +102,7 @@ export const aiWorkflowService = {
     } catch (e) {
       console.error("AI Workflow Analysis failed, using local model:", e);
       
-      // Dynamic fallback based on overdue counts, inactivity, and deliverable revision history
+      // Dynamic fallback based on overdue counts, inactivity, deliverable revision history, and financial friction
       let riskScore = 10;
       let revisionFrictionMessage = "";
 
@@ -134,6 +142,38 @@ export const aiWorkflowService = {
             revisionFrictionMessage += ` Slow review turnaround detected (averaging ${Math.round(avgHours)} hours). Approve or reject quickly to keep the workspace momentum active.`;
           }
         }
+      }
+
+      // Local fallback diagnostics for financial friction
+      const threeDays = 3 * 24 * 60 * 60 * 1000;
+      const twoDays = 2 * 24 * 60 * 60 * 1000;
+
+      const getParsedDate = (val: unknown): Date | null => {
+        if (!val) return null;
+        if (typeof val === "object" && val !== null && "toDate" in val && typeof (val as { toDate: unknown }).toDate === "function") {
+          return (val as { toDate: () => Date }).toDate();
+        }
+        if (typeof val === "string" || typeof val === "number" || val instanceof Date) {
+          return new Date(val as string | number | Date);
+        }
+        return null;
+      };
+
+      const parsedEscrowUpdated = getParsedDate(escrowUpdatedAt);
+      const parsedReleaseEligible = getParsedDate(releaseEligibleAt);
+
+      let financialFrictionMessage = "";
+      if ((collaborationStatus === "awaiting_funding" || escrowStatus === "pending_funding") && parsedEscrowUpdated && (now.getTime() - parsedEscrowUpdated.getTime() > threeDays)) {
+        riskScore += 20;
+        financialFrictionMessage += " ⚠️ Escrow funding is stalled (pending for >3 days). Business must fund the escrow to unlock work execution.";
+      }
+      if (escrowStatus === "eligible_for_release" && parsedReleaseEligible && (now.getTime() - parsedReleaseEligible.getTime() > twoDays)) {
+        riskScore += 15;
+        financialFrictionMessage += " ⚠️ Release lag detected (eligible for >2 days). Client should release the approved payment.";
+      }
+      if (escrowStatus === "disputed") {
+        riskScore = 100;
+        financialFrictionMessage += " ⚠️ ACTIVE CONTRACT DISPUTE. All workflow execution tasks are frozen.";
       }
 
       riskScore = Math.min(100, riskScore);
@@ -178,6 +218,9 @@ export const aiWorkflowService = {
 
       if (revisionFrictionMessage) {
         summary = `${summary} ${revisionFrictionMessage}`;
+      }
+      if (financialFrictionMessage) {
+        summary = `${summary} ${financialFrictionMessage}`;
       }
 
       return {

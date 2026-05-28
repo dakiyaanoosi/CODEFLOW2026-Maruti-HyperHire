@@ -8,9 +8,10 @@ import { aiWorkflowService } from "@/lib/ai-workflow-service";
 import { escrowService } from "@/lib/escrow-service";
 import { milestoneService } from "@/lib/milestone-service";
 import { Milestone } from "@/types/milestone";
-import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity, TaskStatus } from "@/types/workflow";
+import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
 import { Collaboration, CollaborationStatus } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
+import { Deliverable } from "@/types/deliverable";
 import { WorkflowBoard } from "@/components/workflows/WorkflowBoard";
 import { 
   Loader2, 
@@ -22,7 +23,7 @@ import {
   ShieldAlert, 
   Clock, 
   Wallet, 
-  Info 
+  Landmark
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,13 +33,6 @@ import { reviewService } from "@/lib/review-service";
 import { BusinessReviewModal } from "@/components/reviews/BusinessReviewModal";
 import { StudentReviewModal } from "@/components/reviews/StudentReviewModal";
 import { 
-  canCreateTask, 
-  canFundEscrow, 
-  canReleaseEscrow, 
-  canDisputeEscrow, 
-  canSubmitDeliverable, 
-  canRequestRevision, 
-  canApproveDeliverable,
   canSubmitMilestone,
   canReviewMilestone
 } from "@/lib/collaboration/permission-policy";
@@ -192,8 +186,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       await milestoneService.submitMilestoneForReview(activeMilestoneId, submitNote.trim(), user.uid);
       setIsSubmitModalOpen(false);
       setSubmitNote("");
-    } catch (e: any) {
-      setActionError(e.message || "Failed to submit milestone.");
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setActionError(err.message || "Failed to submit milestone.");
     } finally {
       setIsSubmitting(false);
     }
@@ -211,8 +206,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       await milestoneService.requestMilestoneRevision(activeMilestoneId, reviewNote.trim(), user.uid);
       setIsReviewModalOpen(false);
       setReviewNote("");
-    } catch (e: any) {
-      setActionError(e.message || "Failed to request milestone revision.");
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setActionError(err.message || "Failed to request milestone revision.");
     } finally {
       setIsSubmitting(false);
     }
@@ -227,8 +223,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       await milestoneService.approveMilestone(activeMilestoneId, reviewNote.trim() || "Milestone approved.", user.uid);
       setIsReviewModalOpen(false);
       setReviewNote("");
-    } catch (e: any) {
-      setActionError(e.message || "Failed to approve milestone.");
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setActionError(err.message || "Failed to approve milestone.");
     } finally {
       setIsSubmitting(false);
     }
@@ -240,10 +237,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await escrowService.releaseEscrow(escrow.escrowId, user.uid, profile.role as any);
+      await escrowService.releaseEscrow(escrow.escrowId, user.uid, profile.role as "student" | "business");
       setIsBusinessReviewOpen(true);
-    } catch (e: any) {
-      setActionError(e.message || "Failed to release escrow payment.");
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setActionError(err.message || "Failed to release escrow payment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -253,7 +251,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     if (!workflow || !profile) return;
     setIsAnalyzing(true);
     
-    let milestoneDeliverables: any[] = [];
+    let milestoneDeliverables: Deliverable[] = [];
     if (activeMilestoneId) {
       try {
         const { deliverableService } = await import("@/lib/deliverable-service");
@@ -267,8 +265,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       workflow.jobTitle,
       "Application requirements context.", 
       tasks,
-      profile.role as any,
-      milestoneDeliverables
+      profile.role as "student" | "business",
+      milestoneDeliverables,
+      escrow?.status,
+      collabStatus,
+      escrow?.updatedAt,
+      escrow?.releaseEligibleAt
     );
 
     setAiInsight({
@@ -332,8 +334,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setTaskDescription("");
       setTaskPriority("Medium");
       setTaskDueDate("");
-    } catch (err: any) {
-      alert(err.message || "Failed to create task.");
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to create task.");
     }
   };
 
@@ -357,9 +360,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   // ─── Action Visibility (derived from activeMilestone.status) ────────────────────
 
   const activeMilestone = milestones.find(m => m.milestoneId === activeMilestoneId);
-  const canStudentSubmit = activeMilestone ? canSubmitMilestone(profile?.role as any, activeMilestone.status) : false;
-  const canBusinessReview = activeMilestone ? canReviewMilestone(profile?.role as any, activeMilestone.status) : false;
-  const canLeaveReview = collabStatus === "completed" && !hasSubmittedReview;
+  const canStudentSubmit = activeMilestone && (collabStatus === "active" || collabStatus === "revision_requested")
+    ? canSubmitMilestone(profile.role as "student" | "business", activeMilestone.status)
+    : false;
+  const canBusinessReview = activeMilestone ? canReviewMilestone(profile.role as "student" | "business", activeMilestone.status) : false;
+  const canLeaveReview = collabStatus === "completed" && escrow?.status === "released" && !hasSubmittedReview;
 
   return (
     <div className="flex h-[calc(100vh-6rem)] flex-col space-y-4 overflow-y-auto">
@@ -669,7 +674,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             })}
             actorId={user.uid}
             actorName={actorName}
-            actorRole={profile.role as any}
+            actorRole={profile.role as "student" | "business"}
             collaborationStatus={collabStatus}
             activeMilestoneStatus={activeMilestone?.status}
             onOpenCreateTask={(type) => {
@@ -737,34 +742,50 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
 
               {/* Payment Release Authority Panel */}
               <div className="border-t border-brand-hairline pt-3 mt-1">
-                {escrow.status === "funded" ? (
-                  collabStatus === "completed" ? (
-                    isBusiness ? (
-                      <button
-                        onClick={handleReleaseEscrow}
-                        disabled={isSubmitting}
-                        className="w-full py-2 bg-brand-success hover:bg-brand-success/90 text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1.5"
-                      >
-                        {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Banknote className="w-3.5 h-3.5" />}
-                        Release Escrow Payment
-                      </button>
-                    ) : (
-                      <div className="p-2.5 rounded-md border border-brand-success/20 bg-brand-success/5 text-center text-xs font-medium text-brand-success">
-                        ✓ Project Approved. Payment release pending client action.
-                      </div>
-                    )
+                {escrow.status === "pending_funding" ? (
+                  isBusiness ? (
+                    <Link
+                      href="/escrow"
+                      className="w-full py-2 bg-brand-ink hover:bg-brand-primary-active text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Landmark className="w-3.5 h-3.5" />
+                      Fund Contract Escrow
+                    </Link>
                   ) : (
-                    <div className="p-2.5 rounded-md border border-brand-hairline bg-white text-center text-[11px] text-brand-muted leading-relaxed">
-                      Payment is locked in escrow. It will become releasable once all milestones are approved and collaboration completed.
+                    <div className="p-2.5 rounded-md border border-brand-mustard/20 bg-brand-mustard/5 text-center text-xs font-medium text-brand-mustard">
+                      Awaiting contract funding from business client.
+                    </div>
+                  )
+                ) : escrow.status === "funded" ? (
+                  <div className="p-2.5 rounded-md border border-emerald-500/20 bg-emerald-500/5 text-center text-xs font-medium text-emerald-600">
+                    Escrow Funded • Task execution unlocked.
+                  </div>
+                ) : escrow.status === "eligible_for_release" ? (
+                  isBusiness ? (
+                    <button
+                      onClick={handleReleaseEscrow}
+                      disabled={isSubmitting}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Banknote className="w-3.5 h-3.5" />}
+                      Release Escrow Payment
+                    </button>
+                  ) : (
+                    <div className="p-2.5 rounded-md border border-teal-500/20 bg-teal-500/5 text-center text-xs font-medium text-teal-600">
+                      Milestone Approved. Payment release pending client action.
                     </div>
                   )
                 ) : escrow.status === "released" ? (
-                  <div className="p-2.5 rounded-md border border-brand-success/20 bg-brand-success/5 text-center text-xs font-semibold text-brand-success">
+                  <div className="p-2.5 rounded-md border border-emerald-500/20 bg-emerald-500/5 text-center text-xs font-semibold text-emerald-600">
                     ✓ Escrow Payout Released
+                  </div>
+                ) : escrow.status === "disputed" ? (
+                  <div className="p-2.5 rounded-md border border-brand-coral/20 bg-brand-coral/5 text-center text-xs font-bold text-brand-coral">
+                    ⚠️ Escrow Disputed • Project Paused
                   </div>
                 ) : (
                   <div className="p-2.5 rounded-md border border-brand-hairline bg-white text-center text-xs text-brand-muted capitalize">
-                    Payment status: {escrow.status}
+                    Payment status: {escrow.status.replace("_", " ")}
                   </div>
                 )}
               </div>
@@ -820,7 +841,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   <label className="text-xs font-semibold text-brand-ink">Priority</label>
                   <select
                     value={taskPriority}
-                    onChange={(e) => setTaskPriority(e.target.value as any)}
+                    onChange={(e) => setTaskPriority(e.target.value as "Low" | "Medium" | "High")}
                     className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
                   >
                     <option value="Low">Low</option>
@@ -833,7 +854,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   <label className="text-xs font-semibold text-brand-ink">Task Type</label>
                   <select
                     value={createTaskType}
-                    onChange={(e) => setCreateTaskType(e.target.value as any)}
+                    onChange={(e) => setCreateTaskType(e.target.value as WorkflowTask["taskType"])}
                     className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
                   >
                     {profile.role === "student" ? (

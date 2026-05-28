@@ -188,6 +188,13 @@ export const milestoneService = {
       updatedAt: now,
     });
 
+    try {
+      const { escrowService } = await import("./escrow-service");
+      await escrowService.setReleaseEligibility(data.collaborationId, milestoneId, false);
+    } catch (e) {
+      console.error("Error setting release eligibility on requestMilestoneRevision:", e);
+    }
+
     // Log activity
     const { collaborationService } = await import("./collaboration-service");
     await collaborationService.logActivity({
@@ -244,6 +251,13 @@ export const milestoneService = {
       updatedAt: now,
       eligibleForRelease: true,
     });
+
+    try {
+      const { escrowService } = await import("./escrow-service");
+      await escrowService.setReleaseEligibility(data.collaborationId, milestoneId, true);
+    } catch (e) {
+      console.error("Error setting release eligibility on approveMilestone:", e);
+    }
 
     const { collaborationService } = await import("./collaboration-service");
     await collaborationService.logActivity({
