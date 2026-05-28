@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Python AI engine — not JavaScript
+    "ai-engine/**",
   ]),
 ]);
 

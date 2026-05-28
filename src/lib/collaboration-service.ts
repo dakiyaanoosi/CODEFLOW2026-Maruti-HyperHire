@@ -21,7 +21,6 @@ import {
   TRANSITION_OWNERSHIP,
   TransitionActor,
 } from "@/types/collaboration";
-import { workflowService } from "@/lib/workflow-service";
 import { messageService } from "@/lib/message-service";
 import { notificationService } from "@/lib/notification-service";
 
@@ -108,10 +107,10 @@ export const collaborationService = {
       "setup_pending→scope_review": "scope_accepted",
       "scope_review→awaiting_funding": "scope_approved",
       "awaiting_funding→active": "escrow_funded",
-      "active→in_review": "deliverable_submitted",
+      "active→in_review": "milestone_submitted",
       "in_review→revision_requested": "revision_requested",
-      "revision_requested→active": "deliverable_submitted",
-      "in_review→completed": "deliverable_approved",
+      "revision_requested→in_review": "milestone_submitted",  // Review loop resubmission
+      "in_review→completed": "payment_released",              // System-only via escrow release
     };
 
     const action = actionMap[transitionKey] || "status_transitioned";
@@ -206,7 +205,7 @@ export const collaborationService = {
   },
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PROVISIONING — Single canonical bootstrap pipeline
+  // PROVISIONING — Atomic bootstrap pipeline (ALL OR NOTHING)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   async provisionCollaboration(
@@ -214,87 +213,228 @@ export const collaborationService = {
   ): Promise<Collaboration> {
     if (!db) throw new Error("Firestore is not initialized.");
 
+    const { writeBatch, Timestamp } = await import("firebase/firestore");
+    const batch = writeBatch(db);
+
     const collaborationId = generateId("collab");
     const now = new Date().toISOString();
+    const firestoreNow = Timestamp.now();
+    const applicationId = params.applicationId || `synth_${collaborationId}`;
+    const workflowId = `wf_${applicationId}`;
+    const conversationId = generateId("conv");
+    const escrowId = `esc_${applicationId}`;
 
-    // 1. Create workflow board
-    const workflowId = await workflowService.createWorkflowFromApplication(
-      {
-        applicationId: params.applicationId || `synth_${collaborationId}`,
-        jobId: params.jobId,
-        jobTitle: params.jobTitle,
-        businessId: params.businessId,
+    // ── 1. Workflow + Columns + Kickoff Tasks ──────────────────────────────
+
+    const workflowRef = doc(db, "workflows", workflowId);
+    batch.set(workflowRef, {
+      workflowId,
+      jobId: params.jobId,
+      applicationId,
+      studentId: params.studentId,
+      businessId: params.businessId,
+      status: "Pending",
+      progress: 0,
+      createdAt: now,
+      updatedAt: now,
+      jobTitle: params.jobTitle,
+      studentName: params.studentName,
+      businessName: params.businessName,
+    });
+
+    const DEFAULT_COLUMNS = ["Execution Work", "Deliverables", "Review/Revisions", "Completed Work"];
+    const columnIds = DEFAULT_COLUMNS.map((colName, index) => {
+      const colId = `col_${workflowId}_${index}`;
+      batch.set(doc(db!, "workflowColumns", colId), {
+        columnId: colId,
+        workflowId,
+        name: colName,
+        order: index,
         studentId: params.studentId,
-        studentName: params.studentName,
-        companyName: params.businessName,
-        // Required fields from Application that we fill with defaults
-        coverLetter: "",
-        proposalText: "",
-        estimatedDeliveryDays: 14,
-        proposedBudget: params.proposedBudget || 0,
-        status: "accepted" as any,
-        createdAt: now,
-        updatedAt: now,
-      },
-      params.isOnboardingSeeded || false,
-      collaborationId
-    );
-
-    // 2. Create conversation
-    const conversation = await messageService.createConversationFromApplication(
-      {
-        applicationId: params.applicationId || `synth_${collaborationId}`,
-        jobId: params.jobId,
-        jobTitle: params.jobTitle,
         businessId: params.businessId,
-        studentId: params.studentId,
-        studentName: params.studentName,
-        companyName: params.businessName,
-        coverLetter: "",
-        proposalText: "",
-        estimatedDeliveryDays: 14,
-        proposedBudget: params.proposedBudget || 0,
-        status: "accepted" as any,
         createdAt: now,
-        updatedAt: now,
-      },
-      collaborationId
-    );
+      });
+      return colId;
+    });
 
-    // 3. Create escrow
-    let escrowId: string | undefined;
-    try {
-      const { escrowService } = await import("@/lib/escrow-service");
-      const escrow = await escrowService.createEscrowFromAcceptedApplication(
-        {
-          applicationId: params.applicationId || `synth_${collaborationId}`,
-          jobId: params.jobId,
-          jobTitle: params.jobTitle,
-          businessId: params.businessId,
+    const todoColumnId = columnIds[0];
+    const firstMilestoneId = `ms_${collaborationId}_0`;
+
+    if (params.isOnboardingSeeded) {
+      const onboardingTasks = [
+        { title: "Define deliverables", desc: "Collaborate to finalize the exact project deliverables." },
+        { title: "Upload references", desc: "Upload brand assets, API keys, or reference materials." },
+        { title: "Confirm timeline", desc: "Set hard deadlines for each phase." },
+        { title: "Setup milestone structure", desc: "Agree on escrow milestones and payment splits." },
+      ];
+      onboardingTasks.forEach((taskData, index) => {
+        const taskId = `task_${Date.now()}_onboard_${index}`;
+        batch.set(doc(db!, "workflowTasks", taskId), {
+          taskId,
+          workflowId,
+          columnId: todoColumnId,
+          milestoneId: firstMilestoneId,
+          title: taskData.title,
+          description: taskData.desc,
+          priority: "High",
+          assigneeId: params.studentId,
+          attachments: [],
+          aiSuggestions: [],
+          status: "pending",
           studentId: params.studentId,
-          studentName: params.studentName,
-          companyName: params.businessName,
-          coverLetter: "",
-          proposalText: "",
-          estimatedDeliveryDays: 14,
-          proposedBudget: params.proposedBudget || 0,
-          status: "accepted" as any,
+          businessId: params.businessId,
           createdAt: now,
           updatedAt: now,
-        },
+          createdBy: "system",
+          ownerId: params.studentId,
+          ownerRole: "student",
+          assignedTo: params.studentId,
+          assignedRole: "student",
+          taskType: "execution",
+        });
+      });
+    } else {
+      const taskId = `task_${Date.now()}_kickoff`;
+      batch.set(doc(db!, "workflowTasks", taskId), {
+        taskId,
         workflowId,
-        collaborationId
-      );
-      escrowId = escrow.escrowId;
-    } catch (e) {
-      console.error("[Collaboration Service] Error creating escrow during provisioning:", e);
+        columnId: todoColumnId,
+        milestoneId: firstMilestoneId,
+        title: "Project Kickoff & Requirements Review",
+        description: "Review the initial job requirements and set up milestones.",
+        priority: "High",
+        assigneeId: params.studentId,
+        attachments: [],
+        aiSuggestions: [],
+        status: "pending",
+        studentId: params.studentId,
+        businessId: params.businessId,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "system",
+        ownerId: params.studentId,
+        ownerRole: "student",
+        assignedTo: params.studentId,
+        assignedRole: "student",
+        taskType: "execution",
+      });
     }
 
-    // 4. Auto-advance status: setup_pending → scope_review → awaiting_funding → active
-    // (Auto-funding mode — collaborations start at "active" immediately)
+    // Workflow creation activity
+    const wfActivityId = `act_${Date.now()}`;
+    batch.set(doc(db!, "workflowActivity", wfActivityId), {
+      activityId: wfActivityId,
+      workflowId,
+      type: "workflow_created",
+      message: "Workspace automatically provisioned from accepted application.",
+      actorId: params.businessId,
+      actorName: params.businessName,
+      studentId: params.studentId,
+      businessId: params.businessId,
+      createdAt: now,
+    });
+
+    // ── 2. Conversation + System Message ────────────────────────────────────
+
+    const { getInitials } = await import("@/lib/message-utils");
+    const conversationData = cleanUndefined({
+      conversationId,
+      participantIds: [params.studentId, params.businessId],
+      participantRoles: {
+        [params.studentId]: "student",
+        [params.businessId]: "business",
+      },
+      participantNames: {
+        [params.studentId]: params.studentName,
+        [params.businessId]: params.businessName,
+      },
+      participantInitials: {
+        [params.studentId]: getInitials(params.studentName),
+        [params.businessId]: getInitials(params.businessName),
+      },
+      relatedJobId: params.jobId,
+      relatedApplicationId: applicationId,
+      collaborationId,
+      lastMessage: "Collaboration started! You can now start communicating.",
+      lastMessageAt: now,
+      unreadCounts: {
+        [params.studentId]: 1,
+        [params.businessId]: 0,
+      },
+      createdAt: now,
+      updatedAt: now,
+    });
+    batch.set(doc(db!, "conversations", conversationId), conversationData);
+
+    const sysMsgId = generateId("msg");
+    batch.set(doc(db!, "conversations", conversationId, "messages", sysMsgId), {
+      messageId: sysMsgId,
+      conversationId,
+      collaborationId,
+      senderId: "system",
+      senderRole: "business",
+      content: "Collaboration started! You can now start communicating.",
+      messageType: "system",
+      readBy: [],
+      createdAt: now,
+    });
+
+    // ── 3. Escrow ───────────────────────────────────────────────────────────
+
+    const amount = params.proposedBudget || 100;
+    const platformFee = Math.round(amount * 0.1);
+    const payoutAmount = amount - platformFee;
+
+    batch.set(doc(db!, "escrows", escrowId), cleanUndefined({
+      escrowId,
+      workflowId,
+      collaborationId,
+      applicationId,
+      jobId: params.jobId,
+      businessId: params.businessId,
+      studentId: params.studentId,
+      amount,
+      platformFee,
+      payoutAmount,
+      status: "pending_funding",
+      createdAt: firestoreNow,
+      updatedAt: firestoreNow,
+      jobTitle: params.jobTitle,
+      businessName: params.businessName,
+      studentName: params.studentName,
+      timeline: [
+        { type: "created", timestamp: firestoreNow, note: "Escrow contract setup. Awaiting business client funding." },
+      ],
+    }) as any);
+
+    // ── 4. Default Milestones ───────────────────────────────────────────────
+
+    const milestoneDefaults = [
+      { title: "Project Kickoff & Setup", desc: "Define project objectives, timeline, and kickoff requirements.", order: 0, status: "active" },
+      { title: "Core Development & Implementation", desc: "Build out the primary execution deliverables.", order: 1, status: "pending" },
+      { title: "Final Handover & Review", desc: "Complete all final review items and deliver assets to client.", order: 2, status: "pending" },
+    ];
+    milestoneDefaults.forEach((def) => {
+      const msId = `ms_${collaborationId}_${def.order}`;
+      batch.set(doc(db!, "milestones", msId), {
+        milestoneId: msId,
+        collaborationId,
+        title: def.title,
+        description: def.desc,
+        status: def.status,
+        progress: 0,
+        order: def.order,
+        createdBy: params.businessId,
+        createdAt: firestoreNow,
+        updatedAt: firestoreNow,
+        eligibleForRelease: false,
+      });
+    });
+
+    // ── 5. Collaboration Document ───────────────────────────────────────────
+
     const initialStatus: CollaborationStatus = "awaiting_funding";
 
-    // 5. Create collaboration document
     const collaboration: Collaboration = {
       collaborationId,
       applicationId: params.applicationId,
@@ -305,7 +445,7 @@ export const collaborationService = {
       description: `Collaboration for "${params.jobTitle}"`,
       status: initialStatus,
       workflowId,
-      conversationId: conversation.conversationId,
+      conversationId,
       escrowId,
       agreementLocked: true,
       createdAt: now,
@@ -317,27 +457,17 @@ export const collaborationService = {
       agreedBudget: params.proposedBudget,
     };
 
-    const cleanedCollab = cleanUndefined(collaboration as any) as any;
-    await setDoc(doc(db, COLLECTION_NAME, collaborationId), cleanedCollab);
+    batch.set(doc(db!, "collaborations", collaborationId), cleanUndefined(collaboration as any));
 
-    // Create default milestones for the collaboration
-    try {
-      const { milestoneService } = await import("@/lib/milestone-service");
-      await milestoneService.createDefaultMilestones(collaborationId, params.businessId);
-    } catch (e) {
-      console.error("[Collaboration Service] Error creating default milestones:", e);
-    }
+    // ── 6. Workflow ↔ Collaboration Linkage ─────────────────────────────────
 
-    // 6. Update workflow with collaborationId
-    try {
-      const workflowRef = doc(db, "workflows", workflowId);
-      await updateDoc(workflowRef, { collaborationId });
-    } catch (e) {
-      console.error("[Collaboration Service] Error linking workflow:", e);
-    }
+    batch.update(workflowRef, { collaborationId });
 
-    // 7. Log provisioning activity
-    await this.logActivity({
+    // ── 7. Activity Bootstrap ───────────────────────────────────────────────
+
+    const bootstrapEventId = generateId("cact");
+    batch.set(doc(db!, "collaborationActivity", bootstrapEventId), {
+      eventId: bootstrapEventId,
       collaborationId,
       actorId: params.businessId,
       actorRole: "system",
@@ -346,7 +476,28 @@ export const collaborationService = {
       action: "collaboration_created",
       toState: initialStatus,
       message: `Collaboration provisioned for "${params.jobTitle}" between ${params.businessName} and ${params.studentName}.`,
+      timestamp: now,
     });
+
+    // ── 8. ATOMIC COMMIT — ALL OR NOTHING ───────────────────────────────────
+
+    await batch.commit();
+
+    // ── Post-commit: Non-critical side effects ──────────────────────────────
+
+    try {
+      await notificationService.createNotification({
+        userId: params.businessId,
+        type: "info",
+        title: "Escrow Funding Required 💳",
+        description: `Please fund the escrow for "${params.jobTitle}" to initiate execution.`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: "/escrow",
+      });
+    } catch (e) {
+      console.error("[Collaboration Service] Error sending escrow notification:", e);
+    }
 
     return collaboration;
   },

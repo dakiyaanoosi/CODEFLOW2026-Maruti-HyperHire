@@ -515,7 +515,11 @@ export const escrowService = {
   },
 
   /**
-   * Business approves work & releases escrow payment
+   * Business approves work & releases escrow payment.
+   * 
+   * TRANSACTIONALLY SAFE: Uses Firestore writeBatch() to atomically commit
+   * both escrow release AND collaboration completion. If either fails, neither persists.
+   * Escrow release is the ONLY canonical completion authority for collaborations.
    */
   async releaseEscrow(escrowId: string, actorId?: string, actorRole?: "student" | "business"): Promise<Escrow> {
     if (!db) throw new Error("Firestore is not initialized.");
@@ -528,57 +532,80 @@ export const escrowService = {
       }
     }
 
+    // ── Pre-validation: Ensure collaboration can transition to completed ──
+    const { collaborationService } = await import("@/lib/collaboration-service");
+    const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+    if (!collab) {
+      throw new Error("Cannot release escrow: linked collaboration not found.");
+    }
+
+    // Validate the collaboration is in a valid pre-completion state
+    const { VALID_TRANSITIONS } = await import("@/types/collaboration");
+    const validTargets = VALID_TRANSITIONS[collab.status];
+    if (!validTargets || !validTargets.includes("completed")) {
+      throw new Error(
+        `Cannot release escrow: collaboration is in status "${collab.status}" which cannot transition to "completed".`
+      );
+    }
+
+    // ── Atomic Batch: Escrow Release + Collaboration Completion ──────────
+    const { writeBatch } = await import("firebase/firestore");
+    const batch = writeBatch(db);
     const now = Timestamp.now();
+    const nowISO = new Date().toISOString();
+
+    // 1. Update escrow → released
+    const escrowDocRef = doc(db, COLLECTION_NAME, escrowId);
     const timelineEvent: EscrowEvent = {
       type: "released",
       timestamp: now as any,
       note: "Funds released to student wallet."
     };
-
-    const docRef = doc(db, COLLECTION_NAME, escrowId);
-    await updateDoc(docRef, {
+    batch.update(escrowDocRef, {
       status: "released" as EscrowStatus,
       releasedAt: now,
       updatedAt: now,
       timeline: [...(current.timeline || []), timelineEvent]
     });
 
+    // 2. Update collaboration → completed
+    const collabDocRef = doc(db, "collaborations", collab.collaborationId);
+    batch.update(collabDocRef, {
+      status: "completed",
+      completedAt: nowISO,
+      updatedAt: nowISO,
+    });
+
+    // 3. Commit atomically — ALL OR NOTHING
+    await batch.commit();
+
+    // ── Post-batch side effects (non-transactional, safe to retry) ──────
+
     // Log collaboration activity for release
     try {
-      const { collaborationService } = await import("@/lib/collaboration-service");
-      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
-      if (collab) {
-        await messageService.sendSystemMessage(
-          collab.conversationId,
-          collab.collaborationId,
-          `Escrow released successfully. Wallet credited: ₹${current.payoutAmount?.toLocaleString("en-IN")}.`,
-          "escrow",
-          escrowId
-        );
-        await collaborationService.logActivity({
-          collaborationId: collab.collaborationId,
-          actorId: current.businessId,
-          actorRole: "business",
-          entityType: "escrow",
-          entityId: escrowId,
-          action: "payment_released",
-          message: `Escrow payment released for "${current.jobTitle}".`,
-        });
-
-        // Set collaboration to completed financially
-        await collaborationService.transitionCollaboration(
-          collab.collaborationId,
-          "completed",
-          current.businessId,
-          "business",
-          { message: "Escrow funds released. Collaboration successfully closed." }
-        );
-      }
+      await messageService.sendSystemMessage(
+        collab.conversationId,
+        collab.collaborationId,
+        `Escrow released successfully. Wallet credited: ₹${current.payoutAmount?.toLocaleString("en-IN")}.`,
+        "escrow",
+        escrowId
+      );
+      await collaborationService.logActivity({
+        collaborationId: collab.collaborationId,
+        actorId: current.businessId,
+        actorRole: "business",
+        entityType: "escrow",
+        entityId: escrowId,
+        action: "payment_released",
+        fromState: collab.status,
+        toState: "completed",
+        message: `Escrow payment released for "${current.jobTitle}". Collaboration completed.`,
+      });
     } catch (e) {
       console.error("Error logging collaboration activity in releaseEscrow:", e);
     }
 
-    // 2. Log student trust event
+    // Log student trust event
     try {
       const { trustService } = await import("@/lib/trust/trust-service");
       await trustService.logTrustEvent(
@@ -594,10 +621,9 @@ export const escrowService = {
       console.error("Error logging trust event in releaseEscrow:", e);
     }
 
-    // 3. Generate portfolio proof-of-work dynamically
+    // Generate portfolio proof-of-work
     try {
       const { portfolioService } = await import("@/lib/portfolio-service");
-      // Add dynamic portfolio item
       await portfolioService.createPortfolioItem({
         userId: current.studentId,
         title: `${current.jobTitle} - Proof of Work`,
@@ -617,7 +643,7 @@ export const escrowService = {
       console.error("Error generating portfolio proof-of-work:", e);
     }
 
-    // 4. Notify student
+    // Notify both participants
     try {
       const { notificationService } = await import("@/lib/notification-service");
       await notificationService.createNotification({
@@ -625,6 +651,15 @@ export const escrowService = {
         type: "success",
         title: "Payment Released! 💸",
         description: `${current.businessName} has released your payment of ₹${current.payoutAmount?.toLocaleString("en-IN")}.`,
+        relatedEntityId: escrowId,
+        relatedEntityType: "escrow",
+        actionUrl: "/workflows/" + current.workflowId
+      });
+      await notificationService.createNotification({
+        userId: current.businessId,
+        type: "success",
+        title: "Collaboration Completed! 🎉",
+        description: `Payment released for "${current.jobTitle}". Collaboration is now closed.`,
         relatedEntityId: escrowId,
         relatedEntityType: "escrow",
         actionUrl: "/workflows/" + current.workflowId

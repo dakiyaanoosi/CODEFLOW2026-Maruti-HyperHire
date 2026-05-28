@@ -165,7 +165,7 @@ service cloud.firestore {
     }
 
     // Collaborations (Canonical Lifecycle Entity)
-    // Access restricted to participants. Both student and business can read/update.
+    // Access restricted to participants. Lifecycle mutations are role-aware and field-protected.
     match /collaborations/{collaborationId} {
       allow read: if isAuthenticated() && (
         resource.data.studentId == request.auth.uid ||
@@ -178,14 +178,75 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
         resource.data.studentId == request.auth.uid ||
         resource.data.businessId == request.auth.uid
+      ) && (
+        // Protected fields: NEVER mutable after creation
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'collaborationId', 'businessId', 'studentId', 'workflowId', 'conversationId', 'createdAt'
+        ])
+      ) && (
+        // If status is NOT being changed: allow normal metadata updates
+        request.resource.data.status == resource.data.status
+        ||
+        // If status IS being changed: enforce lifecycle rules
+        (
+          // Terminal states are immutable — cannot transition FROM completed/cancelled/disputed
+          resource.data.status != "completed" &&
+          resource.data.status != "cancelled" &&
+          resource.data.status != "disputed" &&
+          (
+            // Student-allowed transitions
+            (request.auth.uid == resource.data.studentId && (
+              // active → in_review (milestone/deliverable submission)
+              (resource.data.status == "active" && request.resource.data.status == "in_review") ||
+              // revision_requested → in_review (resubmission)
+              (resource.data.status == "revision_requested" && request.resource.data.status == "in_review") ||
+              // setup_pending → scope_review
+              (resource.data.status == "setup_pending" && request.resource.data.status == "scope_review") ||
+              // cancellation
+              (request.resource.data.status == "cancelled") ||
+              // dispute
+              (request.resource.data.status == "disputed")
+            ))
+            ||
+            // Business-allowed transitions
+            (request.auth.uid == resource.data.businessId && (
+              // scope_review → awaiting_funding
+              (resource.data.status == "scope_review" && request.resource.data.status == "awaiting_funding") ||
+              // awaiting_funding → active (escrow funded)
+              (resource.data.status == "awaiting_funding" && request.resource.data.status == "active") ||
+              // in_review → revision_requested
+              (resource.data.status == "in_review" && request.resource.data.status == "revision_requested") ||
+              // in_review → completed (escrow release — canonical completion authority)
+              (resource.data.status == "in_review" && request.resource.data.status == "completed") ||
+              // cancellation
+              (request.resource.data.status == "cancelled") ||
+              // dispute
+              (request.resource.data.status == "disputed")
+            ))
+          )
+        )
       );
       allow delete: if false;
     }
 
     // Collaboration Activity (Immutable Audit Trail)
+    // Actor identity verification prevents forged operational history.
     match /collaborationActivity/{eventId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        // Only collaboration participants can read activity
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        // Actor identity verification: actorId must match the authenticated user
+        // Exception: system-generated events where actorRole is "system"
+        (request.resource.data.actorId == request.auth.uid || request.resource.data.actorRole == "system") &&
+        // Actor must be a participant of the referenced collaboration
+        (
+          request.auth.uid == get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.studentId ||
+          request.auth.uid == get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.businessId
+        )
+      );
       allow update, delete: if false;
     }
 

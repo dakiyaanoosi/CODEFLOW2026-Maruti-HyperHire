@@ -68,7 +68,7 @@ export const VALID_TRANSITIONS: Record<CollaborationStatus, CollaborationStatus[
   awaiting_funding: ["active", "cancelled"],
   active: ["in_review", "disputed", "cancelled"],
   in_review: ["revision_requested", "completed", "disputed"],
-  revision_requested: ["active", "disputed", "cancelled"],
+  revision_requested: ["in_review", "disputed", "cancelled"],
   completed: [],       // Terminal state
   cancelled: [],       // Terminal state
   disputed: [],        // Terminal state (resolved externally in future)
@@ -90,9 +90,9 @@ export const TRANSITION_OWNERSHIP: Record<string, TransitionActor> = {
   "active→disputed": "either",
   "active→cancelled": "either",
   "in_review→revision_requested": "business",
-  "in_review→completed": "business",
+  "in_review→completed": "system",           // Only escrow release orchestration — NOT business directly
   "in_review→disputed": "either",
-  "revision_requested→active": "student",
+  "revision_requested→in_review": "student",  // Direct resubmission (clean review loop)
   "revision_requested→disputed": "either",
   "revision_requested→cancelled": "either",
 };

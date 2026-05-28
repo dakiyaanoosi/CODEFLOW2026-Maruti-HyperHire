@@ -150,13 +150,46 @@ export const applicationService = {
       throw new Error("Application not found.");
     }
     
+    const existingApp = snapshot.data() as Application;
     const now = new Date().toISOString();
+
+    // ── ACCEPTANCE FLOW: Provision-First, Accept-After ──────────────────
+    // Application acceptance MUST only finalize AFTER collaboration provisioning
+    // succeeds. If provisioning fails, the application remains in its current state.
+    if (status === "accepted") {
+      // 1. Attempt provisioning FIRST — if this fails, status stays unchanged
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.createCollaborationFromApplication(existingApp);
+
+      // 2. Provisioning succeeded — NOW mark application as accepted
+      await updateDoc(appRef, {
+        status,
+        updatedAt: now
+      });
+
+      const updatedApp = { ...existingApp, status, updatedAt: now } as Application;
+
+      // 3. Trigger notification to student
+      await notificationService.createNotification({
+        userId: updatedApp.studentId,
+        type: "success",
+        title: "Application Accepted! 🎉",
+        description: `Your application for "${updatedApp.jobTitle}" has been accepted.`,
+        relatedEntityId: applicationId,
+        relatedEntityType: "application",
+        actionUrl: `/workflows/${collab.workflowId}`
+      });
+
+      return updatedApp;
+    }
+
+    // ── ALL OTHER STATUS CHANGES ────────────────────────────────────────
     await updateDoc(appRef, {
       status,
       updatedAt: now
     });
     
-    const updatedApp = { ...snapshot.data(), status, updatedAt: now } as Application;
+    const updatedApp = { ...existingApp, status, updatedAt: now } as Application;
     
     // Workflow Automations
     if (status === "shortlisted") {
@@ -167,24 +200,11 @@ export const applicationService = {
       }
     }
 
-    if (status === "accepted") {
-      // Route through canonical collaboration lifecycle pipeline
-      try {
-        const { collaborationService } = await import("@/lib/collaboration-service");
-        await collaborationService.createCollaborationFromApplication(updatedApp);
-      } catch (e) {
-        console.error("Error provisioning collaboration during acceptance workflow", e);
-      }
-    }
-
     // Trigger notification to student
     let notifTitle = "Application Updated";
     let notifType: "success" | "warning" | "info" = "info";
     
-    if (status === "accepted") {
-      notifTitle = "Application Accepted! 🎉";
-      notifType = "success";
-    } else if (status === "rejected") {
+    if (status === "rejected") {
       notifTitle = "Application Declined";
       notifType = "warning";
     } else if (status === "shortlisted") {

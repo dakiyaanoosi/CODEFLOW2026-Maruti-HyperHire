@@ -149,6 +149,24 @@ export const milestoneService = {
       metadata: { note },
     });
 
+    // ── Collaboration State Synchronization ──────────────────────────────
+    // When a milestone enters review, the collaboration MUST also enter review.
+    // This is the canonical synchronization point.
+    try {
+      const collab = await collaborationService.getCollaboration(data.collaborationId);
+      if (collab && (collab.status === "active" || collab.status === "revision_requested")) {
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "in_review",
+          actorId,
+          "student",
+          { message: `Milestone "${data.title}" submitted for review.` }
+        );
+      }
+    } catch (e) {
+      console.error("Error synchronizing collaboration to in_review on milestone submit:", e);
+    }
+
     // Trigger notification to business
     try {
       const { notificationService } = await import("@/lib/notification-service");
@@ -218,6 +236,23 @@ export const milestoneService = {
       message: `Requested revision for Milestone "${data.title}".`,
       metadata: { note },
     });
+
+    // ── Collaboration State Synchronization ──────────────────────────────
+    // When a milestone revision is requested, the collaboration MUST also enter revision_requested.
+    try {
+      const collab = await collaborationService.getCollaboration(data.collaborationId);
+      if (collab && collab.status === "in_review") {
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "revision_requested",
+          actorId,
+          "business",
+          { message: `Revision requested on Milestone "${data.title}".` }
+        );
+      }
+    } catch (e) {
+      console.error("Error synchronizing collaboration to revision_requested on milestone revision:", e);
+    }
 
     // Trigger notification to student
     try {
@@ -354,15 +389,52 @@ export const milestoneService = {
         console.error("Error sending milestone approval notification:", e);
       }
     } else {
-      // Complete collaboration if it was the last milestone
+      // All milestones approved — DO NOT complete collaboration here.
+      // Escrow release is the ONLY canonical completion authority.
+      // The escrow is already set to eligible_for_release above.
       const collab = await collaborationService.getCollaboration(data.collaborationId);
       if (collab) {
-        await collaborationService.transitionCollaboration(
-          collab.collaborationId,
-          "completed",
+        await collaborationService.logActivity({
+          collaborationId: collab.collaborationId,
           actorId,
-          "business",
-          { message: `All milestones approved. Collaboration "${collab.title}" completed!` }
+          actorRole: "system",
+          entityType: "milestone",
+          entityId: milestoneId,
+          action: "milestone_approved",
+          message: `All milestones approved for "${collab.title}". Escrow is eligible for release.`,
+        });
+
+        // Notify business that escrow can now be released
+        try {
+          const { notificationService } = await import("@/lib/notification-service");
+          await notificationService.createNotification({
+            userId: collab.businessId,
+            type: "success",
+            title: "All Milestones Approved! 🎉",
+            description: `All milestones for "${collab.title}" have been approved. You can now release the escrow payment.`,
+            relatedEntityId: collab.workflowId,
+            relatedEntityType: "workflow",
+            actionUrl: `/workflows/${collab.workflowId}`,
+          });
+          await notificationService.createNotification({
+            userId: collab.studentId,
+            type: "success",
+            title: "All Milestones Approved! 🎉",
+            description: `All milestones for "${collab.title}" approved. Awaiting escrow release from client.`,
+            relatedEntityId: collab.workflowId,
+            relatedEntityType: "workflow",
+            actionUrl: `/workflows/${collab.workflowId}`,
+          });
+        } catch (e) {
+          console.error("Error sending all-milestones-approved notification:", e);
+        }
+
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `All milestones approved for "${collab.title}". Escrow is now eligible for release.`,
+          "milestone",
+          milestoneId
         );
       }
     }
