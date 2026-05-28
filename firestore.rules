@@ -264,5 +264,38 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid);
       allow create, update, delete: if false;
     }
+
+    // 15. Milestones (Milestone Collaboration Architecture)
+    match /milestones/{milestoneId} {
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.businessId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        (
+          get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid ||
+          get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+        ) &&
+        (
+          // Student can only transition to 'in_review' (by submitting milestone for review) or keep same status
+          (request.auth.uid == get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId &&
+           (request.resource.data.status == "in_review" || request.resource.data.status == resource.data.status))
+          ||
+          // Business can transition to 'approved', 'revision_requested', 'active' or keep same status
+          (request.auth.uid == get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId &&
+           (
+             request.resource.data.status == "approved" ||
+             request.resource.data.status == "revision_requested" ||
+             request.resource.data.status == "active" ||
+             request.resource.data.status == resource.data.status
+           ))
+        )
+      );
+      allow delete: if false;
+    }
   }
 }

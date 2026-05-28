@@ -225,7 +225,8 @@ export const collaborationService = {
         createdAt: now,
         updatedAt: now,
       },
-      params.isOnboardingSeeded || false
+      params.isOnboardingSeeded || false,
+      collaborationId
     );
 
     // 2. Create conversation
@@ -307,6 +308,14 @@ export const collaborationService = {
 
     const cleanedCollab = cleanUndefined(collaboration as any) as any;
     await setDoc(doc(db, COLLECTION_NAME, collaborationId), cleanedCollab);
+
+    // Create default milestones for the collaboration
+    try {
+      const { milestoneService } = await import("@/lib/milestone-service");
+      await milestoneService.createDefaultMilestones(collaborationId, params.businessId);
+    } catch (e) {
+      console.error("[Collaboration Service] Error creating default milestones:", e);
+    }
 
     // 6. Update workflow with collaborationId
     try {

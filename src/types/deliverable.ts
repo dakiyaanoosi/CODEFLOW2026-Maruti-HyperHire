@@ -21,6 +21,7 @@ export interface Deliverable {
   deliverableId: string;
   collaborationId: string;
   taskId?: string;
+  milestoneId?: string;
   uploadedBy: string;
   title: string;
   description?: string;

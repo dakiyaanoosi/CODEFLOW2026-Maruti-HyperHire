@@ -21,6 +21,7 @@ export const deliverableService = {
   async submitDeliverable(params: {
     collaborationId: string;
     taskId?: string;
+    milestoneId?: string;
     uploadedBy: string;
     title: string;
     description?: string;
@@ -37,6 +38,13 @@ export const deliverableService = {
       );
       const snap = await getDocs(q);
       version = snap.size + 1;
+    } else if (params.milestoneId) {
+      const q = query(
+        collection(db, "deliverables"),
+        where("milestoneId", "==", params.milestoneId)
+      );
+      const snap = await getDocs(q);
+      version = snap.size + 1;
     }
 
     const deliverableId = generateId("deliv");
@@ -46,6 +54,7 @@ export const deliverableService = {
       deliverableId,
       collaborationId: params.collaborationId,
       taskId: params.taskId || undefined,
+      milestoneId: params.milestoneId || undefined,
       uploadedBy: params.uploadedBy,
       title: params.title,
       description: params.description || "",
@@ -174,5 +183,50 @@ export const deliverableService = {
 
     const comments = [...(data.comments || []), newComment];
     await updateDoc(delRef, { comments });
+  },
+
+  /**
+   * Retrieve all deliverables for a given milestone.
+   */
+  async getDeliverablesByMilestone(milestoneId: string): Promise<Deliverable[]> {
+    if (!db) return [];
+    try {
+      const q = query(
+        collection(db, "deliverables"),
+        where("milestoneId", "==", milestoneId),
+        orderBy("version", "asc")
+      );
+      const snap = await getDocs(q);
+      const results: Deliverable[] = [];
+      snap.forEach((docSnap) => results.push(docSnap.data() as Deliverable));
+      return results;
+    } catch (e) {
+      console.error("Error fetching deliverables by milestone:", e);
+      const q = query(
+        collection(db, "deliverables"),
+        where("milestoneId", "==", milestoneId)
+      );
+      const snap = await getDocs(q);
+      const results: Deliverable[] = [];
+      snap.forEach((docSnap) => results.push(docSnap.data() as Deliverable));
+      return results.sort((a, b) => a.version - b.version);
+    }
+  },
+
+  /**
+   * Subscribe to live updates of deliverables for a milestone.
+   */
+  subscribeToMilestoneDeliverables(milestoneId: string, onUpdate: (deliverables: Deliverable[]) => void) {
+    if (!db) return () => {};
+    const q = query(
+      collection(db, "deliverables"),
+      where("milestoneId", "==", milestoneId)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const results: Deliverable[] = [];
+      snapshot.forEach((docSnap) => results.push(docSnap.data() as Deliverable));
+      results.sort((a, b) => a.version - b.version);
+      onUpdate(results);
+    });
   }
 };

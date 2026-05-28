@@ -30,7 +30,7 @@ export const workflowService = {
    * Creates a full workflow workspace from an accepted application.
    * Auto-provisions columns and an initial kickoff task, or onboarding tasks if requested.
    */
-  async createWorkflowFromApplication(app: Application, isOnboardingSeeded: boolean = false): Promise<string> {
+  async createWorkflowFromApplication(app: Application, isOnboardingSeeded: boolean = false, collaborationId?: string): Promise<string> {
     const batch = writeBatch(db!);
     const workflowId = `wf_${app.applicationId}`;
     
@@ -72,6 +72,8 @@ export const workflowService = {
 
     const todoColumnId = columnRefs[0];
 
+    const firstMilestoneId = collaborationId ? `ms_${collaborationId}_0` : undefined;
+
     // 3. Create Kickoff / Onboarding Tasks
     if (isOnboardingSeeded) {
       const onboardingTasks = [
@@ -88,6 +90,7 @@ export const workflowService = {
           taskId,
           workflowId,
           columnId: todoColumnId,
+          milestoneId: firstMilestoneId || undefined,
           title: taskData.title,
           description: taskData.desc,
           priority: "High",
@@ -114,6 +117,7 @@ export const workflowService = {
         taskId,
         workflowId,
         columnId: todoColumnId,
+        milestoneId: firstMilestoneId || undefined,
         title: "Project Kickoff & Requirements Review",
         description: "Review the initial job requirements and set up milestones.",
         priority: "High",
@@ -311,6 +315,15 @@ export const workflowService = {
 
     await batch.commit();
 
+    if (taskData.milestoneId) {
+      try {
+        const { milestoneService } = await import("./milestone-service");
+        await milestoneService.syncMilestoneProgress(taskData.milestoneId);
+      } catch (e) {
+        console.error("Error syncing milestone progress after moveTask:", e);
+      }
+    }
+
     // Trigger notification to the OTHER user
     const recipientId = actorId === studentId ? businessId : studentId;
     await notificationService.createNotification({
@@ -370,6 +383,15 @@ export const workflowService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    if (task.milestoneId) {
+      try {
+        const { milestoneService } = await import("./milestone-service");
+        await milestoneService.syncMilestoneProgress(task.milestoneId);
+      } catch (e) {
+        console.error("Error syncing milestone progress in addTask:", e);
+      }
+    }
   },
 
   /**
@@ -391,6 +413,19 @@ export const workflowService = {
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+
+    const taskSnap = await getDoc(taskRef);
+    if (taskSnap.exists()) {
+      const taskData = taskSnap.data() as WorkflowTask;
+      if (taskData.milestoneId) {
+        try {
+          const { milestoneService } = await import("./milestone-service");
+          await milestoneService.syncMilestoneProgress(taskData.milestoneId);
+        } catch (e) {
+          console.error("Error syncing milestone progress after updateTask:", e);
+        }
+      }
+    }
   },
 
   /**

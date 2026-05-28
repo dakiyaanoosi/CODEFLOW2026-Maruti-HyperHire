@@ -6,6 +6,8 @@ import { workflowService } from "@/lib/workflow-service";
 import { collaborationService } from "@/lib/collaboration-service";
 import { aiWorkflowService } from "@/lib/ai-workflow-service";
 import { escrowService } from "@/lib/escrow-service";
+import { milestoneService } from "@/lib/milestone-service";
+import { Milestone } from "@/types/milestone";
 import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity, TaskStatus } from "@/types/workflow";
 import { Collaboration, CollaborationStatus } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
@@ -36,7 +38,9 @@ import {
   canDisputeEscrow, 
   canSubmitDeliverable, 
   canRequestRevision, 
-  canApproveDeliverable 
+  canApproveDeliverable,
+  canSubmitMilestone,
+  canReviewMilestone
 } from "@/lib/collaboration/permission-policy";
 import { EscrowStatusBadge } from "@/components/escrow/EscrowStatusBadge";
 import { EscrowTimeline } from "@/components/escrow/EscrowTimeline";
@@ -64,6 +68,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
 
   const [workflow, setWorkflow] = React.useState<Workflow | null>(null);
   const [collaboration, setCollaboration] = React.useState<Collaboration | null>(null);
+  const [milestones, setMilestones] = React.useState<Milestone[]>([]);
+  const [activeMilestoneId, setActiveMilestoneId] = React.useState<string | null>(null);
   const [columns, setColumns] = React.useState<WorkflowColumn[]>([]);
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([]);
   const [activities, setActivities] = React.useState<WorkflowActivity[]>([]);
@@ -111,15 +117,34 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     });
 
     // Load Collaboration by workflowId
+    let unSubCollab: (() => void) | undefined;
+    let unSubMilestones: (() => void) | undefined;
+
     collaborationService.getCollaborationByWorkflowId(workflowId).then((collab) => {
       if (collab) {
         setCollaboration(collab);
-        // Subscribe to live collaboration updates
-        const unSubCollab = collaborationService.subscribeToCollaboration(
+        unSubCollab = collaborationService.subscribeToCollaboration(
           collab.collaborationId,
           setCollaboration
         );
-        return () => unSubCollab();
+
+        unSubMilestones = milestoneService.subscribeToMilestones(
+          collab.collaborationId,
+          (msList) => {
+            if (msList.length === 0) {
+              milestoneService.createDefaultMilestones(collab.collaborationId, collab.businessId);
+              return;
+            }
+            setMilestones(msList);
+            setActiveMilestoneId((currentId) => {
+              if (currentId && msList.some((m) => m.milestoneId === currentId)) {
+                return currentId;
+              }
+              const active = msList.find((m) => m.status === "active" || m.status === "revision_requested" || m.status === "in_review");
+              return active ? active.milestoneId : msList[0]?.milestoneId || null;
+            });
+          }
+        );
       }
     });
 
@@ -148,13 +173,15 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       unSubTasks();
       unSubAct();
       unSubEscrow();
+      if (unSubCollab) unSubCollab();
+      if (unSubMilestones) unSubMilestones();
     };
   }, [workflowId, router, user, profile]);
 
   // ─── Actions derived from collaboration.status ──────────────────────────────
 
   const handleSubmitWork = async () => {
-    if (!escrow || !collaboration || !user || !profile) return;
+    if (!activeMilestoneId || !user || !profile) return;
     if (!submitNote.trim()) {
       setActionError("Please describe what you are delivering.");
       return;
@@ -162,19 +189,18 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
-      // Student project submission
-      await escrowService.submitWork(escrow.escrowId, submitNote.trim(), user.uid, profile.role as any);
+      await milestoneService.submitMilestoneForReview(activeMilestoneId, submitNote.trim(), user.uid);
       setIsSubmitModalOpen(false);
       setSubmitNote("");
     } catch (e: any) {
-      setActionError(e.message || "Failed to submit work.");
+      setActionError(e.message || "Failed to submit milestone.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleRequestRevision = async () => {
-    if (!escrow || !collaboration || !user || !profile) return;
+    if (!activeMilestoneId || !user || !profile) return;
     if (!reviewNote.trim()) {
       setActionError("Please provide revision feedback instructions.");
       return;
@@ -182,38 +208,27 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await escrowService.requestRevision(escrow.escrowId, reviewNote.trim(), user.uid, profile.role as any);
+      await milestoneService.requestMilestoneRevision(activeMilestoneId, reviewNote.trim(), user.uid);
       setIsReviewModalOpen(false);
       setReviewNote("");
     } catch (e: any) {
-      setActionError(e.message || "Failed to request revision.");
+      setActionError(e.message || "Failed to request milestone revision.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Operational approval transitions collaboration status to 'completed'
+  // Operational approval transitions milestone status to 'approved'
   const handleApproveProject = async () => {
-    if (!escrow || !collaboration || !user || !profile) return;
+    if (!activeMilestoneId || !user || !profile) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
-      // 1. Transition collaboration to completed (work is approved)
-      await collaborationService.transitionCollaboration(
-        collaboration.collaborationId,
-        "completed",
-        user.uid,
-        "business",
-        { message: "Project work approved operationally. Escrow payment is now ready for release.", note: reviewNote.trim() || undefined }
-      );
-
-      // 2. Add approved log to escrow timeline
-      await escrowService.approveWork(escrow.escrowId, reviewNote.trim() || "Work approved operationally.", user.uid, "business");
-
+      await milestoneService.approveMilestone(activeMilestoneId, reviewNote.trim() || "Milestone approved.", user.uid);
       setIsReviewModalOpen(false);
       setReviewNote("");
     } catch (e: any) {
-      setActionError(e.message || "Failed to approve project.");
+      setActionError(e.message || "Failed to approve milestone.");
     } finally {
       setIsSubmitting(false);
     }
@@ -328,10 +343,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const completedTasks = tasks.filter(t => t.status === "approved" || columns.find(c => c.columnId === t.columnId)?.name === "Completed Work").length;
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
 
-  // ─── Action Visibility (derived from collaboration.status) ────────────────────
+  // ─── Action Visibility (derived from activeMilestone.status) ────────────────────
 
-  const canStudentSubmit = canSubmitDeliverable(profile?.role as any, collabStatus);
-  const canBusinessReview = canRequestRevision(profile?.role as any, collabStatus) || canApproveDeliverable(profile?.role as any, collabStatus);
+  const activeMilestone = milestones.find(m => m.milestoneId === activeMilestoneId);
+  const canStudentSubmit = activeMilestone ? canSubmitMilestone(profile?.role as any, activeMilestone.status) : false;
+  const canBusinessReview = activeMilestone ? canReviewMilestone(profile?.role as any, activeMilestone.status) : false;
   const canLeaveReview = collabStatus === "completed" && !hasSubmittedReview;
 
   return (
@@ -380,7 +396,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               className="flex items-center gap-1.5 px-4 py-2 bg-brand-ink text-white rounded-[8px] text-sm font-semibold hover:bg-brand-primary transition-colors shadow-sm"
             >
               <Send className="w-4 h-4" />
-              Submit Project for Review
+              Submit Milestone for Review
             </button>
           )}
 
@@ -393,7 +409,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               className="flex items-center gap-1.5 px-4 py-2 bg-brand-success text-white rounded-[8px] text-sm font-semibold hover:bg-brand-success/90 transition-colors shadow-sm"
             >
               <CheckCircle2 className="w-4 h-4" />
-              Review Project Submission
+              Review Milestone Submission
             </button>
           )}
 
@@ -514,15 +530,137 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
         
         {/* Left/Main Column: Work Execution Domain */}
-        <div className="lg:col-span-3 flex flex-col min-h-0 overflow-y-auto">
+        <div className="lg:col-span-3 flex flex-col min-h-0 overflow-y-auto pr-1">
+          {/* Milestones Horizontal Navigation */}
+          <div className="mb-6 flex gap-4 overflow-x-auto pb-2.5 scrollbar-thin">
+            {milestones.map((m) => {
+              const isActive = m.milestoneId === activeMilestoneId;
+              return (
+                <button
+                  key={m.milestoneId}
+                  onClick={() => setActiveMilestoneId(m.milestoneId)}
+                  className={cn(
+                    "flex flex-col text-left p-4 rounded-xl border min-w-[200px] max-w-[240px] transition-all relative shrink-0",
+                    isActive 
+                      ? "bg-white border-brand-ink shadow-sm ring-1 ring-brand-ink/10"
+                      : "bg-brand-surface-soft/40 border-brand-hairline hover:bg-brand-surface-soft hover:border-brand-muted/30"
+                  )}
+                >
+                  <div className="flex justify-between items-start w-full gap-2 mb-1.5">
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Milestone {m.order + 1}</span>
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider",
+                      m.status === "approved" ? "bg-brand-success/10 text-brand-success" :
+                      m.status === "in_review" ? "bg-brand-info/10 text-brand-info" :
+                      m.status === "revision_requested" ? "bg-brand-warning/10 text-brand-warning" :
+                      m.status === "active" ? "bg-brand-primary/10 text-brand-primary" :
+                      "bg-brand-surface-strong text-brand-muted"
+                    )}>
+                      {m.status.replace("_", " ")}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-brand-ink truncate w-full mb-2">{m.title}</h4>
+                  
+                  {/* Progress bar */}
+                  <div className="w-full mt-auto">
+                    <div className="flex justify-between items-center text-[9px] text-brand-muted font-medium mb-1">
+                      <span>Progress</span>
+                      <span>{m.progress}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-brand-surface-strong rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-300",
+                          m.status === "approved" ? "bg-brand-success" : "bg-brand-ink"
+                        )}
+                        style={{ width: `${m.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Milestone Card */}
+          {activeMilestone && (
+            <div className="mb-6 p-4 rounded-xl border border-brand-hairline bg-white shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-hairline pb-2.5">
+                <div>
+                  <h3 className="text-sm font-bold text-brand-ink flex items-center gap-2">
+                    {activeMilestone.title}
+                    {activeMilestone.eligibleForRelease && (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                        Eligible for Release
+                      </span>
+                    )}
+                  </h3>
+                  {activeMilestone.description && (
+                    <p className="text-xs text-brand-muted mt-1 leading-relaxed">{activeMilestone.description}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {canStudentSubmit && (
+                    <button
+                      onClick={() => {
+                        setActionError(null);
+                        setIsSubmitModalOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 bg-brand-ink text-white rounded-lg text-xs font-semibold hover:bg-brand-primary transition-colors flex items-center gap-1.5"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Submit Milestone
+                    </button>
+                  )}
+                  {canBusinessReview && (
+                    <button
+                      onClick={() => {
+                        setActionError(null);
+                        setIsReviewModalOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 bg-brand-success text-white rounded-lg text-xs font-semibold hover:bg-brand-success/90 transition-colors flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Review Submission
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status block info */}
+              {activeMilestone.status === "revision_requested" && activeMilestone.revisionNote && (
+                <div className="p-3 rounded-lg border border-brand-warning/20 bg-brand-warning/5 text-xs text-brand-ink">
+                  <span className="font-bold text-brand-warning">Revision Feedback:</span> {activeMilestone.revisionNote}
+                </div>
+              )}
+              {activeMilestone.status === "in_review" && (
+                <div className="p-3 rounded-lg border border-brand-info/20 bg-brand-info/5 text-xs text-brand-muted">
+                  Milestone submitted for review. Client is evaluating deliverables.
+                </div>
+              )}
+              {activeMilestone.status === "approved" && (
+                <div className="p-3 rounded-lg border border-brand-success/20 bg-brand-success/5 text-xs text-brand-success font-medium">
+                  ✓ Milestone approved and eligible for escrow payout release.
+                </div>
+              )}
+            </div>
+          )}
+
           <WorkflowBoard 
             workflow={workflow}
             columns={columns}
-            tasks={tasks}
+            tasks={tasks.filter(t => {
+              if (!t.milestoneId) {
+                return activeMilestoneId === milestones[0]?.milestoneId;
+              }
+              return t.milestoneId === activeMilestoneId;
+            })}
             actorId={user.uid}
             actorName={actorName}
             actorRole={profile.role as any}
             collaborationStatus={collabStatus}
+            activeMilestoneStatus={activeMilestone?.status}
             onOpenCreateTask={(type) => {
               setCreateTaskType(type);
               setIsCreateTaskModalOpen(true);
@@ -562,6 +700,24 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                 </div>
               </div>
 
+              {/* Milestone Release Progress */}
+              <div className="border-t border-brand-hairline pt-3">
+                <h4 className="text-[10px] font-bold text-brand-ink uppercase tracking-wider mb-2">Milestone Release Progress</h4>
+                <div className="space-y-1.5">
+                  {milestones.map((m) => (
+                    <div key={m.milestoneId} className="flex items-center justify-between text-xs p-2 rounded bg-white border border-brand-hairline shadow-sm">
+                      <span className="font-medium text-brand-ink truncate max-w-[150px]">{m.title}</span>
+                      <span className={cn(
+                        "text-[9px] px-1.5 py-0.5 rounded font-bold uppercase",
+                        m.status === "approved" ? "bg-brand-success/15 text-brand-success" : "bg-brand-surface-strong text-brand-muted"
+                      )}>
+                        {m.status === "approved" ? "Released" : "Locked"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Escrow Timeline */}
               <div className="border-t border-brand-hairline pt-3">
                 <h4 className="text-[10px] font-bold text-brand-ink uppercase tracking-wider mb-3">Escrow Payout Timeline</h4>
@@ -588,7 +744,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                     )
                   ) : (
                     <div className="p-2.5 rounded-md border border-brand-hairline bg-white text-center text-[11px] text-brand-muted leading-relaxed">
-                      Payment is locked in escrow. It will become releasable once the project work is approved.
+                      Payment is locked in escrow. It will become releasable once all milestones are approved and collaboration completed.
                     </div>
                   )
                 ) : escrow.status === "released" ? (
@@ -714,18 +870,18 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         </div>
       )}
  
-      {/* Submit Project for Review Modal */}
+      {/* Submit Milestone for Review Modal */}
       {isSubmitModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsSubmitModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10">
-            <h3 className="text-lg font-semibold text-brand-ink">Submit Project for Review</h3>
-            <p className="text-xs text-brand-muted">Provide a description of your work, links to final deliverables, and notes for the client.</p>
+            <h3 className="text-lg font-semibold text-brand-ink">Submit Milestone for Review</h3>
+            <p className="text-xs text-brand-muted">Provide a description of your work, links to deliverables, and notes for the client.</p>
             <textarea
               value={submitNote}
               onChange={(e) => setSubmitNote(e.target.value)}
               rows={4}
-              placeholder="E.g., I have finished the project. You can find the live preview link here..."
+              placeholder="E.g., I have finished the tasks for this milestone. You can find the links here..."
               className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary"
             />
             {actionError && <p className="text-xs text-brand-coral">{actionError}</p>}
@@ -743,23 +899,23 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                 className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-primary-active transition-colors flex items-center gap-2"
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Submit Project
+                Submit Milestone
               </button>
             </div>
           </div>
         </div>
       )}
  
-      {/* Review Project Submission Modal */}
-      {isReviewModalOpen && escrow && (
+      {/* Review Milestone Submission Modal */}
+      {isReviewModalOpen && activeMilestone && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsReviewModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 z-10 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-brand-ink">Review Project Submission</h3>
+            <h3 className="text-lg font-semibold text-brand-ink">Review Milestone Submission</h3>
             
             <div className="bg-brand-surface-soft border border-brand-hairline rounded-lg p-4 space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Student&apos;s Submission Note</span>
-              <p className="text-sm text-brand-body leading-relaxed">{escrow.submissionNote || "No submission note provided."}</p>
+              <p className="text-sm text-brand-body leading-relaxed">{activeMilestone.submissionNote || "No submission note provided."}</p>
             </div>
  
             <div className="space-y-1.5">
@@ -790,7 +946,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   disabled={isSubmitting}
                   className="px-4 py-2 border border-brand-coral text-brand-coral hover:bg-brand-coral/5 rounded-md text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
-                  Request Project Revision
+                  Request Revision
                 </button>
                 <button
                   onClick={handleApproveProject}
@@ -798,7 +954,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   className="px-4 py-2 bg-brand-success text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-success/90 transition-colors flex items-center gap-1.5"
                 >
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Approve Project Work
+                  Approve Milestone
                 </button>
               </div>
             </div>

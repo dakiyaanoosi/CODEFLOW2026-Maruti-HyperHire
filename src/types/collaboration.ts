@@ -110,18 +110,22 @@ export type CollaborationActivityAction =
   | "deliverable_approved"
   | "payment_released"
   | "collaboration_cancelled"
-  | "dispute_raised";
+  | "dispute_raised"
+  | "milestone_submitted"
+  | "milestone_revision_requested"
+  | "milestone_approved"
+  | "milestone_activated";
 
 export interface CollaborationActivityEvent {
   eventId: string;
   collaborationId: string;
   actorId: string;
   actorRole: "student" | "business" | "system";
-  entityType: "collaboration" | "escrow" | "task" | "review";
+  entityType: "collaboration" | "escrow" | "task" | "review" | "milestone";
   entityId: string;
   action: CollaborationActivityAction;
-  fromState?: CollaborationStatus;
-  toState?: CollaborationStatus;
+  fromState?: string;
+  toState?: string;
   message: string;
   metadata?: Record<string, unknown>;
   timestamp: string;

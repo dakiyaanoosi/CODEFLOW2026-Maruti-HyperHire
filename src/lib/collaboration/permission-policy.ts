@@ -154,3 +154,19 @@ export function canRequestRevision(actorRole: UserRole, collabStatus: Collaborat
 export function canApproveDeliverable(actorRole: UserRole, collabStatus: CollaborationStatus): boolean {
   return actorRole === "business" && collabStatus === "in_review";
 }
+
+/**
+ * Checks if the actor can submit a milestone for review.
+ */
+import { MilestoneStatus } from "@/types/milestone";
+
+export function canSubmitMilestone(actorRole: UserRole, milestoneStatus: MilestoneStatus): boolean {
+  return actorRole === "student" && (milestoneStatus === "active" || milestoneStatus === "revision_requested");
+}
+
+/**
+ * Checks if the actor can review/approve or request revision on a milestone.
+ */
+export function canReviewMilestone(actorRole: UserRole, milestoneStatus: MilestoneStatus): boolean {
+  return actorRole === "business" && milestoneStatus === "in_review";
+}

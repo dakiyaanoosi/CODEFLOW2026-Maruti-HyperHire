@@ -43,6 +43,7 @@ export interface WorkflowTask {
   taskId: string;
   workflowId: string;
   columnId: string;
+  milestoneId?: string;
   title: string;
   description: string;
   priority: "Low" | "Medium" | "High";

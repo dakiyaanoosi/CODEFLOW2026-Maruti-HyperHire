@@ -8,6 +8,8 @@ import { WorkflowTaskDetail } from "./WorkflowTaskDetail";
 import { CollaborationStatus } from "@/types/collaboration";
 import { canMoveTask } from "@/lib/collaboration/permission-policy";
 
+import { MilestoneStatus } from "@/types/milestone";
+
 interface WorkflowBoardProps {
   workflow: Workflow;
   columns: WorkflowColumn[];
@@ -16,6 +18,7 @@ interface WorkflowBoardProps {
   actorName: string;
   actorRole: "student" | "business";
   collaborationStatus: CollaborationStatus;
+  activeMilestoneStatus?: MilestoneStatus;
   onOpenCreateTask: (type: WorkflowTask["taskType"]) => void;
 }
 
@@ -27,12 +30,17 @@ export function WorkflowBoard({
   actorName,
   actorRole,
   collaborationStatus,
+  activeMilestoneStatus,
   onOpenCreateTask,
 }: WorkflowBoardProps) {
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [selectedTask, setSelectedTask] = React.useState<WorkflowTask | null>(null);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
+    if (activeMilestoneStatus === "approved") {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData("taskId", taskId);
     e.dataTransfer.effectAllowed = "move";
     setDraggingId(taskId);
@@ -44,6 +52,7 @@ export function WorkflowBoard({
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetColumnId: string) => {
     e.preventDefault();
+    if (activeMilestoneStatus === "approved") return;
     const taskId = e.dataTransfer.getData("taskId");
     if (!taskId) return;
 
@@ -92,10 +101,12 @@ export function WorkflowBoard({
           {columns.map((col) => {
             // Determine if column can receive new tasks
             let onAddTask: (() => void) | undefined;
-            if (col.name === "Execution Work" && actorRole === "student") {
-              onAddTask = () => onOpenCreateTask("execution");
-            } else if (col.name === "Review/Revisions" && actorRole === "business") {
-              onAddTask = () => onOpenCreateTask("revision");
+            if (activeMilestoneStatus !== "approved") {
+              if (col.name === "Execution Work" && actorRole === "student") {
+                onAddTask = () => onOpenCreateTask("execution");
+              } else if (col.name === "Review/Revisions" && actorRole === "business") {
+                onAddTask = () => onOpenCreateTask("revision");
+              }
             }
 
             // Filter tasks for this column based on mapped status
