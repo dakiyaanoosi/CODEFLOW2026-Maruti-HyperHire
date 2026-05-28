@@ -1,6 +1,7 @@
 import { WorkflowTask } from "@/types/workflow";
 import { Deliverable } from "@/types/deliverable";
 import { Timestamp } from "firebase/firestore";
+import { Message } from "@/types/message";
 
 const AI_API_URL = process.env.NEXT_PUBLIC_AI_API_URL || "https://hyperhire-ai-engine.onrender.com";
 
@@ -24,7 +25,8 @@ export const aiWorkflowService = {
     escrowStatus?: string,
     collaborationStatus?: string,
     escrowUpdatedAt?: unknown,
-    releaseEligibleAt?: unknown
+    releaseEligibleAt?: unknown,
+    messages?: Message[]
   ): Promise<WorkflowAnalysisResult> {
     const now = new Date();
     
@@ -176,6 +178,38 @@ export const aiWorkflowService = {
         financialFrictionMessage += " ⚠️ ACTIVE CONTRACT DISPUTE. All workflow execution tasks are frozen.";
       }
 
+      // Local fallback diagnostics for communication friction
+      let communicationFrictionMessage = "";
+      if (messages && messages.length > 0) {
+        // 1. Stalled communication
+        const lastMsg = messages[messages.length - 1];
+        const lastMsgTime = new Date(lastMsg.createdAt).getTime();
+        const inactiveMsgDays = (now.getTime() - lastMsgTime) / (1000 * 60 * 60 * 24);
+        
+        if (inactiveMsgDays > 3 && collaborationStatus !== "completed" && collaborationStatus !== "cancelled") {
+          riskScore += 15;
+          communicationFrictionMessage += ` ⚠️ Stalled communication detected (no messages exchanged in ${Math.floor(inactiveMsgDays)} days). Reach out to align on progress.`;
+        }
+
+        // 2. Unresolved revision discussions / approval friction
+        const unresolvedRevisions = deliverables ? deliverables.filter(d => d.reviewStatus === "revision_requested").length : 0;
+        if (unresolvedRevisions > 1) {
+          riskScore += 20;
+          communicationFrictionMessage += ` ⚠️ Multiple unresolved revision discussions detected (${unresolvedRevisions} items). Business and student should align on changes.`;
+        }
+
+        // 3. Delayed responses
+        const lastUserMsg = [...messages].reverse().find(m => m.senderId !== "system");
+        if (lastUserMsg && lastUserMsg.content.includes("?")) {
+          const timeSinceLastMsgMs = now.getTime() - new Date(lastUserMsg.createdAt).getTime();
+          if (timeSinceLastMsgMs > 24 * 60 * 60 * 1000) {
+            riskScore += 10;
+            const pendingResponder = lastUserMsg.senderRole === "student" ? "Business client" : "Student freelancer";
+            communicationFrictionMessage += ` ⚠️ Delayed response detected. ${pendingResponder} has a pending question (unanswered for >24 hours).`;
+          }
+        }
+      }
+
       riskScore = Math.min(100, riskScore);
 
       let risk_level: "Low" | "Medium" | "High" = "Low";
@@ -221,6 +255,9 @@ export const aiWorkflowService = {
       }
       if (financialFrictionMessage) {
         summary = `${summary} ${financialFrictionMessage}`;
+      }
+      if (communicationFrictionMessage) {
+        summary = `${summary} ${communicationFrictionMessage}`;
       }
 
       return {

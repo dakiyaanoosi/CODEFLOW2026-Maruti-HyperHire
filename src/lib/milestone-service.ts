@@ -13,6 +13,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import type { Milestone } from "@/types/milestone";
+import { messageService } from "./message-service";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function serializeMilestone(data: any, id: string): Milestone {
@@ -162,6 +163,14 @@ export const milestoneService = {
           relatedEntityType: "workflow",
           actionUrl: `/workflows/${collab.workflowId}`,
         });
+
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Milestone "${data.title}" submitted for review.`,
+          "milestone",
+          milestoneId
+        );
       }
     } catch (e) {
       console.error("Error sending milestone submit notification:", e);
@@ -224,6 +233,14 @@ export const milestoneService = {
           relatedEntityType: "workflow",
           actionUrl: `/workflows/${collab.workflowId}`,
         });
+
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Revision requested for Milestone "${data.title}" - Feedback: ${note}`,
+          "milestone",
+          milestoneId
+        );
       }
     } catch (e) {
       console.error("Error sending milestone revision notification:", e);
@@ -272,6 +289,21 @@ export const milestoneService = {
       message: `Approved Milestone "${data.title}".`,
       metadata: note ? { note } : undefined,
     });
+
+    try {
+      const collab = await collaborationService.getCollaboration(data.collaborationId);
+      if (collab) {
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Milestone "${data.title}" approved!`,
+          "milestone",
+          milestoneId
+        );
+      }
+    } catch (e) {
+      console.error("Error sending milestone approval system message:", e);
+    }
 
     // Activate next milestone or complete collaboration
     const q = query(

@@ -6,3 +6,4 @@ export { TypingIndicator } from "./TypingIndicator";
 export { AiQuickReplies } from "./AiQuickReplies";
 export { MessageComposer } from "./MessageComposer";
 export { MessagesEmptyState } from "./MessagesEmptyState";
+export { CollaborationCommunicationPanel } from "./CollaborationCommunicationPanel";

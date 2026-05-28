@@ -4,14 +4,12 @@ import * as React from "react";
 import { Workflow } from "@/types/workflow";
 import { Milestone } from "@/types/milestone";
 import { Deliverable } from "@/types/deliverable";
+import { Message } from "@/types/message";
 import { 
   FileText, 
-  CheckCircle, 
-  AlertTriangle, 
   MessageSquare, 
   Eye, 
   ArrowUpRight, 
-  Clock, 
   CornerDownRight,
   Send,
   Plus
@@ -29,6 +27,8 @@ interface ReviewWorkspaceProps {
   onRequestRevision: (deliverableId: string, feedback: string) => Promise<void>;
   onAddComment: (deliverableId: string, text: string) => Promise<void>;
   onSubmitDeliverableClick: () => void;
+  messages?: Message[];
+  expandedDeliverableId?: string | null;
 }
 
 export function ReviewWorkspace({
@@ -41,11 +41,29 @@ export function ReviewWorkspace({
   onRequestRevision,
   onAddComment,
   onSubmitDeliverableClick,
+  messages = [],
+  expandedDeliverableId,
 }: ReviewWorkspaceProps) {
-  const [expandedDelivId, setExpandedDelivId] = React.useState<string | null>(null);
+  const [prevExpandedDeliverableId, setPrevExpandedDeliverableId] = React.useState<string | null>(null);
+  const [userExpandedDelivId, setUserExpandedDelivId] = React.useState<string | null>(null);
   const [feedbackNotes, setFeedbackNotes] = React.useState<Record<string, string>>({});
   const [commentTexts, setCommentTexts] = React.useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = React.useState<"pending" | "revision" | "approved">("pending");
+
+  if (expandedDeliverableId && expandedDeliverableId !== prevExpandedDeliverableId) {
+    setPrevExpandedDeliverableId(expandedDeliverableId);
+    setUserExpandedDelivId(expandedDeliverableId);
+    const del = deliverables.find((d) => d.deliverableId === expandedDeliverableId);
+    if (del) {
+      if (del.reviewStatus === "approved") {
+        setActiveTab("approved");
+      } else if (del.reviewStatus === "revision_requested") {
+        setActiveTab("revision");
+      } else {
+        setActiveTab("pending");
+      }
+    }
+  }
 
   if (!activeMilestone) return null;
 
@@ -56,23 +74,18 @@ export function ReviewWorkspace({
   const revisionRequested = deliverables.filter(d => d.reviewStatus === "revision_requested");
   const approved = deliverables.filter(d => d.reviewStatus === "approved");
 
-  // Automatically set expanded deliverable if there's only one pending
-  React.useEffect(() => {
-    if (expandedDelivId === null) {
-      if (pendingReview.length > 0) {
-        setExpandedDelivId(pendingReview[0].deliverableId);
-      } else if (revisionRequested.length > 0) {
-        setExpandedDelivId(revisionRequested[0].deliverableId);
-      } else if (approved.length > 0) {
-        setExpandedDelivId(approved[0].deliverableId);
-      }
-    }
-  }, [deliverables, pendingReview, revisionRequested, approved, expandedDelivId]);
+  // Derive expanded deliverable id
+  const expandedDelivId = userExpandedDelivId === "collapsed" ? null : (userExpandedDelivId !== null ? userExpandedDelivId : (() => {
+    if (pendingReview.length > 0) return pendingReview[0].deliverableId;
+    if (revisionRequested.length > 0) return revisionRequested[0].deliverableId;
+    if (approved.length > 0) return approved[0].deliverableId;
+    return null;
+  })());
 
   const handleApprove = async (id: string) => {
     try {
       await onApproveDeliverable(id);
-    } catch (err) {
+    } catch {
       alert("Failed to approve deliverable.");
     }
   };
@@ -86,7 +99,7 @@ export function ReviewWorkspace({
     try {
       await onRequestRevision(id, note);
       setFeedbackNotes(prev => ({ ...prev, [id]: "" }));
-    } catch (err) {
+    } catch {
       alert("Failed to request revision.");
     }
   };
@@ -97,7 +110,7 @@ export function ReviewWorkspace({
     try {
       await onAddComment(id, text);
       setCommentTexts(prev => ({ ...prev, [id]: "" }));
-    } catch (err) {
+    } catch {
       alert("Failed to add comment.");
     }
   };
@@ -214,9 +227,8 @@ export function ReviewWorkspace({
                       isExpanded && "ring-1 ring-brand-ink/5 border-brand-primary/50"
                     )}
                   >
-                    {/* Deliverable Header Row */}
                     <div 
-                      onClick={() => setExpandedDelivId(isExpanded ? null : deliv.deliverableId)}
+                      onClick={() => setUserExpandedDelivId(isExpanded ? "collapsed" : deliv.deliverableId)}
                       className="flex items-center justify-between px-4 py-3 bg-brand-surface-soft/20 hover:bg-brand-surface-soft/40 cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
@@ -346,30 +358,51 @@ export function ReviewWorkspace({
                         <div className="border-t border-brand-hairline pt-3.5 space-y-3">
                           <span className="text-[9px] font-bold text-brand-muted uppercase tracking-wider block">Revision Thread</span>
                           
-                          {deliv.comments && deliv.comments.length > 0 ? (
-                            <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                              {deliv.comments.map((comment) => {
-                                const isAuthorClient = comment.authorRole === "business";
-                                return (
-                                  <div key={comment.commentId} className="flex gap-2 text-xs items-start pl-2">
-                                    <CornerDownRight className="w-3.5 h-3.5 text-brand-hairline shrink-0 mt-0.5" />
-                                    <div className="flex-1 bg-brand-surface-soft/60 border border-brand-hairline/60 rounded-xl px-3 py-2 space-y-0.5">
-                                      <div className="flex justify-between items-center w-full">
-                                        <span className="font-semibold text-brand-ink">
-                                          {comment.authorName}
-                                          <span className="text-[9px] text-brand-muted font-normal capitalize ml-1">({comment.authorRole})</span>
-                                        </span>
-                                        <span className="text-[9px] text-brand-muted font-mono">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
+                          {(() => {
+                            const delivMessages = (messages || []).filter(
+                              (m) => m.contextType === "deliverable" && m.contextId === deliv.deliverableId
+                            );
+                            if (delivMessages.length > 0) {
+                              return (
+                                <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                                  {delivMessages.map((msg) => {
+                                    const senderName =
+                                      msg.senderId === "system"
+                                        ? "System"
+                                        : msg.senderRole === "student"
+                                        ? workflow.studentName
+                                        : workflow.businessName;
+                                    return (
+                                      <div key={msg.messageId} className="flex gap-2 text-xs items-start pl-2">
+                                        <CornerDownRight className="w-3.5 h-3.5 text-brand-hairline shrink-0 mt-0.5" />
+                                        <div className="flex-1 bg-brand-surface-soft/60 border border-brand-hairline/60 rounded-xl px-3 py-2 space-y-0.5">
+                                          <div className="flex justify-between items-center w-full">
+                                            <span className="font-semibold text-brand-ink">
+                                              {senderName}
+                                              <span className="text-[9px] text-brand-muted font-normal capitalize ml-1">
+                                                ({msg.senderRole})
+                                              </span>
+                                            </span>
+                                            <span className="text-[9px] text-brand-muted font-mono">
+                                              {formatDistanceToNow(new Date(msg.createdAt))} ago
+                                            </span>
+                                          </div>
+                                          <p className="text-brand-muted leading-relaxed whitespace-pre-wrap">
+                                            {msg.content}
+                                          </p>
+                                        </div>
                                       </div>
-                                      <p className="text-brand-muted leading-relaxed whitespace-pre-wrap">{comment.text}</p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-[11px] text-brand-muted pl-2">No comments have been posted to this deliverable thread.</p>
-                          )}
+                                    );
+                                  })}
+                                </div>
+                              );
+                            }
+                            return (
+                              <p className="text-[11px] text-brand-muted pl-2">
+                                No comments have been posted to this deliverable thread.
+                              </p>
+                            );
+                          })()}
 
                           {/* Add comment form */}
                           <div className="flex gap-2 pl-2">

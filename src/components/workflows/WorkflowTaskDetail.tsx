@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { deliverableService } from "@/lib/deliverable-service";
 import { Deliverable } from "@/types/deliverable";
 import { Timestamp } from "firebase/firestore";
+import { Message } from "@/types/message";
+import { MessageBubble } from "@/components/messages/MessageBubble";
 
 interface WorkflowTaskDetailProps {
   task: WorkflowTask | null;
@@ -32,6 +34,8 @@ interface WorkflowTaskDetailProps {
   actorName: string;
   workflow: Workflow;
   columns: WorkflowColumn[];
+  messages?: Message[];
+  onSendContextMessage?: (content: string, contextType: "task" | "deliverable" | "milestone" | "escrow" | "general" | "review", contextId: string) => Promise<void>;
 }
 
 export function WorkflowTaskDetail({
@@ -43,6 +47,8 @@ export function WorkflowTaskDetail({
   actorName,
   workflow,
   columns,
+  messages = [],
+  onSendContextMessage,
 }: WorkflowTaskDetailProps) {
   const [deliverables, setDeliverables] = React.useState<Deliverable[]>([]);
   const [isSubmitOpen, setIsSubmitOpen] = React.useState(false);
@@ -58,6 +64,26 @@ export function WorkflowTaskDetail({
 
   // Revision state
   const [revisionFeedback, setRevisionFeedback] = React.useState("");
+
+  // Task comment state
+  const [taskComment, setTaskComment] = React.useState("");
+
+  const taskMessages = React.useMemo(() => {
+    if (!task) return [];
+    return messages.filter((m) => m.contextType === "task" && m.contextId === task.taskId);
+  }, [messages, task]);
+
+  const handleSendComment = async () => {
+    const text = taskComment.trim();
+    if (!text || !task || !onSendContextMessage) return;
+    setTaskComment("");
+    try {
+      await onSendContextMessage(text, "task", task.taskId);
+    } catch (err) {
+      console.error("Failed to send task comment:", err);
+      alert("Failed to send task comment.");
+    }
+  };
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -732,6 +758,60 @@ export function WorkflowTaskDetail({
                 </div>
               )}
             </div>
+
+            {/* Task Discussion Thread */}
+            <div className="border-t border-brand-hairline pt-6.5 space-y-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4.5 h-4.5 text-brand-secondary" />
+                <h4 className="text-xs font-semibold text-brand-ink uppercase tracking-wide">
+                  Task Execution Discussion
+                </h4>
+              </div>
+
+              {/* Messages list */}
+              <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1 border border-brand-hairline rounded-xl p-3 bg-brand-surface-soft/10">
+                {taskMessages.length === 0 ? (
+                  <p className="text-xs text-brand-muted text-center py-4">
+                    No comments in this thread yet. Start the conversation!
+                  </p>
+                ) : (
+                  taskMessages.map((msg) => {
+                    const isOwn = msg.senderId === actorId;
+                    const senderName = isOwn ? "You" : (msg.senderId === "system" ? "System" : (msg.senderRole === "student" ? workflow.studentName : workflow.businessName));
+                    return (
+                      <MessageBubble
+                        key={msg.messageId}
+                        message={msg}
+                        isOwn={isOwn}
+                        senderName={senderName}
+                      />
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Message Composer */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={taskComment}
+                  onChange={(e) => setTaskComment(e.target.value)}
+                  placeholder="Post an execution comment or question..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSendComment();
+                  }}
+                  className="flex-1 rounded-lg border border-brand-hairline px-3 py-2 text-xs bg-white text-brand-ink focus:outline-none focus:border-brand-primary"
+                />
+                <button
+                  onClick={handleSendComment}
+                  disabled={!taskComment.trim()}
+                  className="px-3 bg-brand-ink hover:bg-brand-primary-active text-white rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors flex items-center justify-center shadow-sm"
+                >
+                  Post
+                </button>
+              </div>
+            </div>
+
           </div>
         </motion.div>
       </motion.div>

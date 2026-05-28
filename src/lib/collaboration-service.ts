@@ -8,7 +8,6 @@ import {
   where,
   updateDoc,
   onSnapshot,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { generateId } from "@/lib/id-utils";
@@ -130,6 +129,18 @@ export const collaborationService = {
       message: metadata?.message || defaultMessage,
       metadata: metadata?.note ? { note: metadata.note } : undefined,
     });
+
+    // Send a system message in the chat
+    try {
+      await messageService.sendSystemMessage(
+        collab.conversationId,
+        collaborationId,
+        metadata?.message || defaultMessage,
+        "general"
+      );
+    } catch (e) {
+      console.error("Error sending status transition system message:", e);
+    }
 
     // 7. Trigger notifications
     const recipientId = actorId === collab.businessId ? collab.studentId : collab.businessId;

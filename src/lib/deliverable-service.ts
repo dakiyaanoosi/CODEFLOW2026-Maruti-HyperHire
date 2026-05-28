@@ -12,8 +12,9 @@ import {
   updateDoc,
   Timestamp,
 } from "firebase/firestore";
-import { Deliverable, DeliverableComment } from "@/types/deliverable";
+import { Deliverable } from "@/types/deliverable";
 import { generateId } from "@/lib/id-utils";
+import { messageService } from "./message-service";
 
 // Helper to serialize deliverable dates for the client
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -136,6 +137,22 @@ export const deliverableService = {
       } catch (e) {
         console.error("Error updating milestone on submitDeliverable:", e);
       }
+    }
+
+    try {
+      const { collaborationService } = await import("./collaboration-service");
+      const collab = await collaborationService.getCollaboration(params.collaborationId);
+      if (collab) {
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Deliverable v${version} submitted: "${params.title}"`,
+          "deliverable",
+          deliverableId
+        );
+      }
+    } catch (e) {
+      console.error("Error sending submitDeliverable system message:", e);
     }
 
     return serializeDeliverable(newDeliverable, deliverableId);
@@ -289,6 +306,24 @@ export const deliverableService = {
         );
       }
     }
+
+    try {
+      const { collaborationService } = await import("./collaboration-service");
+      const collab = await collaborationService.getCollaboration(data.collaborationId);
+      if (collab) {
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          status === "approved"
+            ? `Deliverable v${data.version} approved: "${data.title}"`
+            : `Revision requested on Deliverable v${data.version}: "${data.title}" - Feedback: ${feedback || "No feedback notes provided."}`,
+          "deliverable",
+          deliverableId
+        );
+      }
+    } catch (e) {
+      console.error("Error sending reviewDeliverable system message:", e);
+    }
   },
 
   /**
@@ -308,18 +343,24 @@ export const deliverableService = {
     if (!delSnap.exists()) throw new Error("Deliverable not found.");
 
     const data = delSnap.data() as Deliverable;
-    const commentId = `cmt_${Date.now()}`;
-    const newComment: DeliverableComment = {
-      commentId,
+    
+    const { collaborationService } = await import("./collaboration-service");
+    const collab = await collaborationService.getCollaboration(data.collaborationId);
+    if (!collab) throw new Error("Collaboration not found.");
+
+    await messageService.sendMessage(
+      collab.conversationId,
       authorId,
-      authorName,
       authorRole,
       text,
-      createdAt: new Date().toISOString(),
-    };
-
-    const comments = [...(data.comments || []), newComment];
-    await updateDoc(delRef, { comments });
+      undefined,
+      undefined,
+      "deliverable",
+      deliverableId,
+      undefined,
+      false,
+      collab.collaborationId
+    );
   },
 
   /**

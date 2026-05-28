@@ -13,14 +13,26 @@ export interface Attachment {
 export interface Message {
   messageId: string;
   conversationId: string;
+  collaborationId: string;
   senderId: string;
   senderRole: "student" | "business";
   content: string;
-  messageType: "text" | "attachment" | "system";
+  messageType?: "text" | "attachment" | "system";
   attachmentUrl?: string;
   attachmentType?: AttachmentType;
   readBy: string[]; // array of userIds
   createdAt: string;
+
+  contextType?:
+    | "general"
+    | "task"
+    | "milestone"
+    | "deliverable"
+    | "review"
+    | "escrow";
+  contextId?: string;
+  attachments?: string[];
+  systemGenerated?: boolean;
 }
 
 export interface Conversation {

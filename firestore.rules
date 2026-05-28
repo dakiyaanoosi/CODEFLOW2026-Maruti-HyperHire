@@ -72,7 +72,24 @@ service cloud.firestore {
         allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow create: if isAuthenticated() && 
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
-          (request.resource.data.senderId == request.auth.uid || request.resource.data.senderId == "system");
+          (request.resource.data.senderId == request.auth.uid || request.resource.data.senderId == "system") &&
+          // Validate context ownership if contextType is set
+          (!('contextType' in request.resource.data) || 
+           request.resource.data.contextType == 'general' ||
+           (request.resource.data.contextType == 'task' && 
+            (request.auth.uid == get(/databases/$(database)/documents/workflowTasks/$(request.resource.data.contextId)).data.studentId ||
+             request.auth.uid == get(/databases/$(database)/documents/workflowTasks/$(request.resource.data.contextId)).data.businessId)) ||
+           (request.resource.data.contextType == 'milestone' && 
+            get(/databases/$(database)/documents/milestones/$(request.resource.data.contextId)).data.collaborationId == get(/databases/$(database)/documents/conversations/$(conversationId)).data.collaborationId) ||
+           (request.resource.data.contextType == 'deliverable' && 
+            get(/databases/$(database)/documents/deliverables/$(request.resource.data.contextId)).data.collaborationId == get(/databases/$(database)/documents/conversations/$(conversationId)).data.collaborationId) ||
+           (request.resource.data.contextType == 'review' && 
+            (request.auth.uid == get(/databases/$(database)/documents/reviews/$(request.resource.data.contextId)).data.reviewerId ||
+             request.auth.uid == get(/databases/$(database)/documents/reviews/$(request.resource.data.contextId)).data.revieweeId)) ||
+           (request.resource.data.contextType == 'escrow' && 
+            (request.auth.uid == get(/databases/$(database)/documents/escrows/$(request.resource.data.contextId)).data.studentId ||
+             request.auth.uid == get(/databases/$(database)/documents/escrows/$(request.resource.data.contextId)).data.businessId))
+          );
         allow update, delete: if false;
       }
     }

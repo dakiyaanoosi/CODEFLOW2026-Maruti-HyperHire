@@ -14,6 +14,7 @@ import {
 import type { Escrow, EscrowSummary, EscrowStatus, EscrowEvent } from "@/types/escrow";
 import type { Application } from "@/types/application";
 import { canSubmitDeliverable, canRequestRevision, canReleaseEscrow } from "./collaboration/permission-policy";
+import { messageService } from "@/lib/message-service";
 
 const COLLECTION_NAME = "escrows";
 
@@ -174,6 +175,14 @@ export const escrowService = {
           message: `Business funded escrow for "${current.jobTitle}".`,
         });
 
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Escrow funded successfully. Project execution unlocked.`,
+          "escrow",
+          escrowId
+        );
+
         // Transition collaboration to active
         await collaborationService.transitionCollaboration(
           collab.collaborationId,
@@ -276,6 +285,13 @@ export const escrowService = {
       const { collaborationService } = await import("@/lib/collaboration-service");
       const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
       if (collab) {
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Escrow dispute raised: ${reason}`,
+          "escrow",
+          escrowId
+        );
         await collaborationService.transitionCollaboration(
           collab.collaborationId,
           "disputed",
@@ -532,6 +548,13 @@ export const escrowService = {
       const { collaborationService } = await import("@/lib/collaboration-service");
       const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
       if (collab) {
+        await messageService.sendSystemMessage(
+          collab.conversationId,
+          collab.collaborationId,
+          `Escrow released successfully. Wallet credited: ₹${current.payoutAmount?.toLocaleString("en-IN")}.`,
+          "escrow",
+          escrowId
+        );
         await collaborationService.logActivity({
           collaborationId: collab.collaborationId,
           actorId: current.businessId,

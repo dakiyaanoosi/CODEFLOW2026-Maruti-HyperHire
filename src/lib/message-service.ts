@@ -3,7 +3,6 @@ import { generateId } from "@/lib/id-utils";
 import { 
   collection, 
   doc, 
-  setDoc, 
   getDoc, 
   getDocs, 
   query, 
@@ -11,8 +10,6 @@ import {
   orderBy, 
   onSnapshot, 
   updateDoc, 
-  arrayUnion,
-  serverTimestamp,
   writeBatch
 } from "firebase/firestore";
 import { Conversation, Message, AttachmentType } from "@/types/message";
@@ -65,28 +62,46 @@ export const messageService = {
     senderRole: "student" | "business",
     content: string,
     attachmentUrl?: string,
-    attachmentType?: AttachmentType
+    attachmentType?: AttachmentType,
+    contextType?: "general" | "task" | "milestone" | "deliverable" | "review" | "escrow",
+    contextId?: string,
+    attachments?: string[],
+    systemGenerated?: boolean,
+    collaborationId?: string
   ): Promise<Message> {
     if (!db) throw new Error("Firestore not initialized");
 
     const messageId = generateId("msg");
     const now = new Date().toISOString();
     
+    let resolvedCollabId = collaborationId;
+    const convRef = doc(db, "conversations", conversationId);
+    const convSnapshot = await getDoc(convRef);
+    if (convSnapshot.exists() && !resolvedCollabId) {
+      const convData = convSnapshot.data() as Conversation;
+      resolvedCollabId = convData.collaborationId;
+    }
+
     const message: Message = {
       messageId,
       conversationId,
+      collaborationId: resolvedCollabId || "",
       senderId,
       senderRole,
       content,
-      messageType: attachmentUrl ? "attachment" : "text",
+      messageType: systemGenerated ? "system" : (attachmentUrl || (attachments && attachments.length > 0) ? "attachment" : "text"),
       attachmentUrl,
       attachmentType,
       readBy: [senderId],
-      createdAt: now
+      createdAt: now,
+      contextType: contextType || "general",
+      contextId: contextId || undefined,
+      attachments: attachments || undefined,
+      systemGenerated: systemGenerated || false
     };
 
     const cleanMessage = Object.fromEntries(
-      Object.entries(message).filter(([_, v]) => v !== undefined)
+      Object.entries(message).filter((entry) => entry[1] !== undefined)
     ) as Message;
 
     const batch = writeBatch(db);
@@ -96,8 +111,6 @@ export const messageService = {
     batch.set(msgRef, cleanMessage);
 
     // 2. Update conversation last message and unread counts
-    const convRef = doc(db, "conversations", conversationId);
-    const convSnapshot = await getDoc(convRef);
     if (convSnapshot.exists()) {
       const convData = convSnapshot.data() as Conversation;
       const newUnreadCounts = { ...convData.unreadCounts };
@@ -109,8 +122,17 @@ export const messageService = {
         }
       });
 
+      let preview = content;
+      if (attachmentUrl || (attachments && attachments.length > 0)) {
+        preview = "Sent an attachment";
+      } else if (systemGenerated) {
+        preview = `[Activity] ${content}`;
+      } else if (contextType && contextType !== "general") {
+        preview = `[${contextType}] ${content}`;
+      }
+
       batch.update(convRef, {
-        lastMessage: attachmentUrl ? "Sent an attachment" : content,
+        lastMessage: preview,
         lastMessageAt: now,
         unreadCounts: newUnreadCounts,
         updatedAt: now
@@ -120,25 +142,55 @@ export const messageService = {
     await batch.commit();
 
     // Trigger notification to the other participant(s)
-    if (convSnapshot.exists()) {
+    if (convSnapshot.exists() && senderId !== "system") {
       const convData = convSnapshot.data() as Conversation;
       const recipientIds = convData.participantIds.filter(id => id !== senderId);
       
       for (const recipientId of recipientIds) {
         const senderName = convData.participantNames[senderId] || "Someone";
+        let title = attachmentUrl || (attachments && attachments.length > 0) ? "New Attachment" : "New Message";
+        let desc = attachmentUrl || (attachments && attachments.length > 0) ? `${senderName} sent an attachment.` : `${senderName} sent you a message.`;
+
+        if (contextType && contextType !== "general") {
+          title = `New ${contextType} feedback`;
+          desc = `${senderName} commented in ${contextType} thread: "${content.substring(0, 30)}..."`;
+        }
+
         await notificationService.createNotification({
           userId: recipientId,
           type: "message",
-          title: attachmentUrl ? "New Attachment" : "New Message",
-          description: attachmentUrl ? `${senderName} sent an attachment.` : `${senderName} sent you a message.`,
+          title,
+          description: desc,
           relatedEntityId: conversationId,
           relatedEntityType: "message",
-          actionUrl: "/messages"
+          actionUrl: `/workflows/${convData.collaborationId || conversationId}`
         });
       }
     }
 
     return message;
+  },
+
+  async sendSystemMessage(
+    conversationId: string,
+    collaborationId: string,
+    content: string,
+    contextType?: "general" | "task" | "milestone" | "deliverable" | "review" | "escrow",
+    contextId?: string
+  ): Promise<Message> {
+    return this.sendMessage(
+      conversationId,
+      "system",
+      "business",
+      content,
+      undefined,
+      undefined,
+      contextType || "general",
+      contextId,
+      undefined,
+      true,
+      collaborationId
+    );
   },
 
   async markAsRead(conversationId: string, userId: string) {
@@ -216,6 +268,7 @@ export const messageService = {
     const sysMessage: Message = {
       messageId: msgId,
       conversationId,
+      collaborationId: collaborationId || "",
       senderId: "system",
       senderRole: "business",
       content: "Collaboration started! You can now start communicating.",

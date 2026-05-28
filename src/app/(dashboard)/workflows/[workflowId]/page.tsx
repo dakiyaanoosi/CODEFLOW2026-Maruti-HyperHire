@@ -8,11 +8,14 @@ import { aiWorkflowService } from "@/lib/ai-workflow-service";
 import { escrowService } from "@/lib/escrow-service";
 import { milestoneService } from "@/lib/milestone-service";
 import { deliverableService } from "@/lib/deliverable-service";
+import { messageService } from "@/lib/message-service";
 import { Milestone } from "@/types/milestone";
 import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
 import { Collaboration } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
 import { Deliverable } from "@/types/deliverable";
+import { Message } from "@/types/message";
+import { CollaborationCommunicationPanel } from "@/components/messages/CollaborationCommunicationPanel";
 import { WorkflowTaskDetail } from "@/components/workflows/WorkflowTaskDetail";
 import { Loader2, ArrowLeft, BrainCircuit } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -45,7 +48,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const [activities, setActivities] = React.useState<WorkflowActivity[]>([]);
   const [deliverables, setDeliverables] = React.useState<Deliverable[]>([]);
   const [escrow, setEscrow] = React.useState<Escrow | null>(null);
+  const [messages, setMessages] = React.useState<Message[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [rightSidebarTab, setRightSidebarTab] = React.useState<"chat" | "ledger">("chat");
+  const [expandedDeliverableId, setExpandedDeliverableId] = React.useState<string | null>(null);
 
   // Modals state
   const [isSubmitModalOpen, setIsSubmitModalOpen] = React.useState(false);
@@ -93,6 +99,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     // Load Collaboration by workflowId
     let unSubCollab: (() => void) | undefined;
     let unSubMilestones: (() => void) | undefined;
+    let unSubMessages: (() => void) | undefined;
 
     collaborationService.getCollaborationByWorkflowId(workflowId).then((collab) => {
       if (collab) {
@@ -101,6 +108,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           collab.collaborationId,
           setCollaboration
         );
+
+        if (collab.conversationId) {
+          unSubMessages = messageService.subscribeToMessages(
+            collab.conversationId,
+            setMessages
+          );
+        }
 
         unSubMilestones = milestoneService.subscribeToMilestones(
           collab.collaborationId,
@@ -149,14 +163,17 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       unSubEscrow();
       if (unSubCollab) unSubCollab();
       if (unSubMilestones) unSubMilestones();
+      if (unSubMessages) unSubMessages();
     };
   }, [workflowId, router, user, profile]);
 
   // Subscribe to deliverables of the active milestone
   React.useEffect(() => {
     if (!activeMilestoneId) {
-      setDeliverables([]);
-      return;
+      const timer = setTimeout(() => {
+        setDeliverables([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
     const unsub = deliverableService.subscribeToMilestoneDeliverables(activeMilestoneId, setDeliverables);
     return () => unsub();
@@ -267,7 +284,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       escrow?.status,
       collabStatus,
       escrow?.updatedAt,
-      escrow?.releaseEligibleAt
+      escrow?.releaseEligibleAt,
+      messages
     );
 
     setAiInsight({
@@ -462,6 +480,51 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     }
   };
 
+  const handleNavigateToContext = React.useCallback((contextType: string, contextId: string) => {
+    if (contextType === "task") {
+      const task = tasks.find((t) => t.taskId === contextId);
+      if (task) {
+        setSelectedTask(task);
+      }
+    } else if (contextType === "milestone") {
+      const ms = milestones.find((m) => m.milestoneId === contextId);
+      if (ms) {
+        setActiveMilestoneId(ms.milestoneId);
+      }
+    } else if (contextType === "deliverable") {
+      const del = deliverables.find((d) => d.deliverableId === contextId);
+      if (del) {
+        if (del.milestoneId) {
+          setActiveMilestoneId(del.milestoneId);
+        }
+        setExpandedDeliverableId(del.deliverableId);
+      }
+    } else if (contextType === "escrow") {
+      setRightSidebarTab("ledger");
+    }
+  }, [tasks, milestones, deliverables]);
+
+  const handleSendContextMessage = React.useCallback(async (
+    content: string,
+    contextType: "task" | "deliverable" | "milestone" | "escrow" | "general" | "review",
+    contextId: string
+  ) => {
+    if (!collaboration?.conversationId || !user || !profile) return;
+    await messageService.sendMessage(
+      collaboration.conversationId,
+      user.uid,
+      profile.role as "student" | "business",
+      content,
+      undefined,
+      undefined,
+      contextType,
+      contextId,
+      undefined,
+      false,
+      collaboration.collaborationId
+    );
+  }, [collaboration, user, profile]);
+
   if (!user || !profile || isLoading || !workflow) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -648,24 +711,86 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               setActionError(null);
               setIsSubmitModalOpen(true);
             }}
+            messages={messages}
+            expandedDeliverableId={expandedDeliverableId}
           />
         </div>
 
-        {/* Right Sidebar: Trust Ledger and Workspace Timeline */}
-        <div className="lg:col-span-1 flex flex-col space-y-6 overflow-y-auto pr-1">
-          <FinancialWorkspace
-            escrow={escrow}
-            milestones={milestones}
-            isBusiness={isBusiness}
-            isSubmitting={isSubmitting}
-            onFundEscrow={async () => {
-              router.push("/escrow");
-            }}
-            onReleaseEscrow={handleReleaseEscrow}
-            onOpenDispute={handleOpenDisputeEscrow}
-          />
+        {/* Right Sidebar: Trust Ledger, Workspace Timeline & Operational Chat */}
+        <div className="lg:col-span-1 flex flex-col space-y-4 overflow-y-auto pr-1">
+          {/* Tab selector for Right Sidebar */}
+          <div className="flex bg-brand-surface-soft/40 p-1 rounded-lg border border-brand-hairline shrink-0">
+            <button
+              onClick={() => setRightSidebarTab("chat")}
+              className={cn(
+                "flex-1 py-1.5 text-center text-xs font-semibold rounded-md transition-all cursor-pointer",
+                rightSidebarTab === "chat"
+                  ? "bg-white text-brand-ink shadow-sm"
+                  : "text-brand-muted hover:text-brand-ink"
+              )}
+            >
+              Workspace Chat
+            </button>
+            <button
+              onClick={() => setRightSidebarTab("ledger")}
+              className={cn(
+                "flex-1 py-1.5 text-center text-xs font-semibold rounded-md transition-all cursor-pointer",
+                rightSidebarTab === "ledger"
+                  ? "bg-white text-brand-ink shadow-sm"
+                  : "text-brand-muted hover:text-brand-ink"
+              )}
+            >
+              Finance & Audit
+            </button>
+          </div>
 
-          <CollaborationTimeline activities={activities} />
+          {rightSidebarTab === "chat" ? (
+            collaboration && (
+              <CollaborationCommunicationPanel
+                collaboration={collaboration}
+                messages={messages}
+                currentUserId={user.uid}
+                currentUserRole={profile.role as "student" | "business"}
+                onSendMessage={async (content, attachmentUrl, attachmentType, contextType, contextId) => {
+                  if (!collaboration?.conversationId || !profile) return;
+                  await messageService.sendMessage(
+                    collaboration.conversationId,
+                    user.uid,
+                    profile.role as "student" | "business",
+                    content,
+                    attachmentUrl,
+                    attachmentType,
+                    contextType,
+                    contextId,
+                    undefined,
+                    false,
+                    collaboration.collaborationId
+                  );
+                }}
+                onNavigateToContext={handleNavigateToContext}
+                tasks={tasks}
+                deliverables={deliverables}
+                milestones={milestones}
+                escrow={escrow}
+              />
+            )
+          ) : (
+            <div className="space-y-6 flex flex-col">
+              <FinancialWorkspace
+                escrow={escrow}
+                milestones={milestones}
+                isBusiness={isBusiness}
+                isSubmitting={isSubmitting}
+                onFundEscrow={async () => {
+                  router.push("/escrow");
+                }}
+                onReleaseEscrow={handleReleaseEscrow}
+                onOpenDispute={handleOpenDisputeEscrow}
+              />
+
+              <CollaborationTimeline activities={activities} />
+            </div>
+          )}
         </div>
 
       </div>
@@ -680,6 +805,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         actorName={actorName}
         workflow={workflow}
         columns={columns}
+        messages={messages}
+        onSendContextMessage={handleSendContextMessage}
       />
 
       {/* Role-Aware Task Creation Dialog */}
