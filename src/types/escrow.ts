@@ -16,6 +16,7 @@ export interface EscrowEvent {
 export interface Escrow {
   escrowId: string;
   workflowId: string;
+  collaborationId?: string;
   applicationId: string;
   jobId: string;
 

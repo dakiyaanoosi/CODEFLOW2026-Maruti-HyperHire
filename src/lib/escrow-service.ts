@@ -72,7 +72,7 @@ export const escrowService = {
   /**
    * Create a new escrow upon application acceptance
    */
-  async createEscrowFromAcceptedApplication(app: Application, workflowId: string): Promise<Escrow> {
+  async createEscrowFromAcceptedApplication(app: Application, workflowId: string, collaborationId?: string): Promise<Escrow> {
     if (!db) throw new Error("Firestore is not initialized.");
 
     const escrowId = `esc_${app.applicationId}`;
@@ -86,6 +86,7 @@ export const escrowService = {
     const newEscrow: any = {
       escrowId,
       workflowId,
+      collaborationId: collaborationId || undefined,
       applicationId: app.applicationId,
       jobId: app.jobId,
       businessId: app.businessId,
@@ -205,12 +206,21 @@ export const escrowService = {
       timeline: [...(current.timeline || []), timelineEvent]
     });
 
-    // Also update workflow status to completed
+    // Transition collaboration to in_review
     try {
-      const { workflowService } = await import("@/lib/workflow-service");
-      await workflowService.updateWorkflowStatus(current.workflowId, "completed");
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (collab) {
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "in_review",
+          current.studentId,
+          "student",
+          { message: `Deliverable submitted for "${current.jobTitle}".`, note }
+        );
+      }
     } catch (e) {
-      console.error("Error updating workflow status in submitWork:", e);
+      console.error("Error transitioning collaboration in submitWork:", e);
     }
 
     // Trigger notification to business
@@ -256,12 +266,21 @@ export const escrowService = {
       timeline: [...(current.timeline || []), timelineEvent]
     });
 
-    // Also update workflow status to revision
+    // Transition collaboration to revision_requested
     try {
-      const { workflowService } = await import("@/lib/workflow-service");
-      await workflowService.updateWorkflowStatus(current.workflowId, "Revision");
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (collab) {
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "revision_requested",
+          current.businessId,
+          "business",
+          { message: `Revision requested on "${current.jobTitle}".`, note }
+        );
+      }
     } catch (e) {
-      console.error("Error updating workflow status in requestRevision:", e);
+      console.error("Error transitioning collaboration in requestRevision:", e);
     }
 
     // Notify student
@@ -307,12 +326,21 @@ export const escrowService = {
       timeline: [...(current.timeline || []), timelineEvent]
     });
 
-    // 1. Update workflow status to paid
+    // 1. Transition collaboration to completed
     try {
-      const { workflowService } = await import("@/lib/workflow-service");
-      await workflowService.updateWorkflowStatus(current.workflowId, "Paid");
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (collab) {
+        await collaborationService.transitionCollaboration(
+          collab.collaborationId,
+          "completed",
+          current.businessId,
+          "business",
+          { message: `Payment released for "${current.jobTitle}". Collaboration completed.` }
+        );
+      }
     } catch (e) {
-      console.error("Error updating workflow status in releaseEscrow:", e);
+      console.error("Error transitioning collaboration in releaseEscrow:", e);
     }
 
     // 2. Log student trust event

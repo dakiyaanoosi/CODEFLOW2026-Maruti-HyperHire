@@ -6,6 +6,7 @@ export interface Review {
   reviewId: string; // Deterministic ID format: `rev_${reviewerId}_${workflowId}`
 
   workflowId: string;
+  collaborationId?: string;
   escrowId: string;
   applicationId: string;
 

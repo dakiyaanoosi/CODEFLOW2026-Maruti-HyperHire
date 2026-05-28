@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { EscrowStatusBadge } from "./EscrowStatusBadge";
 import { EscrowTimeline } from "./EscrowTimeline";
 import { releaseEscrow, submitWork, requestRevision } from "@/lib/escrow-service";
+import { collaborationService } from "@/lib/collaboration-service";
 import type { EscrowTransaction } from "@/types/escrow";
+import type { Collaboration } from "@/types/collaboration";
 
 interface EscrowDetailPanelProps {
   txn: EscrowTransaction;
@@ -19,6 +21,16 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   const [note, setNote] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [flash, setFlash] = React.useState<string | null>(null);
+  const [collaboration, setCollaboration] = React.useState<Collaboration | null>(null);
+
+  // Fetch collaboration for status validation
+  React.useEffect(() => {
+    if (txn.collaborationId) {
+      collaborationService.getCollaboration(txn.collaborationId).then(setCollaboration);
+    } else {
+      collaborationService.getCollaborationByWorkflowId(txn.workflowId).then(setCollaboration);
+    }
+  }, [txn.collaborationId, txn.workflowId]);
 
   const showFlash = (msg: string) => {
     setFlash(msg);
@@ -26,9 +38,10 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   };
 
   const isBusiness = role === "business";
-  const canRelease = isBusiness && txn.status === "completed";
-  const canRequestRevision = isBusiness && txn.status === "completed";
-  const canSubmit = !isBusiness && (txn.status === "funded" || txn.status === "revision_requested");
+  const collabStatus = collaboration?.status;
+  const canRelease = isBusiness && (collabStatus === "in_review" || txn.status === "completed");
+  const canRequestRevision = isBusiness && (collabStatus === "in_review" || txn.status === "completed");
+  const canSubmit = !isBusiness && (collabStatus === "active" || collabStatus === "revision_requested" || txn.status === "funded" || txn.status === "revision_requested");
 
   async function handleRelease() {
     setBusy(true);

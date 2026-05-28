@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   orderBy
 } from "firebase/firestore";
-import { workflowService } from "@/lib/workflow-service";
+
 import { messageService } from "@/lib/message-service";
 import { notificationService } from "@/lib/notification-service";
 
@@ -159,21 +159,21 @@ export const applicationService = {
     const updatedApp = { ...snapshot.data(), status, updatedAt: now } as Application;
     
     // Workflow Automations
-    if (status === "shortlisted" || status === "accepted") {
+    if (status === "shortlisted") {
       try {
         await messageService.createConversationFromApplication(updatedApp);
       } catch (e) {
-        console.error("Error creating Conversation during workflow", e);
+        console.error("Error creating Conversation during shortlisting", e);
       }
     }
 
     if (status === "accepted") {
+      // Route through canonical collaboration lifecycle pipeline
       try {
-        const workflowId = await workflowService.createWorkflowFromApplication(updatedApp);
-        const { escrowService } = await import("@/lib/escrow-service");
-        await escrowService.createEscrowFromAcceptedApplication(updatedApp, workflowId);
+        const { collaborationService } = await import("@/lib/collaboration-service");
+        await collaborationService.createCollaborationFromApplication(updatedApp);
       } catch (e) {
-        console.error("Error creating Workflow Workspace and Escrow during acceptance workflow", e);
+        console.error("Error provisioning collaboration during acceptance workflow", e);
       }
     }
 

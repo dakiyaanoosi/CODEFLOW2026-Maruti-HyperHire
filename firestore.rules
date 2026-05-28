@@ -103,6 +103,31 @@ service cloud.firestore {
       allow update, delete: if false; // Activity logs are immutable
     }
 
+    // Collaborations (Canonical Lifecycle Entity)
+    // Access restricted to participants. Both student and business can read/update.
+    match /collaborations/{collaborationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        request.resource.data.businessId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // Collaboration Activity (Immutable Audit Trail)
+    match /collaborationActivity/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
     // 7. Notifications
     // Users can only read and manage their own notifications.
     // Any authenticated user can create a notification for another user (e.g. invites or updates).

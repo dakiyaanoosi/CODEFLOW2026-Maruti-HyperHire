@@ -157,6 +157,7 @@ export const messageService = {
 
   async createConversationFromApplication(
     application: Application,
+    collaborationId?: string,
   ): Promise<Conversation> {
     if (!db) throw new Error("Firestore not initialized");
 
@@ -191,18 +192,24 @@ export const messageService = {
       },
       relatedJobId: application.jobId,
       relatedApplicationId: application.applicationId,
-      lastMessage: "Application accepted! You can now start communicating.",
+      collaborationId,
+      lastMessage: "Collaboration started! You can now start communicating.",
       lastMessageAt: now,
       unreadCounts: {
-        [application.studentId]: 1, // Let student know business accepted/opened channel
+        [application.studentId]: 1,
         [application.businessId]: 0
       },
       createdAt: now,
       updatedAt: now
     };
 
+    // Clean undefined fields
+    const cleanedConversation = Object.fromEntries(
+      Object.entries(conversation).filter(([, v]) => v !== undefined)
+    ) as Conversation;
+
     const batch = writeBatch(db);
-    batch.set(doc(db, "conversations", conversationId), conversation);
+    batch.set(doc(db, "conversations", conversationId), cleanedConversation);
 
     // Initial system message
     const msgId = generateId("msg");
@@ -211,7 +218,7 @@ export const messageService = {
       conversationId,
       senderId: "system",
       senderRole: "business",
-      content: "Application accepted! You can now start communicating.",
+      content: "Collaboration started! You can now start communicating.",
       messageType: "system",
       readBy: [],
       createdAt: now

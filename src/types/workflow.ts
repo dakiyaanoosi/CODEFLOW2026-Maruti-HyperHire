@@ -2,6 +2,7 @@ export interface Workflow {
   workflowId: string;
   jobId: string;
   applicationId: string;
+  collaborationId?: string;
   studentId: string;
   businessId: string;
   status: "Pending" | "In Progress" | "Revision" | "Completed" | "Paid" | "active" | "completed" | "archived";

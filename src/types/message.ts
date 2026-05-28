@@ -31,6 +31,7 @@ export interface Conversation {
   participantInitials: Record<string, string>; // for quick display without joins
   relatedJobId?: string;
   relatedApplicationId?: string;
+  collaborationId?: string;
   lastMessage: string;
   lastMessageAt: string;
   unreadCounts: Record<string, number>;

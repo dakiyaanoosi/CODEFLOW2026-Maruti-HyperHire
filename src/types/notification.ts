@@ -14,6 +14,7 @@ export type NotificationType =
 export type EntityType = 
   | "application"
   | "workflow"
+  | "collaboration"
   | "message"
   | "task"
   | "job"

@@ -81,7 +81,24 @@ export const reviewService = {
     }
     const workflow = workflowSnap.data() as Workflow;
 
-    // Fetch the escrow to find the escrowId and verify status
+    // Validate collaboration status (primary authority)
+    let collaborationId: string | undefined;
+    try {
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(workflowId);
+      if (collab) {
+        collaborationId = collab.collaborationId;
+        if (collab.status !== "completed") {
+          throw new Error("Cannot submit review before collaboration is completed.");
+        }
+      }
+    } catch (e: any) {
+      // If the error is about collaboration status, re-throw
+      if (e.message?.includes("Cannot submit review")) throw e;
+      console.error("[Review Service] Error checking collaboration status, falling back to escrow check:", e);
+    }
+
+    // Fallback: verify escrow status for backward compatibility
     const escrowId = `esc_${workflow.applicationId}`;
     const escrowRef = doc(db, "escrows", escrowId);
     const escrowSnap = await getDoc(escrowRef);
@@ -89,7 +106,7 @@ export const reviewService = {
       throw new Error("Escrow document not found.");
     }
     const escrowData = escrowSnap.data();
-    if (escrowData.status !== "released") {
+    if (!collaborationId && escrowData.status !== "released") {
       throw new Error("Cannot submit review before escrow is released.");
     }
 
@@ -108,6 +125,7 @@ export const reviewService = {
     const newReview: Review = {
       reviewId,
       workflowId,
+      collaborationId,
       escrowId,
       applicationId: workflow.applicationId,
       businessId: workflow.businessId,

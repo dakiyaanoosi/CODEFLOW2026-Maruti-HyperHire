@@ -3,12 +3,14 @@
 import * as React from "react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { workflowService } from "@/lib/workflow-service";
+import { collaborationService } from "@/lib/collaboration-service";
 import { aiWorkflowService } from "@/lib/ai-workflow-service";
 import { escrowService } from "@/lib/escrow-service";
 import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
+import { Collaboration, CollaborationStatus } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
 import { WorkflowBoard } from "@/components/workflows/WorkflowBoard";
-import { Loader2, ArrowLeft, BrainCircuit, CheckCircle2, Send, Banknote } from "lucide-react";
+import { Loader2, ArrowLeft, BrainCircuit, CheckCircle2, Send, Banknote, ShieldAlert, Clock, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -17,6 +19,20 @@ import { reviewService } from "@/lib/review-service";
 import { BusinessReviewModal } from "@/components/reviews/BusinessReviewModal";
 import { StudentReviewModal } from "@/components/reviews/StudentReviewModal";
 
+// ─── Status Configuration ────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<CollaborationStatus, { label: string; color: string; bgColor: string }> = {
+  setup_pending: { label: "Setup Pending", color: "text-brand-ink", bgColor: "bg-brand-surface-strong" },
+  scope_review: { label: "Scope Review", color: "text-brand-info", bgColor: "bg-brand-info/10" },
+  awaiting_funding: { label: "Awaiting Funding", color: "text-[#8a6200]", bgColor: "bg-brand-mustard/10" },
+  active: { label: "Active", color: "text-brand-ink", bgColor: "bg-brand-primary/10" },
+  in_review: { label: "In Review", color: "text-brand-info", bgColor: "bg-brand-info/10" },
+  revision_requested: { label: "Revision Requested", color: "text-brand-warning", bgColor: "bg-brand-warning/10" },
+  completed: { label: "Completed", color: "text-brand-success", bgColor: "bg-brand-success/10" },
+  cancelled: { label: "Cancelled", color: "text-brand-coral", bgColor: "bg-brand-coral/10" },
+  disputed: { label: "Disputed", color: "text-brand-coral", bgColor: "bg-brand-coral/10" },
+};
+
 export default function WorkspacePage({ params }: { params: Promise<{ workflowId: string }> }) {
   const router = useRouter();
   const { user, profile } = useAuthStore();
@@ -24,6 +40,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const workflowId = unwrappedParams.workflowId;
 
   const [workflow, setWorkflow] = React.useState<Workflow | null>(null);
+  const [collaboration, setCollaboration] = React.useState<Collaboration | null>(null);
   const [columns, setColumns] = React.useState<WorkflowColumn[]>([]);
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([]);
   const [activities, setActivities] = React.useState<WorkflowActivity[]>([]);
@@ -62,6 +79,19 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setWorkflow(data);
     });
 
+    // Load Collaboration by workflowId
+    collaborationService.getCollaborationByWorkflowId(workflowId).then((collab) => {
+      if (collab) {
+        setCollaboration(collab);
+        // Subscribe to live collaboration updates
+        const unSubCollab = collaborationService.subscribeToCollaboration(
+          collab.collaborationId,
+          setCollaboration
+        );
+        return () => unSubCollab();
+      }
+    });
+
     reviewService.hasSubmittedReview(user.uid, workflowId).then(setHasSubmittedReview);
 
     const unSubCols = workflowService.subscribeToColumns(workflowId, setColumns);
@@ -90,6 +120,61 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     };
   }, [workflowId, router, user, profile]);
 
+  // ─── Actions derived from collaboration.status ──────────────────────────────
+
+  const handleSubmitWork = async () => {
+    if (!escrow || !collaboration) return;
+    if (!submitNote.trim()) {
+      setActionError("Please describe what you are delivering.");
+      return;
+    }
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await escrowService.submitWork(escrow.escrowId, submitNote.trim());
+      setIsSubmitModalOpen(false);
+      setSubmitNote("");
+    } catch (e: any) {
+      setActionError(e.message || "Failed to submit work.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRequestRevision = async () => {
+    if (!escrow || !collaboration) return;
+    if (!reviewNote.trim()) {
+      setActionError("Please provide revision feedback instructions.");
+      return;
+    }
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await escrowService.requestRevision(escrow.escrowId, reviewNote.trim());
+      setIsReviewModalOpen(false);
+      setReviewNote("");
+    } catch (e: any) {
+      setActionError(e.message || "Failed to request revision.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReleaseEscrow = async () => {
+    if (!escrow || !collaboration) return;
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await escrowService.releaseEscrow(escrow.escrowId);
+      setIsReviewModalOpen(false);
+      setIsBusinessReviewOpen(true);
+    } catch (e: any) {
+      setActionError(e.message || "Failed to release escrow.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRunAiAnalysis = async () => {
     if (!workflow) return;
     setIsAnalyzing(true);
@@ -108,65 +193,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsAnalyzing(false);
   };
 
-  const handleSubmitWork = async () => {
-    if (!escrow) return;
-    if (!submitNote.trim()) {
-      setActionError("Please describe what you are delivering.");
-      return;
-    }
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
-      await escrowService.submitWork(escrow.escrowId, submitNote.trim());
-      setIsSubmitModalOpen(false);
-      setSubmitNote("");
-      // Force update workflow status in state
-      setWorkflow((prev) => (prev ? { ...prev, status: "completed" } : null));
-    } catch (e: any) {
-      setActionError(e.message || "Failed to submit work.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRequestRevision = async () => {
-    if (!escrow) return;
-    if (!reviewNote.trim()) {
-      setActionError("Please provide revision feedback instructions.");
-      return;
-    }
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
-      await escrowService.requestRevision(escrow.escrowId, reviewNote.trim());
-      setIsReviewModalOpen(false);
-      setReviewNote("");
-      // Force update workflow status in state
-      setWorkflow((prev) => (prev ? { ...prev, status: "Revision" } : null));
-    } catch (e: any) {
-      setActionError(e.message || "Failed to request revision.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleReleaseEscrow = async () => {
-    if (!escrow) return;
-    setIsSubmitting(true);
-    setActionError(null);
-    try {
-      await escrowService.releaseEscrow(escrow.escrowId);
-      setIsReviewModalOpen(false);
-      // Force update workflow status in state
-      setWorkflow((prev) => (prev ? { ...prev, status: "Paid" } : null));
-      setIsBusinessReviewOpen(true);
-    } catch (e: any) {
-      setActionError(e.message || "Failed to release escrow.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   if (!user || !profile || isLoading || !workflow) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -175,9 +201,20 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     );
   }
 
+  // ─── Derive display state from collaboration ─────────────────────────────────
+
+  const collabStatus = collaboration?.status || "active";
+  const statusConfig = STATUS_CONFIG[collabStatus] || STATUS_CONFIG.active;
+
   // Calculate Progress (Dynamic based on completed tasks)
   const completedTasks = tasks.filter(t => t.status === "completed" || columns.find(c => c.columnId === t.columnId)?.name === "Completed").length;
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
+
+  // ─── Action Visibility (derived from collaboration.status) ────────────────────
+
+  const canStudentSubmit = !isBusiness && (collabStatus === "active" || collabStatus === "revision_requested");
+  const canBusinessReview = isBusiness && collabStatus === "in_review";
+  const canLeaveReview = collabStatus === "completed" && !hasSubmittedReview;
 
   return (
     <div className="flex h-[calc(100vh-6rem)] flex-col">
@@ -192,13 +229,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               <h1 className="text-xl font-semibold text-brand-ink">{workflow.jobTitle}</h1>
               <span className={cn(
                 "px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase",
-                workflow.status === "Paid" || workflow.status === "Completed" || workflow.status === "completed" 
-                  ? "bg-brand-success/10 text-brand-success" 
-                  : workflow.status === "Revision" 
-                  ? "bg-brand-warning/10 text-brand-warning text-brand-mustard" 
-                  : "bg-brand-surface-strong text-brand-ink"
+                statusConfig.bgColor,
+                statusConfig.color
               )}>
-                {workflow.status}
+                {statusConfig.label}
               </span>
             </div>
             <p className="text-sm text-brand-muted mt-0.5">
@@ -227,8 +261,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             AI Analyze
           </button>
 
-          {/* Student Escrow Action */}
-          {!isBusiness && escrow && (escrow.status === "funded" || escrow.status === "revision_requested") && (
+          {/* Student: Submit Deliverable (active or revision_requested) */}
+          {canStudentSubmit && (
             <button
               onClick={() => {
                 setActionError(null);
@@ -237,12 +271,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               className="flex items-center gap-2 px-3.5 py-2 bg-brand-ink text-white rounded-[8px] text-sm font-semibold hover:bg-brand-primary-active transition-colors"
             >
               <Send className="w-4 h-4" />
-              Submit Project for Review
+              Submit for Review
             </button>
           )}
 
-          {/* Business Escrow Action */}
-          {isBusiness && escrow && escrow.status === "completed" && (
+          {/* Business: Review Deliverable (in_review) */}
+          {canBusinessReview && (
             <button
               onClick={() => {
                 setActionError(null);
@@ -257,8 +291,52 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         </div>
       </div>
 
-      {/* Pending Review Prompt Banner */}
-      {escrow?.status === "released" && !hasSubmittedReview && (
+      {/* Lifecycle Stage Banner */}
+      {collabStatus === "revision_requested" && (
+        <div className="mt-4 rounded-[10px] bg-brand-warning/5 border border-brand-warning/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-warning/10 text-brand-warning">
+              <ShieldAlert className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-brand-ink">Revision Requested</p>
+              <p className="text-xs text-brand-muted mt-0.5">
+                {isBusiness 
+                  ? `Waiting for ${workflow.studentName} to address your revision notes.` 
+                  : `${workflow.businessName} has requested changes. Please review their feedback and resubmit.`}
+              </p>
+            </div>
+          </div>
+          {!isBusiness && (
+            <button
+              onClick={() => {
+                setActionError(null);
+                setIsSubmitModalOpen(true);
+              }}
+              className="shrink-0 rounded-[8px] bg-brand-ink px-4 py-2 text-xs font-semibold text-white hover:bg-brand-primary-active transition-colors shadow-sm"
+            >
+              Submit Updated Deliverable
+            </button>
+          )}
+        </div>
+      )}
+
+      {collabStatus === "in_review" && !isBusiness && (
+        <div className="mt-4 rounded-[10px] bg-brand-info/5 border border-brand-info/20 p-4 flex items-center gap-3 animate-in fade-in duration-300">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-info/10 text-brand-info">
+            <Clock className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-brand-ink">Deliverable Under Review</p>
+            <p className="text-xs text-brand-muted mt-0.5">
+              {workflow.businessName} is reviewing your submission. You will be notified of the outcome.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Completed + Review Prompt Banner */}
+      {canLeaveReview && (
         <div className="mt-4 rounded-[10px] bg-brand-mint/10 border border-brand-success/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-success/10 text-brand-success">
@@ -343,7 +421,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsSubmitModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10">
-            <h3 className="text-lg font-semibold text-brand-ink">Submit Project for Review</h3>
+            <h3 className="text-lg font-semibold text-brand-ink">Submit for Review</h3>
             <p className="text-xs text-brand-muted">Provide a description of your work, links to deliverables, and notes for the client.</p>
             <textarea
               value={submitNote}
@@ -382,7 +460,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             <h3 className="text-lg font-semibold text-brand-ink">Review Student Deliverable</h3>
             
             <div className="bg-brand-surface-soft border border-brand-hairline rounded-lg p-4 space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Student's Submission Note</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Student&apos;s Submission Note</span>
               <p className="text-sm text-brand-body leading-relaxed">{escrow.submissionNote || "No submission note provided."}</p>
             </div>
 
