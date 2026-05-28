@@ -1,4 +1,6 @@
 import { WorkflowTask } from "@/types/workflow";
+import { Deliverable } from "@/types/deliverable";
+import { Timestamp } from "firebase/firestore";
 
 const AI_API_URL = process.env.NEXT_PUBLIC_AI_API_URL || "https://hyperhire-ai-engine.onrender.com";
 
@@ -17,7 +19,8 @@ export const aiWorkflowService = {
     jobTitle: string,
     applicationText: string,
     currentTasks: WorkflowTask[],
-    role?: "student" | "business"
+    role?: "student" | "business",
+    deliverables?: Deliverable[]
   ): Promise<WorkflowAnalysisResult> {
     const now = new Date();
     
@@ -44,6 +47,15 @@ export const aiWorkflowService = {
         updatedAt: t.updatedAt
       }));
 
+      const deliverableSignals = deliverables ? deliverables.map(d => ({
+        title: d.title,
+        version: d.version,
+        reviewStatus: d.reviewStatus,
+        feedback: d.feedback || null,
+        submittedAt: d.submittedAt,
+        reviewedAt: d.reviewedAt || null
+      })) : [];
+
       const response = await fetch(`${AI_API_URL}/workflow/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,6 +64,7 @@ export const aiWorkflowService = {
           application_text: applicationText,
           current_tasks: currentTasks.map((t) => t.title),
           task_signals: taskSignals,
+          deliverable_signals: deliverableSignals,
           inactivity_days: inactivityDays,
           overdue_count: overdueCount,
           role: role || null
@@ -81,11 +94,48 @@ export const aiWorkflowService = {
     } catch (e) {
       console.error("AI Workflow Analysis failed, using local model:", e);
       
-      // Dynamic fallback based on overdue counts and inactivity
+      // Dynamic fallback based on overdue counts, inactivity, and deliverable revision history
       let riskScore = 10;
+      let revisionFrictionMessage = "";
+
       if (currentTasks.length === 0) riskScore += 30;
       if (overdueCount > 0) riskScore += Math.min(50, overdueCount * 20);
       if (inactivityDays > 0) riskScore += Math.min(40, Math.floor(inactivityDays * 10));
+
+      if (deliverables && deliverables.length > 0) {
+        const maxVersion = Math.max(...deliverables.map(d => d.version));
+        const activeRevisions = deliverables.filter(d => d.reviewStatus === "revision_requested").length;
+
+        if (maxVersion > 2) {
+          riskScore += 25; // Repeated revision loop indicates communication friction
+          revisionFrictionMessage = `⚠️ Repeated revisions detected (up to v${maxVersion}). Review alignment on task expectations to prevent timeline drift.`;
+        } else if (activeRevisions > 0) {
+          riskScore += 10;
+          revisionFrictionMessage = `⚠️ Active revisions requested. Address client feedback precisely to clear execution blocks.`;
+        }
+
+        // Calculate average turnaround speed
+        let totalTurnaroundMs = 0;
+        let reviewedCount = 0;
+        deliverables.forEach(d => {
+          if (d.submittedAt && d.reviewedAt) {
+            const subTime = d.submittedAt instanceof Timestamp ? d.submittedAt.toDate().getTime() : new Date(d.submittedAt).getTime();
+            const revTime = d.reviewedAt instanceof Timestamp ? d.reviewedAt.toDate().getTime() : new Date(d.reviewedAt).getTime();
+            if (revTime > subTime) {
+              totalTurnaroundMs += (revTime - subTime);
+              reviewedCount++;
+            }
+          }
+        });
+
+        if (reviewedCount > 0) {
+          const avgHours = totalTurnaroundMs / (1000 * 60 * 60);
+          if (avgHours > 48 && role === "business") {
+            revisionFrictionMessage += ` Slow review turnaround detected (averaging ${Math.round(avgHours)} hours). Approve or reject quickly to keep the workspace momentum active.`;
+          }
+        }
+      }
+
       riskScore = Math.min(100, riskScore);
 
       let risk_level: "Low" | "Medium" | "High" = "Low";
@@ -124,6 +174,10 @@ export const aiWorkflowService = {
         } else {
           summary = "[Fallback Mode] Your board execution is active. Update progress and upload deliverables when ready to submit.";
         }
+      }
+
+      if (revisionFrictionMessage) {
+        summary = `${summary} ${revisionFrictionMessage}`;
       }
 
       return {

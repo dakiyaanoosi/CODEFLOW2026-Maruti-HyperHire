@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 export interface DeliverableReview {
   reviewId: string;
   reviewerId: string;
@@ -22,13 +24,27 @@ export interface Deliverable {
   collaborationId: string;
   taskId?: string;
   milestoneId?: string;
-  uploadedBy: string;
+
+  submittedBy: string;
+
   title: string;
   description?: string;
+
   files: string[];
+
   version: number;
-  reviewStatus: "pending_review" | "approved" | "revision_requested";
-  createdAt: string;
+
+  reviewStatus: "pending_review" | "revision_requested" | "approved";
+
+  feedback?: string;
+
+  reviewedBy?: string;
+  reviewedAt?: Timestamp | string | null;
+
+  submittedAt: Timestamp | string;
+  updatedAt: Timestamp | string;
+
   reviews?: DeliverableReview[];
   comments?: DeliverableComment[];
 }
+

@@ -1,32 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { Workflow, WorkflowTask, WorkflowColumn, TaskStatus } from "@/types/workflow";
+import { Workflow, WorkflowTask, WorkflowColumn } from "@/types/workflow";
 import { workflowService } from "@/lib/workflow-service";
 import { uploadFile } from "@/lib/cloudinary";
 import {
   X,
-  Calendar,
   Paperclip,
   Loader2,
   FileText,
-  ImageIcon,
-  File,
   Sparkles,
   CheckCircle2,
   Clock,
   MessageSquare,
   AlertCircle,
-  Plus,
   Trash2,
   Check
 } from "lucide-react";
-import { formatFileSize } from "@/lib/message-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { canTransitionTaskStatus } from "@/lib/collaboration/permission-policy";
 import { deliverableService } from "@/lib/deliverable-service";
 import { Deliverable } from "@/types/deliverable";
+import { Timestamp } from "firebase/firestore";
 
 interface WorkflowTaskDetailProps {
   task: WorkflowTask | null;
@@ -69,11 +64,13 @@ export function WorkflowTaskDetail({
   // Subscribe to deliverables for this task
   React.useEffect(() => {
     if (!isOpen || !task) {
-      setDeliverables([]);
       return;
     }
     const unsub = deliverableService.subscribeToDeliverables(task.taskId, setDeliverables);
-    return () => unsub();
+    return () => {
+      unsub();
+      setDeliverables([]);
+    };
   }, [task, isOpen]);
 
   if (!isOpen || !task) return null;
@@ -93,9 +90,10 @@ export function WorkflowTaskDetail({
       const result = await uploadFile(file, setUploadProgress);
       setDelivFiles((prev) => [...prev, result.url]);
       setDelivFileNames((prev) => [...prev, file.name || "Attachment"]);
-    } catch (err: any) {
-      console.error("Upload failed", err);
-      alert(err.message || "Failed to upload file.");
+    } catch (err) {
+      const error = err as Error;
+      console.error("Upload failed", error);
+      alert(error.message || "Failed to upload file.");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -128,8 +126,9 @@ export function WorkflowTaskDetail({
         studentId: workflow.studentId,
         businessId: workflow.businessId,
       });
-    } catch (err: any) {
-      alert(err.message || "Failed to start task.");
+    } catch (err) {
+      const error = err as Error;
+      alert(error.message || "Failed to start task.");
     }
   };
 
@@ -147,19 +146,12 @@ export function WorkflowTaskDetail({
       const deliv = await deliverableService.submitDeliverable({
         collaborationId: collabId,
         taskId: task.taskId,
-        uploadedBy: actorId,
+        submittedBy: actorId,
         title: delivTitle.trim(),
         description: delivDesc.trim(),
         files: delivFiles,
       });
 
-      const targetCol = columns.find((c) => c.name === "Deliverables");
-      const updates: Partial<WorkflowTask> = { status: "submitted" };
-      if (targetCol) {
-        updates.columnId = targetCol.columnId;
-      }
-
-      await workflowService.updateTask(task.taskId, updates, actorId, actorRole);
       await workflowService.logActivity({
         workflowId: workflow.workflowId,
         taskId: task.taskId,
@@ -177,8 +169,9 @@ export function WorkflowTaskDetail({
       setDelivFiles([]);
       setDelivFileNames([]);
       setIsSubmitOpen(false);
-    } catch (err: any) {
-      alert(err.message || "Failed to submit deliverable.");
+    } catch (err) {
+      const error = err as Error;
+      alert(error.message || "Failed to submit deliverable.");
     } finally {
       setIsUploading(false);
     }
@@ -200,13 +193,6 @@ export function WorkflowTaskDetail({
         "Deliverables approved, task completed."
       );
 
-      const targetCol = columns.find((c) => c.name === "Completed Work");
-      const updates: Partial<WorkflowTask> = { status: "approved" };
-      if (targetCol) {
-        updates.columnId = targetCol.columnId;
-      }
-
-      await workflowService.updateTask(task.taskId, updates, actorId, actorRole);
       await workflowService.logActivity({
         workflowId: workflow.workflowId,
         taskId: task.taskId,
@@ -217,8 +203,9 @@ export function WorkflowTaskDetail({
         studentId: workflow.studentId,
         businessId: workflow.businessId,
       });
-    } catch (err: any) {
-      alert(err.message || "Failed to approve deliverable.");
+    } catch (err) {
+      const error = err as Error;
+      alert(error.message || "Failed to approve deliverable.");
     } finally {
       setIsUploading(false);
     }
@@ -244,13 +231,6 @@ export function WorkflowTaskDetail({
         revisionFeedback.trim()
       );
 
-      const targetCol = columns.find((c) => c.name === "Review/Revisions");
-      const updates: Partial<WorkflowTask> = { status: "revision_requested" };
-      if (targetCol) {
-        updates.columnId = targetCol.columnId;
-      }
-
-      await workflowService.updateTask(task.taskId, updates, actorId, actorRole);
       await workflowService.logActivity({
         workflowId: workflow.workflowId,
         taskId: task.taskId,
@@ -264,8 +244,9 @@ export function WorkflowTaskDetail({
 
       setRevisionFeedback("");
       setIsRevisionOpen(false);
-    } catch (err: any) {
-      alert(err.message || "Failed to request revision.");
+    } catch (err) {
+      const error = err as Error;
+      alert(error.message || "Failed to request revision.");
     } finally {
       setIsUploading(false);
     }
@@ -560,7 +541,7 @@ export function WorkflowTaskDetail({
             </div>
 
             {/* Deliverables History Tracker */}
-            <div className="space-y-3.5">
+            <div className="space-y-4">
               <h4 className="text-xs font-semibold text-brand-ink uppercase tracking-wide">
                 Deliverable Submissions & History
               </h4>
@@ -571,84 +552,183 @@ export function WorkflowTaskDetail({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {deliverables.map((deliv, index) => (
-                    <div
-                      key={deliv.deliverableId}
-                      className="p-4 rounded-xl border border-brand-hairline bg-white shadow-sm space-y-3 hover:border-brand-primary/45 transition-colors"
-                    >
-                      <div className="flex items-center justify-between border-b border-brand-hairline pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold">
-                            v{deliv.version}
-                          </span>
-                          <span className="text-xs font-bold text-brand-ink">{deliv.title}</span>
-                        </div>
-                        <span
-                          className={cn(
-                            "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
-                            deliv.reviewStatus === "approved"
-                              ? "bg-brand-success/15 text-brand-success"
-                              : deliv.reviewStatus === "revision_requested"
-                              ? "bg-brand-warning/15 text-brand-warning"
-                              : "bg-brand-info/15 text-brand-info"
-                          )}
-                        >
-                          {deliv.reviewStatus.replace("_", " ")}
-                        </span>
-                      </div>
-
-                      {deliv.description && (
-                        <p className="text-xs text-brand-muted leading-relaxed whitespace-pre-wrap">
-                          {deliv.description}
-                        </p>
-                      )}
-
-                      {/* Deliverable File URLs */}
-                      {deliv.files && deliv.files.length > 0 && (
-                        <div className="space-y-1.5">
-                          <label className="text-[9px] font-bold text-brand-ink uppercase block">Files & Artifacts</label>
-                          <div className="grid grid-cols-1 gap-2">
-                            {deliv.files.map((fileUrl, fIdx) => (
-                              <a
-                                key={fIdx}
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2.5 p-2 rounded bg-brand-surface-soft/40 border border-brand-hairline hover:bg-brand-surface-soft transition-colors group text-xs font-medium text-brand-ink"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-brand-muted group-hover:text-brand-primary transition-colors" />
-                                <span className="truncate max-w-[250px]">{`Attachment file ${fIdx + 1}`}</span>
-                              </a>
-                            ))}
+                  {/* Timeline progression visualizer */}
+                  <div className="p-4 rounded-xl border border-brand-hairline bg-brand-surface-soft/10 space-y-3.5">
+                    <h5 className="text-[11px] font-bold text-brand-ink uppercase tracking-wide">Submission & Review Timeline</h5>
+                    <div className="relative pl-5 border-l-2 border-brand-hairline space-y-4 text-xs">
+                      {deliverables.map((d) => {
+                        const submittedDate = d.submittedAt ? (d.submittedAt instanceof Timestamp ? d.submittedAt.toDate() : new Date(d.submittedAt)) : null;
+                        const reviewedDate = d.reviewedAt ? (d.reviewedAt instanceof Timestamp ? d.reviewedAt.toDate() : new Date(d.reviewedAt)) : null;
+                        return (
+                          <div key={d.deliverableId} className="relative">
+                            {/* Dot icon */}
+                            <div className={cn(
+                              "absolute -left-[27px] top-1 w-3.5 h-3.5 rounded-full border-2 bg-white flex items-center justify-center",
+                              d.reviewStatus === "approved"
+                                ? "border-brand-success text-brand-success"
+                                : d.reviewStatus === "revision_requested"
+                                ? "border-brand-warning text-brand-warning"
+                                : "border-brand-info text-brand-info"
+                            )}>
+                              <div className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                d.reviewStatus === "approved"
+                                  ? "bg-brand-success"
+                                  : d.reviewStatus === "revision_requested"
+                                  ? "bg-brand-warning"
+                                  : "bg-brand-info"
+                              )} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-brand-ink">Version v{d.version} Submitted</span>
+                                {submittedDate && (
+                                  <span className="text-[10px] text-brand-muted font-mono">
+                                    {submittedDate.toLocaleDateString()} {submittedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-brand-muted text-[11px] mt-0.5">{d.title}</p>
+                              {d.reviewStatus !== "pending_review" && (
+                                <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                                  <span className={cn(
+                                    "font-semibold uppercase tracking-[0.2px]",
+                                    d.reviewStatus === "approved" ? "text-brand-success" : "text-brand-warning"
+                                  )}>
+                                    {d.reviewStatus === "approved" ? "Approved" : "Revision Requested"}
+                                  </span>
+                                  {reviewedDate && (
+                                    <span className="text-brand-muted">
+                                      on {reviewedDate.toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                      {/* Review Logs */}
-                      {deliv.reviews && deliv.reviews.length > 0 && (
-                        <div className="border-t border-brand-hairline pt-2.5 mt-2 space-y-2">
-                          <span className="text-[9px] font-bold text-brand-ink uppercase block">Reviewer Feedback Logs</span>
-                          {deliv.reviews.map((rev) => (
-                            <div key={rev.reviewId} className="flex gap-2.5 text-xs items-start bg-brand-surface-soft/30 p-2.5 rounded-lg border border-brand-hairline">
+                  {/* List of Deliverables with expanded notes & reviewer feedback */}
+                  {deliverables.map((deliv) => {
+                    const submittedDate = deliv.submittedAt ? (deliv.submittedAt instanceof Timestamp ? deliv.submittedAt.toDate() : new Date(deliv.submittedAt)) : null;
+                    const reviewedDate = deliv.reviewedAt ? (deliv.reviewedAt instanceof Timestamp ? deliv.reviewedAt.toDate() : new Date(deliv.reviewedAt)) : null;
+
+                    return (
+                      <div
+                        key={deliv.deliverableId}
+                        className="p-4 rounded-xl border border-brand-hairline bg-white shadow-sm space-y-3 hover:border-brand-primary/45 transition-colors"
+                      >
+                        <div className="flex items-center justify-between border-b border-brand-hairline pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold">
+                              v{deliv.version}
+                            </span>
+                            <div>
+                              <span className="text-xs font-bold text-brand-ink block">{deliv.title}</span>
+                              {submittedDate && (
+                                <span className="text-[9px] text-brand-muted font-mono block mt-0.5">
+                                  Submitted: {submittedDate.toLocaleDateString()} {submittedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
+                              deliv.reviewStatus === "approved"
+                                ? "bg-brand-success/15 text-brand-success"
+                                : deliv.reviewStatus === "revision_requested"
+                                ? "bg-brand-warning/15 text-brand-warning"
+                                : "bg-brand-info/15 text-brand-info"
+                            )}
+                          >
+                            {deliv.reviewStatus.replace("_", " ")}
+                          </span>
+                        </div>
+
+                        {deliv.description && (
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-brand-ink uppercase block">Submitter Notes</span>
+                            <p className="text-xs text-brand-muted leading-relaxed whitespace-pre-wrap">
+                              {deliv.description}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Deliverable File URLs */}
+                        {deliv.files && deliv.files.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-bold text-brand-ink uppercase block">Files & Artifacts</span>
+                            <div className="grid grid-cols-1 gap-2">
+                              {deliv.files.map((fileUrl, fIdx) => (
+                                <a
+                                  key={fIdx}
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-2.5 p-2 rounded bg-brand-surface-soft/40 border border-brand-hairline hover:bg-brand-surface-soft transition-colors group text-xs font-medium text-brand-ink"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-brand-muted group-hover:text-brand-primary transition-colors" />
+                                  <span className="truncate max-w-[250px]">{`Attachment file ${fIdx + 1}`}</span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top-Level Modern Review Feedback */}
+                        {(deliv.reviewedBy || deliv.feedback) && (
+                          <div className="border-t border-brand-hairline pt-2.5 mt-2 space-y-2">
+                            <span className="text-[9px] font-bold text-brand-ink uppercase block">Client Review Feedback</span>
+                            <div className="flex gap-2.5 text-xs items-start bg-brand-surface-soft/30 p-2.5 rounded-lg border border-brand-hairline">
                               <MessageSquare className="w-4 h-4 text-brand-muted shrink-0 mt-0.5" />
-                              <div className="space-y-0.5">
+                              <div className="space-y-1">
                                 <p className="font-semibold text-brand-ink">
-                                  {rev.reviewerName}{" "}
+                                  {deliv.reviewedBy === workflow.businessId ? workflow.businessName : "Business Client"}{" "}
                                   <span className="text-[10px] text-brand-muted capitalize font-normal">
-                                    ({rev.reviewerRole})
+                                    (business)
                                   </span>
                                 </p>
-                                {rev.feedback && <p className="text-brand-muted leading-relaxed">{rev.feedback}</p>}
-                                <p className="text-[9px] text-brand-muted">
-                                  {new Date(rev.createdAt).toLocaleString()}
-                                </p>
+                                {deliv.feedback && <p className="text-brand-muted leading-relaxed whitespace-pre-wrap">{deliv.feedback}</p>}
+                                {reviewedDate && (
+                                  <p className="text-[9px] text-brand-muted font-mono">
+                                    {reviewedDate.toLocaleString()}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                          </div>
+                        )}
+
+                        {/* Legacy Review Logs (For backward compatibility) */}
+                        {deliv.reviews && deliv.reviews.length > 0 && (
+                          <div className="border-t border-brand-hairline pt-2.5 mt-2 space-y-2">
+                            <span className="text-[9px] font-bold text-brand-ink uppercase block">Reviewer Feedback Logs (Legacy)</span>
+                            {deliv.reviews.map((rev) => (
+                              <div key={rev.reviewId} className="flex gap-2.5 text-xs items-start bg-brand-surface-soft/30 p-2.5 rounded-lg border border-brand-hairline">
+                                <MessageSquare className="w-4 h-4 text-brand-muted shrink-0 mt-0.5" />
+                                <div className="space-y-0.5">
+                                  <p className="font-semibold text-brand-ink">
+                                    {rev.reviewerName}{" "}
+                                    <span className="text-[10px] text-brand-muted capitalize font-normal">
+                                      ({rev.reviewerRole})
+                                    </span>
+                                  </p>
+                                  {rev.feedback && <p className="text-brand-muted leading-relaxed">{rev.feedback}</p>}
+                                  <p className="text-[9px] text-brand-muted">
+                                    {new Date(rev.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

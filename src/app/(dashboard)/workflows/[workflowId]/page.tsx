@@ -253,11 +253,22 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     if (!workflow || !profile) return;
     setIsAnalyzing(true);
     
+    let milestoneDeliverables: any[] = [];
+    if (activeMilestoneId) {
+      try {
+        const { deliverableService } = await import("@/lib/deliverable-service");
+        milestoneDeliverables = await deliverableService.getDeliverablesByMilestone(activeMilestoneId);
+      } catch (err) {
+        console.error("Error loading deliverables for AI analysis:", err);
+      }
+    }
+    
     const result = await aiWorkflowService.analyzeWorkflow(
       workflow.jobTitle,
       "Application requirements context.", 
       tasks,
-      profile.role as any
+      profile.role as any,
+      milestoneDeliverables
     );
 
     setAiInsight({

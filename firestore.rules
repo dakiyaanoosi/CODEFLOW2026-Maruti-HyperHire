@@ -121,16 +121,22 @@ service cloud.firestore {
 
     match /deliverables/{deliverableId} {
       allow read: if isAuthenticated() && (
-        resource.data.uploadedBy == request.auth.uid ||
+        resource.data.submittedBy == request.auth.uid ||
         get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid ||
         get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid
       );
       allow create: if isAuthenticated() && (
-        request.resource.data.uploadedBy == request.auth.uid
+        // Only students can submit deliverables
+        request.resource.data.submittedBy == request.auth.uid &&
+        request.auth.uid == get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.studentId
       );
       allow update: if isAuthenticated() && (
-        request.auth.uid == resource.data.uploadedBy ||
-        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+        // Only business participant can review deliverables
+        request.auth.uid == get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId &&
+        // Ensure version history is immutable: only allow mutating review status, feedback and reviewer details
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewStatus', 'feedback', 'reviewedBy', 'reviewedAt', 'updatedAt']) &&
+        // Prevent self-approval
+        request.auth.uid != resource.data.submittedBy
       );
       allow delete: if false;
     }
