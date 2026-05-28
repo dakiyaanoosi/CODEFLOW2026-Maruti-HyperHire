@@ -1,12 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
+import { Workflow, WorkflowColumn, WorkflowTask } from "@/types/workflow";
 import { workflowService } from "@/lib/workflow-service";
 import { WorkflowColumn as ColumnComponent } from "./WorkflowColumn";
 import { WorkflowTaskDetail } from "./WorkflowTaskDetail";
-import { WorkflowActivityFeed } from "./WorkflowActivityFeed";
-
 import { CollaborationStatus } from "@/types/collaboration";
 import { canMoveTask } from "@/lib/collaboration/permission-policy";
 
@@ -14,7 +12,6 @@ interface WorkflowBoardProps {
   workflow: Workflow;
   columns: WorkflowColumn[];
   tasks: WorkflowTask[];
-  activities: WorkflowActivity[];
   actorId: string;
   actorName: string;
   actorRole: "student" | "business";
@@ -26,7 +23,6 @@ export function WorkflowBoard({
   workflow,
   columns,
   tasks,
-  activities,
   actorId,
   actorName,
   actorRole,
@@ -54,11 +50,11 @@ export function WorkflowBoard({
     const task = tasks.find((t) => t.taskId === taskId);
     if (!task || task.columnId === targetColumnId) return;
 
-    const targetCol = columns.find(c => c.columnId === targetColumnId);
+    const targetCol = columns.find((c) => c.columnId === targetColumnId);
     if (!targetCol) return;
 
-    const currentCol = columns.find(c => c.columnId === task.columnId);
-    const currentColName = currentCol ? currentCol.name : "Pending";
+    const currentCol = columns.find((c) => c.columnId === task.columnId);
+    const currentColName = currentCol ? currentCol.name : "Execution Work";
 
     if (!canMoveTask(actorId, actorRole, collaborationStatus, task, currentColName, targetCol.name)) {
       alert(`Permission Denied: You cannot move this task from '${currentColName}' to '${targetCol.name}' as a '${actorRole}'.`);
@@ -80,7 +76,7 @@ export function WorkflowBoard({
     } catch (err: any) {
       alert(err.message || "Failed to move task.");
     }
-    
+
     setDraggingId(null);
   };
 
@@ -89,10 +85,10 @@ export function WorkflowBoard({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full gap-6 overflow-y-auto pb-8">
+    <div className="w-full h-full pb-8">
       {/* 4-column Board Container */}
-      <div className="flex-1 overflow-x-auto min-w-0">
-        <div className="flex gap-5 min-h-[600px] pb-4">
+      <div className="overflow-x-auto min-w-0">
+        <div className="flex gap-5 min-h-[580px] pb-4">
           {columns.map((col) => {
             // Determine if column can receive new tasks
             let onAddTask: (() => void) | undefined;
@@ -141,11 +137,6 @@ export function WorkflowBoard({
             );
           })}
         </div>
-      </div>
-
-      {/* Activity Feed Sidebar */}
-      <div className="w-full lg:w-[320px] shrink-0 border-t lg:border-t-0 lg:border-l border-brand-hairline pt-6 lg:pt-0 lg:pl-6 overflow-y-auto">
-        <WorkflowActivityFeed activities={activities} />
       </div>
 
       {/* Detail Panel */}

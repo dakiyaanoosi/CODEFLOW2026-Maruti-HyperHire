@@ -124,7 +124,7 @@ export function canFundEscrow(actorRole: UserRole, collabStatus: CollaborationSt
  * Checks if the actor can release the escrow payment.
  */
 export function canReleaseEscrow(actorRole: UserRole, collabStatus: CollaborationStatus): boolean {
-  return actorRole === "business" && collabStatus === "in_review";
+  return actorRole === "business" && collabStatus === "completed";
 }
 
 /**

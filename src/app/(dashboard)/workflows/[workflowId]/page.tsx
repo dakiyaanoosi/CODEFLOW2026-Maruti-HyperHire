@@ -6,11 +6,22 @@ import { workflowService } from "@/lib/workflow-service";
 import { collaborationService } from "@/lib/collaboration-service";
 import { aiWorkflowService } from "@/lib/ai-workflow-service";
 import { escrowService } from "@/lib/escrow-service";
-import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
+import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity, TaskStatus } from "@/types/workflow";
 import { Collaboration, CollaborationStatus } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
 import { WorkflowBoard } from "@/components/workflows/WorkflowBoard";
-import { Loader2, ArrowLeft, BrainCircuit, CheckCircle2, Send, Banknote, ShieldAlert, Clock, Wallet, Info } from "lucide-react";
+import { 
+  Loader2, 
+  ArrowLeft, 
+  BrainCircuit, 
+  CheckCircle2, 
+  Send, 
+  Banknote, 
+  ShieldAlert, 
+  Clock, 
+  Wallet, 
+  Info 
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -27,6 +38,9 @@ import {
   canRequestRevision, 
   canApproveDeliverable 
 } from "@/lib/collaboration/permission-policy";
+import { EscrowStatusBadge } from "@/components/escrow/EscrowStatusBadge";
+import { EscrowTimeline } from "@/components/escrow/EscrowTimeline";
+import { WorkflowActivityFeed } from "@/components/workflows/WorkflowActivityFeed";
 
 // ─── Status Configuration ────────────────────────────────────────────────────
 
@@ -138,7 +152,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   }, [workflowId, router, user, profile]);
 
   // ─── Actions derived from collaboration.status ──────────────────────────────
- 
+
   const handleSubmitWork = async () => {
     if (!escrow || !collaboration || !user || !profile) return;
     if (!submitNote.trim()) {
@@ -148,6 +162,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
+      // Student project submission
       await escrowService.submitWork(escrow.escrowId, submitNote.trim(), user.uid, profile.role as any);
       setIsSubmitModalOpen(false);
       setSubmitNote("");
@@ -157,7 +172,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setIsSubmitting(false);
     }
   };
- 
+
   const handleRequestRevision = async () => {
     if (!escrow || !collaboration || !user || !profile) return;
     if (!reviewNote.trim()) {
@@ -176,22 +191,49 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setIsSubmitting(false);
     }
   };
- 
+
+  // Operational approval transitions collaboration status to 'completed'
+  const handleApproveProject = async () => {
+    if (!escrow || !collaboration || !user || !profile) return;
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      // 1. Transition collaboration to completed (work is approved)
+      await collaborationService.transitionCollaboration(
+        collaboration.collaborationId,
+        "completed",
+        user.uid,
+        "business",
+        { message: "Project work approved operationally. Escrow payment is now ready for release.", note: reviewNote.trim() || undefined }
+      );
+
+      // 2. Add approved log to escrow timeline
+      await escrowService.approveWork(escrow.escrowId, reviewNote.trim() || "Work approved operationally.", user.uid, "business");
+
+      setIsReviewModalOpen(false);
+      setReviewNote("");
+    } catch (e: any) {
+      setActionError(e.message || "Failed to approve project.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Financial payout release updates escrow status to 'released'
   const handleReleaseEscrow = async () => {
     if (!escrow || !collaboration || !user || !profile) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
       await escrowService.releaseEscrow(escrow.escrowId, user.uid, profile.role as any);
-      setIsReviewModalOpen(false);
       setIsBusinessReviewOpen(true);
     } catch (e: any) {
-      setActionError(e.message || "Failed to release escrow.");
+      setActionError(e.message || "Failed to release escrow payment.");
     } finally {
       setIsSubmitting(false);
     }
   };
- 
+
   const handleRunAiAnalysis = async () => {
     if (!workflow || !profile) return;
     setIsAnalyzing(true);
@@ -202,7 +244,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       tasks,
       profile.role as any
     );
- 
+
     setAiInsight({
       summary: result.summary,
       insight: result.productivity_insight,
@@ -287,11 +329,11 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
 
   // ─── Action Visibility (derived from collaboration.status) ────────────────────
- 
+
   const canStudentSubmit = canSubmitDeliverable(profile?.role as any, collabStatus);
   const canBusinessReview = canRequestRevision(profile?.role as any, collabStatus) || canApproveDeliverable(profile?.role as any, collabStatus);
   const canLeaveReview = collabStatus === "completed" && !hasSubmittedReview;
- 
+
   return (
     <div className="flex h-[calc(100vh-6rem)] flex-col space-y-4 overflow-y-auto">
       {/* Header */}
@@ -317,8 +359,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </div>
         </div>
  
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="hidden md:flex items-center gap-2">
+        <div className="flex items-center gap-3.5 flex-wrap">
+          <div className="hidden md:flex items-center gap-2 mr-2">
             <div className="w-32 h-2 bg-brand-surface-soft rounded-full overflow-hidden">
               <div 
                 className="h-full bg-brand-primary transition-all duration-500" 
@@ -328,6 +370,33 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             <span className="text-xs font-semibold text-brand-ink">{progressPercent}%</span>
           </div>
  
+          {/* Action Buttons based on Operational Loop */}
+          {canStudentSubmit && (
+            <button
+              onClick={() => {
+                setActionError(null);
+                setIsSubmitModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-ink text-white rounded-[8px] text-sm font-semibold hover:bg-brand-primary transition-colors shadow-sm"
+            >
+              <Send className="w-4 h-4" />
+              Submit Project for Review
+            </button>
+          )}
+
+          {canBusinessReview && (
+            <button
+              onClick={() => {
+                setActionError(null);
+                setIsReviewModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-success text-white rounded-[8px] text-sm font-semibold hover:bg-brand-success/90 transition-colors shadow-sm"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Review Project Submission
+            </button>
+          )}
+
           <button 
             onClick={handleRunAiAnalysis}
             disabled={isAnalyzing}
@@ -339,83 +408,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         </div>
       </div>
 
-      {/* Financial & Escrow Dashboard Panel */}
-      {escrow && (
-        <div className="rounded-xl border border-brand-hairline bg-white p-5 shadow-sm space-y-4 animate-in fade-in duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-hairline pb-3 gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-lg bg-brand-primary/10 text-brand-primary">
-                <Wallet className="w-5 h-5" />
-              </span>
-              <div>
-                <h3 className="text-sm font-semibold text-brand-ink">Escrow Ledger #{escrow.escrowId}</h3>
-                <p className="text-xs text-brand-muted mt-0.5">Secure payment contract linking client funding and student deliverables</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Status:</span>
-              <span className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                escrow.status === "released" ? "bg-brand-success/15 text-brand-success" :
-                escrow.status === "completed" ? "bg-brand-info/15 text-brand-info" :
-                escrow.status === "revision_requested" ? "bg-brand-warning/15 text-brand-warning" :
-                "bg-brand-surface-strong text-brand-muted"
-              )}>
-                {escrow.status}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3.5 rounded-lg border border-brand-hairline bg-brand-surface-soft/20">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Total Budget</p>
-              <p className="text-lg font-bold text-brand-ink mt-1">₹{escrow.amount.toLocaleString("en-IN")}</p>
-            </div>
-            <div className="p-3.5 rounded-lg border border-brand-hairline bg-brand-surface-soft/20">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Platform Fee (10%)</p>
-              <p className="text-lg font-bold text-brand-muted mt-1">₹{(escrow.platformFee ?? escrow.amount * 0.1).toLocaleString("en-IN")}</p>
-            </div>
-            <div className="p-3.5 rounded-lg border border-brand-hairline bg-brand-surface-soft/20">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Net Payout</p>
-              <p className="text-lg font-bold text-brand-success mt-1">₹{(escrow.payoutAmount ?? escrow.amount * 0.9).toLocaleString("en-IN")}</p>
-            </div>
-            <div className="flex items-center justify-end">
-              {/* Context Actions */}
-              {canStudentSubmit && (
-                <button
-                  onClick={() => {
-                    setActionError(null);
-                    setIsSubmitModalOpen(true);
-                  }}
-                  className="w-full py-2.5 bg-brand-ink text-white rounded-lg text-sm font-semibold hover:bg-brand-primary-active transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <Send className="w-4 h-4" />
-                  Submit Deliverable
-                </button>
-              )}
-              {canBusinessReview && (
-                <button
-                  onClick={() => {
-                    setActionError(null);
-                    setIsReviewModalOpen(true);
-                  }}
-                  className="w-full py-2.5 bg-brand-success text-white rounded-lg text-sm font-semibold hover:bg-brand-success/90 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Review Submission
-                </button>
-              )}
-              {escrow.status === "released" && (
-                <div className="p-3.5 w-full rounded-lg border border-brand-success/20 bg-brand-success/5 text-center">
-                  <p className="text-xs font-semibold text-brand-success">✓ Payment Released</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
- 
-      {/* Lifecycle Stage Banner */}
+      {/* Lifesycle Banners */}
       {collabStatus === "revision_requested" && (
         <div className="rounded-[10px] bg-brand-warning/5 border border-brand-warning/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
@@ -431,17 +424,6 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               </p>
             </div>
           </div>
-          {!isBusiness && (
-            <button
-              onClick={() => {
-                setActionError(null);
-                setIsSubmitModalOpen(true);
-              }}
-              className="shrink-0 rounded-[8px] bg-brand-ink px-4 py-2 text-xs font-semibold text-white hover:bg-brand-primary-active transition-colors shadow-sm"
-            >
-              Submit Updated Deliverable
-            </button>
-          )}
         </div>
       )}
  
@@ -451,7 +433,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             <Clock className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-brand-ink">Deliverable Under Review</p>
+            <p className="text-sm font-semibold text-brand-ink">Deliverables Under Review</p>
             <p className="text-xs text-brand-muted mt-0.5">
               {workflow.businessName} is reviewing your submission. You will be notified of the outcome.
             </p>
@@ -467,7 +449,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               <CheckCircle2 className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-brand-ink">Project Completed & Payment Released!</p>
+              <p className="text-sm font-semibold text-brand-ink">Project Completed & Payout Done!</p>
               <p className="text-xs text-brand-muted mt-0.5">
                 {isBusiness 
                   ? `Please evaluate your experience collaborating with ${workflow.studentName} to build marketplace trust.` 
@@ -527,23 +509,108 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </motion.div>
         )}
       </AnimatePresence>
- 
-      {/* Restructured Board Area */}
-      <div className="flex-1 mt-4">
-        <WorkflowBoard 
-          workflow={workflow}
-          columns={columns}
-          tasks={tasks}
-          activities={activities}
-          actorId={user.uid}
-          actorName={actorName}
-          actorRole={profile.role as any}
-          collaborationStatus={collabStatus}
-          onOpenCreateTask={(type) => {
-            setCreateTaskType(type);
-            setIsCreateTaskModalOpen(true);
-          }}
-        />
+
+      {/* ────────────────── TWO COLUMN WORKSPACE GRID ────────────────── */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
+        
+        {/* Left/Main Column: Work Execution Domain */}
+        <div className="lg:col-span-3 flex flex-col min-h-0 overflow-y-auto">
+          <WorkflowBoard 
+            workflow={workflow}
+            columns={columns}
+            tasks={tasks}
+            actorId={user.uid}
+            actorName={actorName}
+            actorRole={profile.role as any}
+            collaborationStatus={collabStatus}
+            onOpenCreateTask={(type) => {
+              setCreateTaskType(type);
+              setIsCreateTaskModalOpen(true);
+            }}
+          />
+        </div>
+
+        {/* Right Sidebar: Escrow Payment Domain & Activity Timeline */}
+        <div className="lg:col-span-1 flex flex-col space-y-6 border-t lg:border-t-0 lg:border-l border-brand-hairline pt-6 lg:pt-0 lg:pl-6 overflow-y-auto shrink-0 min-w-[320px]">
+          
+          {/* Financial Workspace Escrow Panel */}
+          {escrow && (
+            <div className="rounded-xl border border-brand-hairline bg-brand-surface-soft/10 p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-brand-hairline pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded bg-brand-primary/10 text-brand-primary">
+                    <Wallet className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-xs font-bold text-brand-ink uppercase tracking-wide">Financial Ledger</h3>
+                </div>
+                <EscrowStatusBadge status={escrow.status} />
+              </div>
+
+              {/* Budget Ledger Details */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-brand-muted font-medium">Total Project Budget</span>
+                  <span className="font-bold text-brand-ink">₹{escrow.amount.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-brand-muted font-medium">Platform Fee (10%)</span>
+                  <span className="text-brand-muted">₹{(escrow.platformFee ?? escrow.amount * 0.1).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs border-t border-brand-hairline pt-2">
+                  <span className="text-brand-ink font-semibold">Net Student Payout</span>
+                  <span className="text-sm font-bold text-brand-success">₹{(escrow.payoutAmount ?? escrow.amount * 0.9).toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              {/* Escrow Timeline */}
+              <div className="border-t border-brand-hairline pt-3">
+                <h4 className="text-[10px] font-bold text-brand-ink uppercase tracking-wider mb-3">Escrow Payout Timeline</h4>
+                <EscrowTimeline events={escrow.timeline} />
+              </div>
+
+              {/* Payment Release Authority Panel */}
+              <div className="border-t border-brand-hairline pt-3 mt-1">
+                {escrow.status === "funded" ? (
+                  collabStatus === "completed" ? (
+                    isBusiness ? (
+                      <button
+                        onClick={handleReleaseEscrow}
+                        disabled={isSubmitting}
+                        className="w-full py-2 bg-brand-success hover:bg-brand-success/90 text-white text-xs font-semibold rounded-md shadow-sm transition-all flex items-center justify-center gap-1.5"
+                      >
+                        {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Banknote className="w-3.5 h-3.5" />}
+                        Release Escrow Payment
+                      </button>
+                    ) : (
+                      <div className="p-2.5 rounded-md border border-brand-success/20 bg-brand-success/5 text-center text-xs font-medium text-brand-success">
+                        ✓ Project Approved. Payment release pending client action.
+                      </div>
+                    )
+                  ) : (
+                    <div className="p-2.5 rounded-md border border-brand-hairline bg-white text-center text-[11px] text-brand-muted leading-relaxed">
+                      Payment is locked in escrow. It will become releasable once the project work is approved.
+                    </div>
+                  )
+                ) : escrow.status === "released" ? (
+                  <div className="p-2.5 rounded-md border border-brand-success/20 bg-brand-success/5 text-center text-xs font-semibold text-brand-success">
+                    ✓ Escrow Payout Released
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-md border border-brand-hairline bg-white text-center text-xs text-brand-muted capitalize">
+                    Payment status: {escrow.status}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Chronological Activity Feed Panel */}
+          <div className="flex-1 min-h-[300px]">
+            <h3 className="text-xs font-semibold text-brand-ink uppercase tracking-wider mb-3">Workspace Activity Feed</h3>
+            <WorkflowActivityFeed activities={activities} />
+          </div>
+        </div>
+
       </div>
 
       {/* Role-Aware Task Creation Dialog */}
@@ -652,13 +719,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsSubmitModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10">
-            <h3 className="text-lg font-semibold text-brand-ink">Submit for Review</h3>
-            <p className="text-xs text-brand-muted">Provide a description of your work, links to deliverables, and notes for the client.</p>
+            <h3 className="text-lg font-semibold text-brand-ink">Submit Project for Review</h3>
+            <p className="text-xs text-brand-muted">Provide a description of your work, links to final deliverables, and notes for the client.</p>
             <textarea
               value={submitNote}
               onChange={(e) => setSubmitNote(e.target.value)}
               rows={4}
-              placeholder="E.g., I have finished the landing page redesign. You can find the live preview link here..."
+              placeholder="E.g., I have finished the project. You can find the live preview link here..."
               className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary"
             />
             {actionError && <p className="text-xs text-brand-coral">{actionError}</p>}
@@ -676,19 +743,19 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                 className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-primary-active transition-colors flex items-center gap-2"
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Submit Deliverable
+                Submit Project
               </button>
             </div>
           </div>
         </div>
       )}
  
-      {/* Review Deliverable Modal */}
+      {/* Review Project Submission Modal */}
       {isReviewModalOpen && escrow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsReviewModalOpen(false)} />
           <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 z-10 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-brand-ink">Review Student Deliverable</h3>
+            <h3 className="text-lg font-semibold text-brand-ink">Review Project Submission</h3>
             
             <div className="bg-brand-surface-soft border border-brand-hairline rounded-lg p-4 space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Student&apos;s Submission Note</span>
@@ -701,7 +768,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                 value={reviewNote}
                 onChange={(e) => setReviewNote(e.target.value)}
                 rows={3}
-                placeholder="Required only for Revision requests. E.g., Please fix the color contrast on the login button..."
+                placeholder="E.g., Please fix the color contrast on the landing page..."
                 className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary"
               />
             </div>
@@ -723,15 +790,15 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
                   disabled={isSubmitting}
                   className="px-4 py-2 border border-brand-coral text-brand-coral hover:bg-brand-coral/5 rounded-md text-sm font-semibold disabled:opacity-50 transition-colors"
                 >
-                  Request Revision
+                  Request Project Revision
                 </button>
                 <button
-                  onClick={handleReleaseEscrow}
+                  onClick={handleApproveProject}
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-brand-success text-white rounded-md text-sm font-semibold disabled:opacity-50 hover:bg-brand-success/90 transition-colors flex items-center gap-1.5"
                 >
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Approve & Release Payment
+                  Approve Project Work
                 </button>
               </div>
             </div>

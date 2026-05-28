@@ -1,11 +1,11 @@
 import { Timestamp } from "firebase/firestore";
 
 export type EscrowStatus =
+  | "pending"
   | "funded"
-  | "in_progress"
-  | "revision_requested"
-  | "completed"
-  | "released";
+  | "released"
+  | "refunded"
+  | "disputed";
 
 export interface EscrowEvent {
   type: string;

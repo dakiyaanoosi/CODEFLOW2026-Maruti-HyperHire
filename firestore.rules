@@ -205,13 +205,18 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
         (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid) &&
         (
-          // Student can only transition to completed (by submitting deliverables) or revision_requested (by responding to revision)
+          // Student can modify details/timeline, but cannot change escrow status
           (request.auth.uid == resource.data.studentId && 
-           (request.resource.data.status == "completed" || request.resource.data.status == "revision_requested" || request.resource.data.status == "funded"))
+           request.resource.data.status == resource.data.status)
           ||
-          // Business can transition to revision_requested (request revision) or released (release payment)
+          // Business can update escrow details or transition status under specific rules
           (request.auth.uid == resource.data.businessId &&
-           (request.resource.data.status == "revision_requested" || request.resource.data.status == "released" || request.resource.data.status == "completed"))
+           (
+             request.resource.data.status == resource.data.status ||
+             request.resource.data.status == "disputed" ||
+             request.resource.data.status == "refunded" ||
+             (request.resource.data.status == "released" && get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.status == "completed")
+           ))
         )
       );
       allow delete: if false;

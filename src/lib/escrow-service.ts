@@ -63,8 +63,8 @@ function compileSummary(txns: Escrow[]): EscrowSummary {
   return {
     totalFunded:     txns.reduce((s, t) => s + t.amount, 0),
     totalReleased:   txns.filter((t) => t.status === "released").reduce((s, t) => s + (t.payoutAmount || t.amount * 0.9), 0),
-    pendingApproval: txns.filter((t) => t.status === "completed").length,
-    inReview:        txns.filter((t) => t.status === "completed").length,
+    pendingApproval: txns.filter((t) => t.status === "funded" && t.timeline && t.timeline.length > 0 && t.timeline[t.timeline.length - 1].type === "submitted").length,
+    inReview:        txns.filter((t) => t.status === "funded" && t.timeline && t.timeline.length > 0 && t.timeline[t.timeline.length - 1].type === "submitted").length,
     transactions:    txns,
   };
 }
@@ -202,14 +202,13 @@ export const escrowService = {
 
     const now = Timestamp.now();
     const timelineEvent: EscrowEvent = {
-      type: "completed",
+      type: "submitted",
       timestamp: now as any,
       note
     };
 
     const docRef = doc(db, COLLECTION_NAME, escrowId);
     await updateDoc(docRef, {
-      status: "completed" as EscrowStatus,
       submissionNote: note,
       updatedAt: now,
       timeline: [...(current.timeline || []), timelineEvent]
@@ -225,7 +224,7 @@ export const escrowService = {
           "in_review",
           current.studentId,
           "student",
-          { message: `Deliverable submitted for "${current.jobTitle}".`, note }
+          { message: `Project submitted for review.`, note }
         );
       }
     } catch (e) {
@@ -242,7 +241,7 @@ export const escrowService = {
         description: `${current.studentName} has submitted deliverables for "${current.jobTitle}".`,
         relatedEntityId: escrowId,
         relatedEntityType: "escrow",
-        actionUrl: "/escrow"
+        actionUrl: "/workflows/" + current.workflowId
       });
     } catch (e) {
       console.error("Error sending submit notification:", e);
@@ -277,7 +276,6 @@ export const escrowService = {
 
     const docRef = doc(db, COLLECTION_NAME, escrowId);
     await updateDoc(docRef, {
-      status: "revision_requested" as EscrowStatus,
       revisionNote: note,
       updatedAt: now,
       timeline: [...(current.timeline || []), timelineEvent]
@@ -310,7 +308,7 @@ export const escrowService = {
         description: `${current.businessName} requested a revision on "${current.jobTitle}".`,
         relatedEntityId: escrowId,
         relatedEntityType: "escrow",
-        actionUrl: "/escrow"
+        actionUrl: "/workflows/" + current.workflowId
       });
     } catch (e) {
       console.error("Error sending revision notification:", e);
@@ -351,21 +349,23 @@ export const escrowService = {
       timeline: [...(current.timeline || []), timelineEvent]
     });
 
-    // 1. Transition collaboration to completed
+    // Log collaboration activity for release
     try {
       const { collaborationService } = await import("@/lib/collaboration-service");
       const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
       if (collab) {
-        await collaborationService.transitionCollaboration(
-          collab.collaborationId,
-          "completed",
-          current.businessId,
-          "business",
-          { message: `Payment released for "${current.jobTitle}". Collaboration completed.` }
-        );
+        await collaborationService.logActivity({
+          collaborationId: collab.collaborationId,
+          actorId: current.businessId,
+          actorRole: "business",
+          entityType: "escrow",
+          entityId: escrowId,
+          action: "payment_released",
+          message: `Escrow payment released for "${current.jobTitle}".`,
+        });
       }
     } catch (e) {
-      console.error("Error transitioning collaboration in releaseEscrow:", e);
+      console.error("Error logging collaboration activity in releaseEscrow:", e);
     }
 
     // 2. Log student trust event
@@ -417,7 +417,7 @@ export const escrowService = {
         description: `${current.businessName} has released your payment of ₹${current.payoutAmount?.toLocaleString("en-IN")}.`,
         relatedEntityId: escrowId,
         relatedEntityType: "escrow",
-        actionUrl: "/escrow"
+        actionUrl: "/workflows/" + current.workflowId
       });
     } catch (e) {
       console.error("Error sending release notification:", e);
@@ -428,10 +428,34 @@ export const escrowService = {
   },
 
   /**
+   * Record operational approval on the escrow ledger timeline
+   */
+  async approveWork(escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business"): Promise<Escrow> {
+    if (!db) throw new Error("Firestore is not initialized.");
+    const current = await this.getEscrowById(escrowId);
+    if (!current) throw new Error("Escrow not found");
+
+    const now = Timestamp.now();
+    const timelineEvent: EscrowEvent = {
+      type: "approved",
+      timestamp: now as any,
+      note
+    };
+
+    const docRef = doc(db, COLLECTION_NAME, escrowId);
+    await updateDoc(docRef, {
+      updatedAt: now,
+      timeline: [...(current.timeline || []), timelineEvent]
+    });
+
+    const updated = await this.getEscrowById(escrowId);
+    return updated!;
+  },
+
+  /**
    * Alias legacy function to avoid breaking pages
    */
   async approveEscrow(escrowId: string, note: string): Promise<Escrow> {
-    // In our new flow, approve maps to releaseEscrow
     return this.releaseEscrow(escrowId);
   }
 };
@@ -444,3 +468,4 @@ export const approveEscrow = (escrowId: string, note: string) => escrowService.a
 export const releaseEscrow = (escrowId: string, actorId?: string, actorRole?: "student" | "business") => escrowService.releaseEscrow(escrowId, actorId, actorRole);
 export const submitWork = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.submitWork(escrowId, note, actorId, actorRole);
 export const requestRevision = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.requestRevision(escrowId, note, actorId, actorRole);
+export const approveWork = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.approveWork(escrowId, note, actorId, actorRole);

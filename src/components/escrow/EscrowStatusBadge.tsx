@@ -6,11 +6,11 @@ const STATUS_MAP: Record<
   EscrowStatus,
   { label: string; className: string }
 > = {
+  pending:            { label: "Pending",            className: "bg-brand-surface-soft text-brand-muted border-brand-hairline" },
   funded:             { label: "Funded",             className: "bg-brand-yellow/20 text-brand-mustard border-brand-mustard/30" },
-  in_progress:        { label: "In Progress",        className: "bg-brand-info/10 text-brand-info border-brand-info/20" },
-  revision_requested: { label: "Revision Requested", className: "bg-brand-coral/10 text-brand-coral border-brand-coral/25" },
-  completed:          { label: "Completed",          className: "bg-brand-mint/20 text-brand-success border-brand-success/30" },
   released:           { label: "Released",           className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+  refunded:           { label: "Refunded",           className: "bg-brand-coral/15 text-brand-coral border-brand-coral/30" },
+  disputed:           { label: "Disputed",           className: "bg-brand-coral/15 text-brand-coral border-brand-coral/30" },
 };
 interface EscrowStatusBadgeProps {
   status: EscrowStatus;
