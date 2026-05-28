@@ -9,10 +9,14 @@ import { formatFileSize } from "@/lib/message-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+import { canEditTask } from "@/lib/collaboration/permission-policy";
+
 interface WorkflowTaskDetailProps {
   task: WorkflowTask | null;
   isOpen: boolean;
   onClose: () => void;
+  actorId: string;
+  actorRole: "student" | "business";
   actorName: string;
   workflow: Workflow;
   columns: WorkflowColumn[];
@@ -22,6 +26,8 @@ export function WorkflowTaskDetail({
   task,
   isOpen,
   onClose,
+  actorId,
+  actorRole,
   actorName,
   workflow,
   columns,
@@ -32,11 +38,17 @@ export function WorkflowTaskDetail({
 
   if (!isOpen || !task) return null;
 
+  const isEditable = canEditTask(actorId, actorRole, task);
   const currentColumn = columns.find(c => c.columnId === task.columnId);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!isEditable) {
+      alert("Permission Denied: You are not authorized to upload deliverables to this task.");
+      return;
+    }
 
     try {
       setIsUploading(true);
@@ -57,22 +69,22 @@ export function WorkflowTaskDetail({
 
       await workflowService.updateTask(task.taskId, {
         attachments: [...(task.attachments || []), newAttachment]
-      });
+      }, actorId, actorRole);
 
       await workflowService.logActivity({
         workflowId: workflow.workflowId,
         taskId: task.taskId,
         type: "attachment_uploaded",
         message: `uploaded ${file.name} to task "${task.title}"`,
-        actorId: workflow.businessId, // Ideally passed properly from context, using businessId to avoid TS error
+        actorId: actorId,
         actorName,
         studentId: workflow.studentId,
         businessId: workflow.businessId
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Upload failed", err);
-      alert("Failed to upload attachment");
+      alert(err.message || "Failed to upload attachment");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -82,18 +94,27 @@ export function WorkflowTaskDetail({
 
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value as "active" | "blocked" | "completed";
-    await workflowService.updateTask(task.taskId, { status: val });
-    if (val === "completed") {
-      await workflowService.logActivity({
-        workflowId: workflow.workflowId,
-        taskId: task.taskId,
-        type: "task_completed",
-        message: `completed task "${task.title}"`,
-        actorId: workflow.businessId,
-        actorName,
-        studentId: workflow.studentId,
-        businessId: workflow.businessId
-      });
+    if (!isEditable) {
+      alert("Permission Denied: You are not authorized to update this task status.");
+      return;
+    }
+
+    try {
+      await workflowService.updateTask(task.taskId, { status: val }, actorId, actorRole);
+      if (val === "completed") {
+        await workflowService.logActivity({
+          workflowId: workflow.workflowId,
+          taskId: task.taskId,
+          type: "task_completed",
+          message: `completed task "${task.title}"`,
+          actorId: actorId,
+          actorName,
+          studentId: workflow.studentId,
+          businessId: workflow.businessId
+        });
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update status.");
     }
   };
 
@@ -170,9 +191,10 @@ export function WorkflowTaskDetail({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-brand-muted uppercase">Status</label>
                 <select 
-                  className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
+                  className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary disabled:opacity-60"
                   value={task.status}
                   onChange={handleStatusChange}
+                  disabled={!isEditable}
                 >
                   <option value="active">Active</option>
                   <option value="blocked">Blocked</option>
@@ -192,13 +214,15 @@ export function WorkflowTaskDetail({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-brand-ink">Attachments & Deliverables</h3>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="text-xs font-medium text-brand-link hover:text-brand-link/80 disabled:opacity-50"
-                >
-                  + Upload File
-                </button>
+                {isEditable && (
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="text-xs font-medium text-brand-link hover:text-brand-link/80 disabled:opacity-50"
+                  >
+                    + Upload File
+                  </button>
+                )}
                 <input 
                   type="file" 
                   ref={fileInputRef} 

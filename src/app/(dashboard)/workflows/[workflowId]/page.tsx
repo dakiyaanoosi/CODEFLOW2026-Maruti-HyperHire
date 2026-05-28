@@ -10,7 +10,7 @@ import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/type
 import { Collaboration, CollaborationStatus } from "@/types/collaboration";
 import { Escrow } from "@/types/escrow";
 import { WorkflowBoard } from "@/components/workflows/WorkflowBoard";
-import { Loader2, ArrowLeft, BrainCircuit, CheckCircle2, Send, Banknote, ShieldAlert, Clock, Wallet } from "lucide-react";
+import { Loader2, ArrowLeft, BrainCircuit, CheckCircle2, Send, Banknote, ShieldAlert, Clock, Wallet, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { reviewService } from "@/lib/review-service";
 import { BusinessReviewModal } from "@/components/reviews/BusinessReviewModal";
 import { StudentReviewModal } from "@/components/reviews/StudentReviewModal";
+import { 
+  canCreateTask, 
+  canFundEscrow, 
+  canReleaseEscrow, 
+  canDisputeEscrow, 
+  canSubmitDeliverable, 
+  canRequestRevision, 
+  canApproveDeliverable 
+} from "@/lib/collaboration/permission-policy";
 
 // ─── Status Configuration ────────────────────────────────────────────────────
 
@@ -54,6 +63,14 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const [reviewNote, setReviewNote] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
+
+  // Task creation states
+  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = React.useState(false);
+  const [createTaskType, setCreateTaskType] = React.useState<WorkflowTask["taskType"]>("general");
+  const [taskTitle, setTaskTitle] = React.useState("");
+  const [taskDescription, setTaskDescription] = React.useState("");
+  const [taskPriority, setTaskPriority] = React.useState<"Low" | "Medium" | "High">("Medium");
+  const [taskDueDate, setTaskDueDate] = React.useState("");
 
   // Review states
   const [isBusinessReviewOpen, setIsBusinessReviewOpen] = React.useState(false);
@@ -121,9 +138,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   }, [workflowId, router, user, profile]);
 
   // ─── Actions derived from collaboration.status ──────────────────────────────
-
+ 
   const handleSubmitWork = async () => {
-    if (!escrow || !collaboration) return;
+    if (!escrow || !collaboration || !user || !profile) return;
     if (!submitNote.trim()) {
       setActionError("Please describe what you are delivering.");
       return;
@@ -131,7 +148,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await escrowService.submitWork(escrow.escrowId, submitNote.trim());
+      await escrowService.submitWork(escrow.escrowId, submitNote.trim(), user.uid, profile.role as any);
       setIsSubmitModalOpen(false);
       setSubmitNote("");
     } catch (e: any) {
@@ -140,9 +157,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleRequestRevision = async () => {
-    if (!escrow || !collaboration) return;
+    if (!escrow || !collaboration || !user || !profile) return;
     if (!reviewNote.trim()) {
       setActionError("Please provide revision feedback instructions.");
       return;
@@ -150,7 +167,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await escrowService.requestRevision(escrow.escrowId, reviewNote.trim());
+      await escrowService.requestRevision(escrow.escrowId, reviewNote.trim(), user.uid, profile.role as any);
       setIsReviewModalOpen(false);
       setReviewNote("");
     } catch (e: any) {
@@ -159,13 +176,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleReleaseEscrow = async () => {
-    if (!escrow || !collaboration) return;
+    if (!escrow || !collaboration || !user || !profile) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await escrowService.releaseEscrow(escrow.escrowId);
+      await escrowService.releaseEscrow(escrow.escrowId, user.uid, profile.role as any);
       setIsReviewModalOpen(false);
       setIsBusinessReviewOpen(true);
     } catch (e: any) {
@@ -174,23 +191,81 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
       setIsSubmitting(false);
     }
   };
-
+ 
   const handleRunAiAnalysis = async () => {
-    if (!workflow) return;
+    if (!workflow || !profile) return;
     setIsAnalyzing(true);
     
     const result = await aiWorkflowService.analyzeWorkflow(
       workflow.jobTitle,
       "Application requirements context.", 
-      tasks
+      tasks,
+      profile.role as any
     );
-
+ 
     setAiInsight({
       summary: result.summary,
       insight: result.productivity_insight,
       risk: result.risk_level
     });
     setIsAnalyzing(false);
+  };
+
+  const handleCreateTask = async () => {
+    if (!workflow || !profile || !user) return;
+    if (!taskTitle.trim()) {
+      alert("Please enter a task title.");
+      return;
+    }
+
+    const defaultColumn = columns[0]?.columnId;
+    if (!defaultColumn) {
+      alert("Workflow columns are not loaded yet.");
+      return;
+    }
+
+    let ownerId = workflow.studentId;
+    let ownerRole: "student" | "business" = "student";
+
+    if (profile.role === "business") {
+      if (createTaskType === "feedback") {
+        ownerId = workflow.businessId;
+        ownerRole = "business";
+      } else {
+        ownerId = workflow.studentId;
+        ownerRole = "student";
+      }
+    }
+
+    const newTask: Omit<WorkflowTask, "taskId" | "createdAt" | "updatedAt"> = {
+      workflowId: workflow.workflowId,
+      columnId: defaultColumn,
+      title: taskTitle.trim(),
+      description: taskDescription.trim(),
+      priority: taskPriority,
+      assigneeId: ownerId,
+      dueDate: taskDueDate || undefined,
+      attachments: [],
+      aiSuggestions: [],
+      status: "active",
+      studentId: workflow.studentId,
+      businessId: workflow.businessId,
+      createdBy: user.uid,
+      ownerId,
+      ownerRole,
+      taskType: createTaskType,
+    };
+
+    try {
+      await workflowService.addTask(newTask);
+      setIsCreateTaskModalOpen(false);
+      setTaskTitle("");
+      setTaskDescription("");
+      setTaskPriority("Medium");
+      setTaskDueDate("");
+    } catch (err: any) {
+      alert(err.message || "Failed to create task.");
+    }
   };
 
   if (!user || !profile || isLoading || !workflow) {
@@ -211,13 +286,13 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
 
   // ─── Action Visibility (derived from collaboration.status) ────────────────────
-
-  const canStudentSubmit = !isBusiness && (collabStatus === "active" || collabStatus === "revision_requested");
-  const canBusinessReview = isBusiness && collabStatus === "in_review";
+ 
+  const canStudentSubmit = canSubmitDeliverable(profile?.role as any, collabStatus);
+  const canBusinessReview = canRequestRevision(profile?.role as any, collabStatus) || canApproveDeliverable(profile?.role as any, collabStatus);
   const canLeaveReview = collabStatus === "completed" && !hasSubmittedReview;
-
+ 
   return (
-    <div className="flex h-[calc(100vh-6rem)] flex-col">
+    <div className="flex h-[calc(100vh-6rem)] flex-col space-y-4 overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-hairline pb-4 gap-4">
         <div className="flex items-center gap-4">
@@ -240,7 +315,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             </p>
           </div>
         </div>
-
+ 
         <div className="flex items-center gap-4 flex-wrap">
           <div className="hidden md:flex items-center gap-2">
             <div className="w-32 h-2 bg-brand-surface-soft rounded-full overflow-hidden">
@@ -251,7 +326,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             </div>
             <span className="text-xs font-semibold text-brand-ink">{progressPercent}%</span>
           </div>
-
+ 
           <button 
             onClick={handleRunAiAnalysis}
             disabled={isAnalyzing}
@@ -260,40 +335,88 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
             {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
             AI Analyze
           </button>
-
-          {/* Student: Submit Deliverable (active or revision_requested) */}
-          {canStudentSubmit && (
-            <button
-              onClick={() => {
-                setActionError(null);
-                setIsSubmitModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 bg-brand-ink text-white rounded-[8px] text-sm font-semibold hover:bg-brand-primary-active transition-colors"
-            >
-              <Send className="w-4 h-4" />
-              Submit for Review
-            </button>
-          )}
-
-          {/* Business: Review Deliverable (in_review) */}
-          {canBusinessReview && (
-            <button
-              onClick={() => {
-                setActionError(null);
-                setIsReviewModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 bg-brand-success text-white rounded-[8px] text-sm font-semibold hover:bg-brand-success/90 transition-colors"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Review Deliverable
-            </button>
-          )}
         </div>
       </div>
 
+      {/* Financial & Escrow Dashboard Panel */}
+      {escrow && (
+        <div className="rounded-xl border border-brand-hairline bg-white p-5 shadow-sm space-y-4 animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-hairline pb-3 gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-lg bg-brand-primary/10 text-brand-primary">
+                <Wallet className="w-5 h-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-brand-ink">Escrow Ledger #{escrow.escrowId}</h3>
+                <p className="text-xs text-brand-muted mt-0.5">Secure payment contract linking client funding and student deliverables</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Status:</span>
+              <span className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                escrow.status === "released" ? "bg-brand-success/15 text-brand-success" :
+                escrow.status === "completed" ? "bg-brand-info/15 text-brand-info" :
+                escrow.status === "revision_requested" ? "bg-brand-warning/15 text-brand-warning" :
+                "bg-brand-surface-strong text-brand-muted"
+              )}>
+                {escrow.status}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3.5 rounded-lg border border-brand-hairline bg-brand-surface-soft/20">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Total Budget</p>
+              <p className="text-lg font-bold text-brand-ink mt-1">₹{escrow.amount.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="p-3.5 rounded-lg border border-brand-hairline bg-brand-surface-soft/20">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Platform Fee (10%)</p>
+              <p className="text-lg font-bold text-brand-muted mt-1">₹{(escrow.platformFee ?? escrow.amount * 0.1).toLocaleString("en-IN")}</p>
+            </div>
+            <div className="p-3.5 rounded-lg border border-brand-hairline bg-brand-surface-soft/20">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Net Payout</p>
+              <p className="text-lg font-bold text-brand-success mt-1">₹{(escrow.payoutAmount ?? escrow.amount * 0.9).toLocaleString("en-IN")}</p>
+            </div>
+            <div className="flex items-center justify-end">
+              {/* Context Actions */}
+              {canStudentSubmit && (
+                <button
+                  onClick={() => {
+                    setActionError(null);
+                    setIsSubmitModalOpen(true);
+                  }}
+                  className="w-full py-2.5 bg-brand-ink text-white rounded-lg text-sm font-semibold hover:bg-brand-primary-active transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Send className="w-4 h-4" />
+                  Submit Deliverable
+                </button>
+              )}
+              {canBusinessReview && (
+                <button
+                  onClick={() => {
+                    setActionError(null);
+                    setIsReviewModalOpen(true);
+                  }}
+                  className="w-full py-2.5 bg-brand-success text-white rounded-lg text-sm font-semibold hover:bg-brand-success/90 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Review Submission
+                </button>
+              )}
+              {escrow.status === "released" && (
+                <div className="p-3.5 w-full rounded-lg border border-brand-success/20 bg-brand-success/5 text-center">
+                  <p className="text-xs font-semibold text-brand-success">✓ Payment Released</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+ 
       {/* Lifecycle Stage Banner */}
       {collabStatus === "revision_requested" && (
-        <div className="mt-4 rounded-[10px] bg-brand-warning/5 border border-brand-warning/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
+        <div className="rounded-[10px] bg-brand-warning/5 border border-brand-warning/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-warning/10 text-brand-warning">
               <ShieldAlert className="h-5 w-5" />
@@ -320,9 +443,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           )}
         </div>
       )}
-
+ 
       {collabStatus === "in_review" && !isBusiness && (
-        <div className="mt-4 rounded-[10px] bg-brand-info/5 border border-brand-info/20 p-4 flex items-center gap-3 animate-in fade-in duration-300">
+        <div className="rounded-[10px] bg-brand-info/5 border border-brand-info/20 p-4 flex items-center gap-3 animate-in fade-in duration-300">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-info/10 text-brand-info">
             <Clock className="h-5 w-5" />
           </span>
@@ -334,10 +457,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </div>
         </div>
       )}
-
+ 
       {/* Completed + Review Prompt Banner */}
       {canLeaveReview && (
-        <div className="mt-4 rounded-[10px] bg-brand-mint/10 border border-brand-success/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
+        <div className="rounded-[10px] bg-brand-mint/10 border border-brand-success/20 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-success/10 text-brand-success">
               <CheckCircle2 className="h-5 w-5" />
@@ -365,14 +488,14 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </button>
         </div>
       )}
-
+ 
       <AnimatePresence>
         {aiInsight && (
           <motion.div 
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
             animate={{ opacity: 1, height: "auto", marginTop: 16 }}
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            className="rounded-[10px] bg-brand-surface-soft border border-brand-hairline p-4 flex gap-4 items-start"
+            className="rounded-[10px] bg-brand-surface-soft border border-brand-hairline p-4 flex gap-4 items-start animate-in fade-in"
           >
             <div className="bg-white p-2 rounded-md shadow-sm border border-brand-hairline shrink-0">
               <BrainCircuit className="w-5 h-5 text-brand-secondary" />
@@ -403,9 +526,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Main Board Area */}
-      <div className="flex-1 mt-4 -mx-4 px-4 overflow-hidden">
+ 
+      {/* Restructured Board Area */}
+      <div className="flex-1 mt-4">
         <WorkflowBoard 
           workflow={workflow}
           columns={columns}
@@ -413,9 +536,116 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           activities={activities}
           actorId={user.uid}
           actorName={actorName}
+          actorRole={profile.role as any}
+          collaborationStatus={collabStatus}
+          onOpenCreateTask={(type) => {
+            setCreateTaskType(type);
+            setIsCreateTaskModalOpen(true);
+          }}
         />
       </div>
 
+      {/* Role-Aware Task Creation Dialog */}
+      {isCreateTaskModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-brand-ink/20 backdrop-blur-[2px]" onClick={() => setIsCreateTaskModalOpen(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 z-10">
+            <h3 className="text-lg font-semibold text-brand-ink">Create New Task</h3>
+            <p className="text-xs text-brand-muted">
+              {profile.role === "student" 
+                ? "Define a new execution task for your project queue." 
+                : "Define a review, feedback or milestone task for the student."}
+            </p>
+            
+            <div className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-brand-ink">Task Title</label>
+                <input
+                  type="text"
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="E.g., Design logo assets"
+                  className="w-full rounded-md border border-brand-hairline px-3 py-2 text-sm focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-brand-ink">Description</label>
+                <textarea
+                  value={taskDescription}
+                  onChange={(e) => setTaskDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Describe what needs to be done..."
+                  className="w-full rounded-md border border-brand-hairline p-3 text-sm resize-none focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-brand-ink">Priority</label>
+                  <select
+                    value={taskPriority}
+                    onChange={(e) => setTaskPriority(e.target.value as any)}
+                    className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-brand-ink">Task Type</label>
+                  <select
+                    value={createTaskType}
+                    onChange={(e) => setCreateTaskType(e.target.value as any)}
+                    className="w-full h-10 px-3 text-sm rounded-md border border-brand-hairline bg-white focus:outline-none focus:border-brand-primary"
+                  >
+                    {profile.role === "student" ? (
+                      <>
+                        <option value="general">Execution (General)</option>
+                        <option value="deliverable">Execution (Deliverable)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="revision">Revision Request</option>
+                        <option value="feedback">Feedback</option>
+                        <option value="milestone">Milestone Task</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-brand-ink">Due Date</label>
+                <input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="w-full rounded-md border border-brand-hairline px-3 py-2 text-sm focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setIsCreateTaskModalOpen(false)}
+                className="px-4 py-2 border border-brand-hairline rounded-md text-sm font-medium hover:bg-brand-surface-soft transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTask}
+                className="px-4 py-2 bg-brand-ink text-white rounded-md text-sm font-semibold hover:bg-brand-primary-active transition-colors"
+              >
+                Create Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+ 
       {/* Submit Project for Review Modal */}
       {isSubmitModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -451,7 +681,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </div>
         </div>
       )}
-
+ 
       {/* Review Deliverable Modal */}
       {isReviewModalOpen && escrow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -463,7 +693,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
               <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Student&apos;s Submission Note</span>
               <p className="text-sm text-brand-body leading-relaxed">{escrow.submissionNote || "No submission note provided."}</p>
             </div>
-
+ 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-brand-ink">Review Feedback / Revision Instructions</label>
               <textarea
@@ -507,7 +737,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
           </div>
         </div>
       )}
-
+ 
       {/* Business Review Modal */}
       <BusinessReviewModal
         isOpen={isBusinessReviewOpen}
@@ -517,7 +747,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ workflowId
         businessId={workflow.businessId}
         onSuccess={() => setHasSubmittedReview(true)}
       />
-
+ 
       {/* Student Review Modal */}
       <StudentReviewModal
         isOpen={isStudentReviewOpen}

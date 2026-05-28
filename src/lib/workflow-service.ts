@@ -3,14 +3,12 @@ import {
   doc,
   setDoc,
   getDoc,
-  getDocs,
   query,
   where,
   orderBy,
   onSnapshot,
   writeBatch,
   updateDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import {
@@ -18,11 +16,11 @@ import {
   WorkflowColumn,
   WorkflowTask,
   WorkflowActivity,
-  WorkflowActivityType,
 } from "@/types/workflow";
 import { Application } from "@/types/application";
 import { notificationService } from "@/lib/notification-service";
 import { trustService } from "@/lib/trust/trust-service";
+import { canCreateTask, canMoveTask, canEditTask } from "./collaboration/permission-policy";
 
 const DEFAULT_COLUMNS = ["Pending", "In Progress", "Revision", "Completed", "Paid"];
 
@@ -100,6 +98,10 @@ export const workflowService = {
           businessId: app.businessId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          createdBy: "system",
+          ownerId: app.studentId,
+          ownerRole: "student",
+          taskType: "general",
         });
       });
     } else {
@@ -120,6 +122,10 @@ export const workflowService = {
         businessId: app.businessId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        createdBy: "system",
+        ownerId: app.studentId,
+        ownerRole: "student",
+        taskType: "general",
       };
       batch.set(taskRef, newTask);
     }
@@ -234,9 +240,26 @@ export const workflowService = {
     studentId: string,
     businessId: string
   ) {
-    const batch = writeBatch(db!);
-
     const taskRef = doc(db!, "workflowTasks", taskId);
+    const taskSnap = await getDoc(taskRef);
+    if (!taskSnap.exists()) throw new Error("Task not found.");
+    const taskData = taskSnap.data() as WorkflowTask;
+
+    const { collaborationService } = await import("./collaboration-service");
+    const collab = await collaborationService.getCollaborationByWorkflowId(workflowId);
+    if (!collab) throw new Error("Collaboration not found.");
+
+    const actorRole = actorId === studentId ? "student" : "business";
+
+    // Get the old column name
+    const oldColumnSnap = await getDoc(doc(db!, "workflowColumns", taskData.columnId));
+    const oldColumnName = oldColumnSnap.exists() ? oldColumnSnap.data().name : "Pending";
+
+    if (!canMoveTask(actorId, actorRole, collab.status, taskData, oldColumnName, newColumnName)) {
+      throw new Error(`Permission denied: Cannot move task from '${oldColumnName}' to '${newColumnName}' as a '${actorRole}'.`);
+    }
+
+    const batch = writeBatch(db!);
     batch.update(taskRef, {
       columnId: newColumnId,
       updatedAt: new Date().toISOString(),
@@ -308,6 +331,15 @@ export const workflowService = {
    * Add a new task.
    */
   async addTask(task: Omit<WorkflowTask, "taskId" | "createdAt" | "updatedAt">) {
+    const { collaborationService } = await import("./collaboration-service");
+    const collab = await collaborationService.getCollaborationByWorkflowId(task.workflowId);
+    if (!collab) throw new Error("Collaboration not found.");
+
+    const actorRole = task.createdBy === task.studentId ? "student" : "business";
+    if (!canCreateTask(actorRole, collab.status, task.taskType)) {
+      throw new Error(`Permission denied: Cannot create task of type '${task.taskType}' as a '${actorRole}' in status '${collab.status}'.`);
+    }
+
     const taskId = `task_${Date.now()}`;
     const taskRef = doc(db!, "workflowTasks", taskId);
     
@@ -322,8 +354,18 @@ export const workflowService = {
   /**
    * Update an existing task.
    */
-  async updateTask(taskId: string, updates: Partial<WorkflowTask>) {
+  async updateTask(taskId: string, updates: Partial<WorkflowTask>, actorId?: string, actorRole?: "student" | "business") {
     const taskRef = doc(db!, "workflowTasks", taskId);
+    
+    if (actorId && actorRole) {
+      const taskSnap = await getDoc(taskRef);
+      if (!taskSnap.exists()) throw new Error("Task not found.");
+      const currentTask = taskSnap.data() as WorkflowTask;
+      if (!canEditTask(actorId, actorRole, currentTask)) {
+        throw new Error("Permission denied: You are not authorized to edit this task.");
+      }
+    }
+
     await updateDoc(taskRef, {
       ...updates,
       updatedAt: new Date().toISOString(),

@@ -16,7 +16,8 @@ export const aiWorkflowService = {
   async analyzeWorkflow(
     jobTitle: string,
     applicationText: string,
-    currentTasks: WorkflowTask[]
+    currentTasks: WorkflowTask[],
+    role?: "student" | "business"
   ): Promise<WorkflowAnalysisResult> {
     const now = new Date();
     
@@ -52,7 +53,8 @@ export const aiWorkflowService = {
           current_tasks: currentTasks.map((t) => t.title),
           task_signals: taskSignals,
           inactivity_days: inactivityDays,
-          overdue_count: overdueCount
+          overdue_count: overdueCount,
+          role: role || null
         }),
       });
 
@@ -60,7 +62,22 @@ export const aiWorkflowService = {
         throw new Error("Failed to analyze workflow");
       }
 
-      return await response.json();
+      const result = await response.json();
+      
+      // If backend returns a general result, tailor it on client side for strict role enforcement
+      if (role === "business") {
+        return {
+          ...result,
+          summary: result.summary + " (Client Review Tip: Re-verify all deliverables before releasing payment. Use 'Revision Request' task type if changes are needed.)",
+          productivity_insight: "Releasing escrow payments within 24 hours of successful delivery increases freelancer satisfaction and repeat client hire rates."
+        };
+      } else {
+        return {
+          ...result,
+          summary: result.summary + " (Execution Tip: Keep tasks active and upload drafts regularly to show progress to the client.)",
+          productivity_insight: "Breaking down execution tasks into small milestones of <2 days improves work velocity by 34%."
+        };
+      }
     } catch (e) {
       console.error("AI Workflow Analysis failed, using local model:", e);
       
@@ -83,21 +100,37 @@ export const aiWorkflowService = {
       }
 
       let summary = "";
-      if (currentTasks.length === 0) {
-        summary = "[Fallback Mode] No tasks have been created. High risk of project stalling.";
-      } else if (overdueCount > 0) {
-        summary = `[Fallback Mode] Workflow has ${overdueCount} overdue task(s). Action is required.`;
-      } else if (inactivityDays > 4.0) {
-        summary = `[Fallback Mode] No board activity recorded in ${Math.floor(inactivityDays)} days.`;
+      let productivity_insight = "";
+      
+      if (role === "business") {
+        productivity_insight = "Releasing escrow payments within 24 hours of successful delivery increases freelancer satisfaction and repeat client hire rates.";
+        if (currentTasks.length === 0) {
+          summary = "[Fallback Mode] No student execution tasks have been created yet. Project scope should be reviewed and tasks generated.";
+        } else if (overdueCount > 0) {
+          summary = `[Fallback Mode] Student has ${overdueCount} overdue task(s). Prepare to review their progress and request revisions if deliverables fall short.`;
+        } else if (inactivityDays > 4.0) {
+          summary = `[Fallback Mode] No student execution recorded in ${Math.floor(inactivityDays)} days. Check in with the student regarding deliverables.`;
+        } else {
+          summary = "[Fallback Mode] Freelancer is actively making progress. Verify deliverables once completed prior to releasing escrow.";
+        }
       } else {
-        summary = "[Fallback Mode] Workflow is well-structured and actively managed.";
+        productivity_insight = "Breaking down execution tasks into small milestones of <2 days improves work velocity by 34%.";
+        if (currentTasks.length === 0) {
+          summary = "[Fallback Mode] No execution tasks have been created. Focus on defining your project plan and adding execution tasks.";
+        } else if (overdueCount > 0) {
+          summary = `[Fallback Mode] You have ${overdueCount} overdue task(s). Focus on unblocking these items and upload deliverable files to proceed.`;
+        } else if (inactivityDays > 4.0) {
+          summary = `[Fallback Mode] No activity recorded on your execution board in ${Math.floor(inactivityDays)} days. Keep the client informed by updating task progress.`;
+        } else {
+          summary = "[Fallback Mode] Your board execution is active. Update progress and upload deliverables when ready to submit.";
+        }
       }
 
       return {
         complexity,
         risk_level,
         summary,
-        productivity_insight: "Breaking down tasks into smaller, <2 day deliverables improves velocity by 34%.",
+        productivity_insight,
       };
     }
   },

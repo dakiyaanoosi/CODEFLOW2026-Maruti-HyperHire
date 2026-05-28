@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import type { Escrow, EscrowSummary, EscrowStatus, EscrowEvent } from "@/types/escrow";
 import type { Application } from "@/types/application";
+import { canSubmitDeliverable, canRequestRevision, canReleaseEscrow } from "./collaboration/permission-policy";
 
 const COLLECTION_NAME = "escrows";
 
@@ -186,10 +187,18 @@ export const escrowService = {
   /**
    * Student marks escrow/work completed (submits deliverable)
    */
-  async submitWork(escrowId: string, note: string): Promise<Escrow> {
+  async submitWork(escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business"): Promise<Escrow> {
     if (!db) throw new Error("Firestore is not initialized.");
     const current = await this.getEscrowById(escrowId);
     if (!current) throw new Error("Escrow not found");
+
+    if (actorId && actorRole) {
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (!collab || !canSubmitDeliverable(actorRole, collab.status)) {
+        throw new Error(`Permission denied: Cannot submit deliverable in status '${collab?.status}' as a '${actorRole}'.`);
+      }
+    }
 
     const now = Timestamp.now();
     const timelineEvent: EscrowEvent = {
@@ -246,10 +255,18 @@ export const escrowService = {
   /**
    * Business requests a revision
    */
-  async requestRevision(escrowId: string, note: string): Promise<Escrow> {
+  async requestRevision(escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business"): Promise<Escrow> {
     if (!db) throw new Error("Firestore is not initialized.");
     const current = await this.getEscrowById(escrowId);
     if (!current) throw new Error("Escrow not found");
+
+    if (actorId && actorRole) {
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (!collab || !canRequestRevision(actorRole, collab.status)) {
+        throw new Error(`Permission denied: Cannot request revision in status '${collab?.status}' as a '${actorRole}'.`);
+      }
+    }
 
     const now = Timestamp.now();
     const timelineEvent: EscrowEvent = {
@@ -306,10 +323,18 @@ export const escrowService = {
   /**
    * Business approves work & releases escrow payment
    */
-  async releaseEscrow(escrowId: string): Promise<Escrow> {
+  async releaseEscrow(escrowId: string, actorId?: string, actorRole?: "student" | "business"): Promise<Escrow> {
     if (!db) throw new Error("Firestore is not initialized.");
     const current = await this.getEscrowById(escrowId);
     if (!current) throw new Error("Escrow not found");
+
+    if (actorId && actorRole) {
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.getCollaborationByWorkflowId(current.workflowId);
+      if (!collab || !canReleaseEscrow(actorRole, collab.status)) {
+        throw new Error(`Permission denied: Cannot release escrow in status '${collab?.status}' as a '${actorRole}'.`);
+      }
+    }
 
     const now = Timestamp.now();
     const timelineEvent: EscrowEvent = {
@@ -416,6 +441,6 @@ export default escrowService;
 export const getEscrowSummary = (uid: string, role: "student" | "business") => escrowService.getEscrowSummary(uid, role);
 export const getEscrowById = (escrowId: string) => escrowService.getEscrowById(escrowId);
 export const approveEscrow = (escrowId: string, note: string) => escrowService.approveEscrow(escrowId, note);
-export const releaseEscrow = (escrowId: string) => escrowService.releaseEscrow(escrowId);
-export const submitWork = (escrowId: string, note: string) => escrowService.submitWork(escrowId, note);
-export const requestRevision = (escrowId: string, note: string) => escrowService.requestRevision(escrowId, note);
+export const releaseEscrow = (escrowId: string, actorId?: string, actorRole?: "student" | "business") => escrowService.releaseEscrow(escrowId, actorId, actorRole);
+export const submitWork = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.submitWork(escrowId, note, actorId, actorRole);
+export const requestRevision = (escrowId: string, note: string, actorId?: string, actorRole?: "student" | "business") => escrowService.requestRevision(escrowId, note, actorId, actorRole);

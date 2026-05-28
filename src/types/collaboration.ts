@@ -1,5 +1,3 @@
-import { Timestamp } from "firebase/firestore";
-
 // ─── Canonical Collaboration Status ──────────────────────────────────────────
 // This is the SINGLE SOURCE OF TRUTH for the entire collaboration lifecycle.
 // Everything else (workflow, escrow, permissions, UI) derives from this.

@@ -51,6 +51,12 @@ export interface WorkflowTask {
   businessId: string;
   createdAt: string;
   updatedAt: string;
+
+  // Task ownership and role system
+  createdBy: string;
+  ownerId: string;
+  ownerRole: "student" | "business";
+  taskType: "general" | "deliverable" | "revision" | "feedback" | "milestone";
 }
 
 export type WorkflowActivityType = 

@@ -9,6 +9,8 @@ import { releaseEscrow, submitWork, requestRevision } from "@/lib/escrow-service
 import { collaborationService } from "@/lib/collaboration-service";
 import type { EscrowTransaction } from "@/types/escrow";
 import type { Collaboration } from "@/types/collaboration";
+import { useAuthStore } from "@/store/use-auth-store";
+import { canSubmitDeliverable, canReleaseEscrow } from "@/lib/collaboration/permission-policy";
 
 interface EscrowDetailPanelProps {
   txn: EscrowTransaction;
@@ -37,16 +39,16 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
     setTimeout(() => setFlash(null), 3000);
   };
 
-  const isBusiness = role === "business";
-  const collabStatus = collaboration?.status;
-  const canRelease = isBusiness && (collabStatus === "in_review" || txn.status === "completed");
-  const canRequestRevision = isBusiness && (collabStatus === "in_review" || txn.status === "completed");
-  const canSubmit = !isBusiness && (collabStatus === "active" || collabStatus === "revision_requested" || txn.status === "funded" || txn.status === "revision_requested");
+  const { user } = useAuthStore();
+  const collabStatus = collaboration?.status || "active";
+  const canRelease = canReleaseEscrow(role, collabStatus);
+  const canSubmit = canSubmitDeliverable(role, collabStatus);
 
   async function handleRelease() {
+    if (!user) return;
     setBusy(true);
     try {
-      const updated = await releaseEscrow(txn.escrowId);
+      const updated = await releaseEscrow(txn.escrowId, user.uid, role);
       onUpdate(updated);
       showFlash("₹" + (updated.payoutAmount ?? updated.amount * 0.9).toLocaleString("en-IN") + " released to " + txn.studentName + ".");
     } catch (e: any) {
@@ -57,13 +59,14 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   }
 
   async function handleRequestRevision() {
+    if (!user) return;
     if (!note.trim()) {
       showFlash("Please describe why you're requesting a revision.");
       return;
     }
     setBusy(true);
     try {
-      const updated = await requestRevision(txn.escrowId, note.trim());
+      const updated = await requestRevision(txn.escrowId, note.trim(), user.uid, role);
       onUpdate(updated);
       setNote("");
       showFlash("Revision requested. Student notified.");
@@ -75,13 +78,14 @@ export function EscrowDetailPanel({ txn, role, onClose, onUpdate }: EscrowDetail
   }
 
   async function handleSubmit() {
+    if (!user) return;
     if (!note.trim()) {
       showFlash("Please describe what you delivered.");
       return;
     }
     setBusy(true);
     try {
-      const updated = await submitWork(txn.escrowId, note.trim());
+      const updated = await submitWork(txn.escrowId, note.trim(), user.uid, role);
       onUpdate(updated);
       setNote("");
       showFlash("Work submitted! Awaiting business review.");

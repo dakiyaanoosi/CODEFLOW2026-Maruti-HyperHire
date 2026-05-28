@@ -92,9 +92,31 @@ service cloud.firestore {
     }
 
     match /workflowTasks/{taskId} {
-      allow read, update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
-      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
-      allow delete: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (
+        (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid) &&
+        (
+          // Student can create general/deliverable tasks, owned by themselves
+          (request.resource.data.createdBy == request.auth.uid && request.resource.data.studentId == request.auth.uid &&
+           request.resource.data.ownerId == request.auth.uid && request.resource.data.ownerRole == "student" &&
+           (request.resource.data.taskType == "general" || request.resource.data.taskType == "deliverable"))
+          ||
+          // Business can create revision/feedback/milestone tasks
+          (request.resource.data.createdBy == request.auth.uid && request.resource.data.businessId == request.auth.uid &&
+           (request.resource.data.taskType == "revision" || request.resource.data.taskType == "feedback" || request.resource.data.taskType == "milestone"))
+          ||
+          // Onboarding/kickoff tasks created by the system
+          (request.resource.data.createdBy == "system")
+        )
+      );
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid) &&
+        (
+          // Creator, owner, or business participant can update
+          (request.auth.uid == resource.data.createdBy || request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.businessId)
+        )
+      );
+      allow delete: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || resource.data.ownerId == request.auth.uid);
     }
 
     match /workflowActivity/{activityId} {
@@ -164,7 +186,18 @@ service cloud.firestore {
     match /escrows/{escrowId} {
       allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
       allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
-      allow update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid) &&
+        (
+          // Student can only transition to completed (by submitting deliverables) or revision_requested (by responding to revision)
+          (request.auth.uid == resource.data.studentId && 
+           (request.resource.data.status == "completed" || request.resource.data.status == "revision_requested" || request.resource.data.status == "funded"))
+          ||
+          // Business can transition to revision_requested (request revision) or released (release payment)
+          (request.auth.uid == resource.data.businessId &&
+           (request.resource.data.status == "revision_requested" || request.resource.data.status == "released" || request.resource.data.status == "completed"))
+        )
+      );
       allow delete: if false;
     }
 
