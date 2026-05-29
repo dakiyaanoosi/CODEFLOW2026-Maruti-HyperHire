@@ -159,6 +159,52 @@ def local_pitch_enhancement(
     }
 
 
+def call_openai_json(system_prompt: str, user_payload: Dict[str, Any], schema: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    # For JSON response format, OpenAI requires the prompt to specify returning JSON.
+    system_instruction = system_prompt + "\n\nCRITICAL: You must return a valid JSON object matching the requested schema."
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+        ],
+        "response_format": {
+            "type": "json_object"
+        }
+    }
+    request = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        print(f"OpenAI API call failed: {e}")
+        return None
+
+    choices = payload.get("choices", [])
+    if not choices:
+        return None
+    content = choices[0].get("message", {}).get("content", "")
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return None
+
+
 def _gemini_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     converted = dict(schema)
     converted.pop("additionalProperties", None)
@@ -179,21 +225,6 @@ def _gemini_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     return converted
 
 
-def strip_styling_characters(data: Any) -> Any:
-    if isinstance(data, str):
-        # Remove markdown bold/italic/underline/header styling
-        val = data
-        val = re.sub(r'\*\*|__|\*|_|#', '', val)
-        # Remove bullet points (dashes/asterisks/pluses) at the beginning of strings or lines
-        val = re.sub(r'^\s*[-*+]\s+', '', val, flags=re.MULTILINE)
-        return val.strip()
-    elif isinstance(data, dict):
-        return {k: strip_styling_characters(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [strip_styling_characters(item) for item in data]
-    return data
-
-
 def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
@@ -210,7 +241,7 @@ def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
     
     body = {
         "systemInstruction": {
-            "parts": [{"text": sanitized_prompt}]
+            "parts": [{"text": system_prompt}]
         },
         "contents": [
             {
@@ -245,9 +276,7 @@ def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
     if not chunks:
         return None
     try:
-        raw_json = json.loads("".join(chunks))
-        # Strip markdown formatting styling characters from the output values
-        return strip_styling_characters(raw_json)
+        return json.loads("".join(chunks))
     except json.JSONDecodeError:
         return None
 

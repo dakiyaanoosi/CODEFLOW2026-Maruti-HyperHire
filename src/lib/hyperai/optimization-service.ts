@@ -171,8 +171,7 @@ function useOptimization<TPayload>(
   endpoint: string, 
   payload: TPayload, 
   triggerContent: string | number, // Usually the raw text being typed
-  debounceMs: number = 1500,
-  manual: boolean = false
+  debounceMs: number = 1500
 ) {
   const [analysis, setAnalysis] = useState<OptimizationAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -222,8 +221,6 @@ function useOptimization<TPayload>(
   };
 
   useEffect(() => {
-    if (manual) return;
-
     // Only analyze if there's meaningful content
     if (typeof triggerContent === "string" && triggerContent.trim().length < 5) {
       setAnalysis(null);
@@ -277,9 +274,9 @@ function useOptimization<TPayload>(
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [triggerContent, manual]); // We only trigger re-eval when the raw text/content or manual mode changes
+  }, [triggerContent]); // We only trigger re-eval when the raw text/content changes
 
-  return { analysis, isAnalyzing, runAnalysis };
+  return { analysis, isAnalyzing };
 }
 
 /**
@@ -289,15 +286,12 @@ export function useProposalOptimization(
   text: string,
   jobDescription: string,
   jobRequiredSkills: string[],
-  studentTrustScore: number,
-  manual: boolean = false
+  studentTrustScore: number
 ) {
   return useOptimization<ProposalOptimizationPayload>(
     "/optimization/proposal",
     { text, jobDescription, jobRequiredSkills, studentTrustScore },
-    text,
-    1500,
-    manual
+    text
   );
 }
 

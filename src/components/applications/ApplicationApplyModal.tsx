@@ -20,7 +20,7 @@ interface ApplicationApplyModalProps {
   studentAvatar?: string;
 }
 
-// Predefined options removed in favor of custom numeric input
+const DELIVERY_OPTIONS = [1, 2, 3, 5, 7, 10, 14, 21, 30];
 
 export function ApplicationApplyModal({
   job,
@@ -67,8 +67,8 @@ export function ApplicationApplyModal({
       
       setForm(f => ({
         ...f,
-        coverLetter: result.enhancedCoverMessage ? result.enhancedCoverMessage.replace(/\r\n/g, "\n") : "",
-        proposalText: result.enhancedProposalText ? result.enhancedProposalText.replace(/\r\n/g, "\n") : "",
+        coverLetter: result.enhancedCoverMessage,
+        proposalText: result.enhancedProposalText,
         estimatedDeliveryDays: result.recommendedDays || f.estimatedDeliveryDays,
       }));
       
@@ -196,14 +196,6 @@ export function ApplicationApplyModal({
                 </div>
               </div>
 
-              {/* Gig Description */}
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted">Gig Description</p>
-                <div className="text-xs text-brand-body leading-relaxed bg-brand-surface-soft p-4 rounded-[10px] border border-brand-hairline max-h-[128px] overflow-y-auto whitespace-pre-wrap">
-                  {job.description}
-                </div>
-              </div>
-
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-4 text-xs leading-relaxed text-brand-body">
                 <span>
                   Include your relevant experience, concrete deliverables, timeline, and any portfolio links the business should review.
@@ -255,12 +247,12 @@ export function ApplicationApplyModal({
                   placeholder="Introduce yourself and why you're a strong fit for this gig..."
                   rows={3}
                   className={cn(
-                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-zinc-400 focus:border-brand-info-border",
+                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-brand-muted focus:border-brand-info-border",
                     fieldErrors.coverLetter ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
                   )}
                 />
                 {fieldErrors.coverLetter && <p className="text-xs text-red-600">{fieldErrors.coverLetter}</p>}
-                <p className="text-xs text-brand-muted">{(form.coverLetter || "").length} characters</p>
+                <p className="text-xs text-brand-muted">{form.coverLetter.length} characters</p>
               </div>
 
               <div className="space-y-1.5">
@@ -274,7 +266,7 @@ export function ApplicationApplyModal({
                   placeholder="Describe your approach, deliverables, and how you'll handle this project..."
                   rows={5}
                   className={cn(
-                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-zinc-400 focus:border-brand-info-border",
+                    "w-full resize-none rounded-[6px] border px-4 py-3 text-sm leading-relaxed text-brand-ink outline-none placeholder:text-brand-muted focus:border-brand-info-border",
                     fieldErrors.proposalText ? "border-red-400 bg-red-50" : "border-brand-hairline bg-white"
                   )}
                 />
@@ -288,19 +280,15 @@ export function ApplicationApplyModal({
                     <Clock className="h-3.5 w-3.5 text-brand-muted" />
                     Estimated Delivery
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min={1}
-                      value={form.estimatedDeliveryDays}
-                      onChange={(e) => setForm((f) => ({ ...f, estimatedDeliveryDays: Math.max(1, Number(e.target.value)) }))}
-                      className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white pl-4 pr-12 text-sm text-brand-ink outline-none focus:border-brand-info-border"
-                      placeholder="e.g. 7"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-brand-muted font-medium pointer-events-none">
-                      Days
-                    </span>
-                  </div>
+                  <select
+                    value={form.estimatedDeliveryDays}
+                    onChange={(e) => setForm((f) => ({ ...f, estimatedDeliveryDays: Number(e.target.value) }))}
+                    className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white px-3 text-sm text-brand-ink outline-none focus:border-brand-info-border"
+                  >
+                    {DELIVERY_OPTIONS.map((d) => (
+                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">

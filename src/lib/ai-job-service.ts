@@ -262,13 +262,7 @@ export async function enhanceApplicationPitch(params: ApplicationEnhanceParams):
     const res = await fetch(`${apiUrl}/application/enhance`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        coverMessage: params.coverLetter,
-        proposalText: params.proposalText,
-        tone: params.tone,
-        jobTitle: params.jobTitle,
-        jobDescription: params.jobDescription,
-      }),
+      body: JSON.stringify(params),
     });
 
     if (!res.ok) {

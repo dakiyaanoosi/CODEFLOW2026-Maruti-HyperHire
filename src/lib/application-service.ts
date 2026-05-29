@@ -71,12 +71,7 @@ export const applicationService = {
       ...aiMetadata
     };
 
-    // Clean undefined fields to prevent Firestore crashes
-    const cleanedApp = Object.fromEntries(
-      Object.entries(newApp).filter(([_, v]) => v !== undefined)
-    );
-
-    await setDoc(appRef, cleanedApp);
+    await setDoc(appRef, newApp);
     
     // Trigger notification to business
     await notificationService.createNotification({

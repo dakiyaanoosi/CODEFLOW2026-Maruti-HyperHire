@@ -42,3 +42,5 @@ next-env.d.ts
 
 aethongrid.pdf
 gap_analysis.md
+__pycache__/
+*.pyc

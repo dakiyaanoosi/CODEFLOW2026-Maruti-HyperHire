@@ -143,8 +143,8 @@ CHAT_SCHEMA = {
 def chat_endpoint(req: ChatRequest):
     """
     HyperAI contextual chat endpoint.
-    Attempts to use Gemini for rich responses.
-    Falls back to the rule-based chat_engine if no Gemini key is configured.
+    Attempts to use an LLM (OpenAI / Gemini) for rich responses.
+    Falls back to the rule-based chat_engine if no LLM key is configured.
     """
     try:
         # Build history for the LLM
