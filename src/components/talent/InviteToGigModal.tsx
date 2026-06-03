@@ -173,7 +173,7 @@ export function InviteToGigModal({
                           <p className={cn("text-sm font-semibold truncate", selectedJobId === job.jobId ? "text-brand-ink" : "text-brand-ink")}>
                             {job.title}
                           </p>
-                          <p className="text-xs text-brand-body truncate">{job.category} • {job.budget ? `$${job.budget}` : 'Variable'}</p>
+                          <p className="text-xs text-brand-body truncate">{job.category} • {job.budget ? `₹${job.budget}` : 'Variable'}</p>
                         </div>
                       </button>
                     ))}

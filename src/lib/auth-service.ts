@@ -8,8 +8,15 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { SerializedUser, UserProfile } from "@/store/use-auth-store";
 import { profileService } from "./profile-service";
+import type { User as FirebaseUserType } from "firebase/auth";
+
+// Result type for Google login — may require role selection for new users
+export type GoogleLoginResult =
+  | { status: "existing"; user: SerializedUser; profile: UserProfile }
+  | { status: "needs_role"; user: SerializedUser; firebaseUser: FirebaseUserType };
 
 // Helper to serialize Firebase user
 export function serializeUser(user: FirebaseUser): SerializedUser {
@@ -82,7 +89,7 @@ export const authService = {
             return;
           }
 
-          const uid = "sim_user_" + Math.random().toString(36).substring(2, 9);
+          const uid = generateId("sim_user");
           
           if (role === "student") {
             profileService.createDefaultStudentProfile(uid, email, name).then((profile) => {
@@ -165,21 +172,29 @@ export const authService = {
 
   /**
    * Google Sign-In Flow
+   * For the signup page (role already selected), pass selectedRole.
+   * For the login page (no role), omit selectedRole.
+   * Returns either an existing profile or a signal that role selection is needed.
    */
   async loginWithGoogle(
     selectedRole?: "student" | "business"
-  ): Promise<{ user: SerializedUser; profile: UserProfile }> {
+  ): Promise<GoogleLoginResult> {
     if (isFirebaseConfigured && auth && db) {
       const credentials = await signInWithPopup(auth, googleProvider);
       const docRef = doc(db, "users", credentials.user.uid);
       const docSnap = await getDoc(docRef);
 
-      let profile: UserProfile;
+      if (docSnap.exists()) {
+        // Existing user — return their profile
+        const profile = docSnap.data() as UserProfile;
+        return { status: "existing", user: serializeUser(credentials.user), profile };
+      }
 
-      if (!docSnap.exists()) {
-        // If profile doesn't exist, auto-create it as a student profile
-        const roleToCreate = selectedRole || "student";
-        if (roleToCreate === "student") {
+      // New user
+      if (selectedRole) {
+        // Role already chosen (from signup page) — create profile immediately
+        let profile: UserProfile;
+        if (selectedRole === "student") {
           profile = await profileService.createDefaultStudentProfile(
             credentials.user.uid,
             credentials.user.email || "",
@@ -195,19 +210,22 @@ export const authService = {
           };
           await setDoc(docRef, profile);
         }
-      } else {
-        profile = docSnap.data() as UserProfile;
+        return { status: "existing", user: serializeUser(credentials.user), profile };
       }
 
-      return { user: serializeUser(credentials.user), profile };
+      // No role selected (login page) — signal that role selection is needed
+      return {
+        status: "needs_role",
+        user: serializeUser(credentials.user),
+        firebaseUser: credentials.user,
+      };
     } else {
       // Simulation mode
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         setTimeout(() => {
           const users = getSimulatedUsers();
 
           if (!selectedRole) {
-            // Login flow: search for an existing simulated google user
             const existingUser = Object.values(users).find(
               (u) => u.email === "kunal.das@gmail.com" || u.email === "anil.sen@gmail.com"
             );
@@ -220,23 +238,19 @@ export const authService = {
                 photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${existingUser.name}`,
               };
               localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile: existingUser }));
-              resolve({ user, profile: existingUser });
+              resolve({ status: "existing", user, profile: existingUser });
             } else {
-              // Auto-create simulated google user if missing
-              const mockName = "Kunal Das (Student)";
+              // Simulate needs_role for new simulated google user
+              const mockName = "Kunal Das";
               const mockEmail = "kunal.das@gmail.com";
               const uid = "sim_google_kunal";
-              
-              profileService.createDefaultStudentProfile(uid, mockEmail, mockName).then((profile) => {
-                const user: SerializedUser = {
-                  uid,
-                  email: mockEmail,
-                  displayName: mockName,
-                  photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${mockName}`,
-                };
-                localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile }));
-                resolve({ user, profile });
-              }).catch(reject);
+              const user: SerializedUser = {
+                uid,
+                email: mockEmail,
+                displayName: mockName,
+                photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${mockName}`,
+              };
+              resolve({ status: "needs_role", user, firebaseUser: null as any });
             }
             return;
           }
@@ -244,7 +258,7 @@ export const authService = {
           // Signup flow: create simulated profile
           const mockName = selectedRole === "business" ? "Anil Sen (Business)" : "Kunal Das (Student)";
           const mockEmail = selectedRole === "business" ? "anil.sen@gmail.com" : "kunal.das@gmail.com";
-          const uid = "sim_google_" + Math.random().toString(36).substring(2, 9);
+          const uid = generateId("sim_google");
           
           const profile: UserProfile = {
             uid,
@@ -265,9 +279,55 @@ export const authService = {
           };
 
           localStorage.setItem(SIMULATED_SESSION_KEY, JSON.stringify({ user, profile }));
-          resolve({ user, profile });
+          resolve({ status: "existing", user, profile });
         }, 1000);
       });
+    }
+  },
+
+  /**
+   * Complete Google Signup — called after the user selects a role for their new account.
+   */
+  async completeGoogleSignup(
+    uid: string,
+    email: string,
+    displayName: string,
+    role: "student" | "business"
+  ): Promise<UserProfile> {
+    if (isFirebaseConfigured && db) {
+      if (role === "student") {
+        return profileService.createDefaultStudentProfile(uid, email, displayName);
+      } else {
+        const profile: UserProfile = {
+          uid,
+          role: "business",
+          name: displayName,
+          email,
+          createdAt: new Date().toISOString(),
+        };
+        await setDoc(doc(db, "users", uid), profile);
+        return profile;
+      }
+    } else {
+      // Simulation
+      const profile: UserProfile = {
+        uid,
+        role,
+        name: displayName,
+        email,
+        createdAt: new Date().toISOString(),
+      };
+      const users = getSimulatedUsers();
+      users[uid] = profile;
+      saveSimulatedUsers(users);
+      localStorage.setItem(
+        SIMULATED_SESSION_KEY,
+        JSON.stringify({
+          user: { uid, email, displayName, photoURL: null },
+          profile,
+        })
+      );
+      return profile;
     }
   },
 

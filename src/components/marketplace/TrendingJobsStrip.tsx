@@ -71,7 +71,7 @@ export function TrendingJobsStrip({ jobs, onJobClick }: TrendingJobsStripProps) 
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
               <span className="text-[11px] font-bold text-brand-ink">
-                ${job.budget.toLocaleString()}
+                ₹{job.budget.toLocaleString()}
               </span>
               <div
                 className="text-[10px] font-bold"

@@ -5,6 +5,7 @@ import { Job } from "@/types/job";
 import { Workflow, WorkflowTask, WorkflowActivity } from "@/types/workflow";
 import { TrustProfile, TrustEvent } from "@/types/trust";
 import { EscrowTransaction } from "@/types/escrow";
+import { Review } from "@/types/review";
 
 // Helper to parse potential Firestore Timestamps or strings/Dates into standard JS Dates
 const parseToDate = (dateVal: any): Date => {
@@ -44,6 +45,11 @@ export interface StudentAnalytics {
   verifiedWorkCount: number;
   mostViewedProject: string;
   completionGeneratedPortfolioEntries: number;
+
+  // Reviews Extensions
+  averageCollaborationRating: number;
+  reviewCount: number;
+  repeatClientRate: number;
 }
 
 export interface BusinessAnalytics {
@@ -68,6 +74,10 @@ export interface BusinessAnalytics {
   escrowedFunds: number;
   releasedPayouts: number;
   monthlySpendTrend: { month: string; year: number; amount: number }[];
+
+  // Reviews Extensions
+  averageCollaborationRating: number;
+  reviewCount: number;
 }
 
 export const analyticsService = {
@@ -90,8 +100,8 @@ export const analyticsService = {
           pendingEscrow: 0,
           releasedEscrow: 0,
           monthlyEarningsTrend: [],
-          currentTrustScore: 80,
-          trustRank: "Gold",
+          currentTrustScore: 0,
+          trustRank: "Bronze",
           recentTrustChanges: [],
           trustGrowthTrend: [],
           mostRequestedSkills: [],
@@ -100,7 +110,10 @@ export const analyticsService = {
           portfolioCount: 0,
           verifiedWorkCount: 0,
           mostViewedProject: "None",
-          completionGeneratedPortfolioEntries: 0
+          completionGeneratedPortfolioEntries: 0,
+          averageCollaborationRating: 0,
+          reviewCount: 0,
+          repeatClientRate: 0
         });
       }, 0);
       return () => clearTimeout(timer);
@@ -115,6 +128,7 @@ export const analyticsService = {
     let portfolios: any[] = [];
     let publishedJobs: Job[] = [];
     let escrows: EscrowTransaction[] = [];
+    let reviews: Review[] = [];
 
     const updateAnalytics = () => {
       const totalApplications = apps.length;
@@ -124,10 +138,10 @@ export const analyticsService = {
       const completedWorkflows = workflows.filter(w => w.status === "completed").length;
 
       // Tasks Completed
-      const tasksCompleted = tasks.filter(t => t.status === "completed").length;
+      const tasksCompleted = tasks.filter(t => t.status === "approved").length;
 
       // Average Completion Speed
-      const compTasks = tasks.filter(t => t.status === "completed" && t.createdAt && t.updatedAt);
+      const compTasks = tasks.filter(t => t.status === "approved" && t.createdAt && t.updatedAt);
       let averageCompletionSpeed = "N/A";
       if (compTasks.length > 0) {
         const totalMs = compTasks.reduce((acc, t) => acc + (new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime()), 0);
@@ -179,8 +193,8 @@ export const analyticsService = {
       });
 
       // Trust Score
-      const currentTrustScore = trustProfile?.overallScore ?? 80;
-      const trustRank = trustProfile?.rank ?? "Gold";
+      const currentTrustScore = trustProfile?.overallScore ?? 0;
+      const trustRank = trustProfile?.rank ?? "Bronze";
       const recentTrustChanges = trustHistory.slice(0, 5);
 
       const sortedHistory = [...trustHistory].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -240,6 +254,18 @@ export const analyticsService = {
         p.description?.toLowerCase().includes("completion")
       ).length;
 
+      // Reviews Metrics
+      const reviewCount = reviews.length;
+      const averageCollaborationRating = reviewCount > 0 
+        ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(2)) 
+        : 0;
+      const clientCounts: Record<string, number> = {};
+      reviews.forEach(r => {
+        clientCounts[r.reviewerId] = (clientCounts[r.reviewerId] || 0) + 1;
+      });
+      const repeatClientCount = reviews.filter(r => clientCounts[r.reviewerId] > 1).length;
+      const repeatClientRate = reviewCount > 0 ? Math.round((repeatClientCount / reviewCount) * 100) : 0;
+
       onUpdate({
         totalApplications,
         acceptedApplications,
@@ -263,7 +289,10 @@ export const analyticsService = {
         portfolioCount,
         verifiedWorkCount,
         mostViewedProject,
-        completionGeneratedPortfolioEntries
+        completionGeneratedPortfolioEntries,
+        averageCollaborationRating,
+        reviewCount,
+        repeatClientRate
       });
     };
 
@@ -272,7 +301,8 @@ export const analyticsService = {
       (snap) => {
         apps = snap.docs.map(doc => doc.data() as Application);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Apps] Subscription error:", error)
     );
 
     const workflowsUnsub = onSnapshot(
@@ -280,7 +310,8 @@ export const analyticsService = {
       (snap) => {
         workflows = snap.docs.map(doc => doc.data() as Workflow);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Workflows] Subscription error:", error)
     );
 
     const tasksUnsub = onSnapshot(
@@ -288,7 +319,8 @@ export const analyticsService = {
       (snap) => {
         tasks = snap.docs.map(doc => doc.data() as WorkflowTask);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Tasks] Subscription error:", error)
     );
 
     const activitiesUnsub = onSnapshot(
@@ -296,7 +328,8 @@ export const analyticsService = {
       (snap) => {
         activities = snap.docs.map(doc => doc.data() as WorkflowActivity);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Activities] Subscription error:", error)
     );
 
     const trustProfileUnsub = onSnapshot(
@@ -306,7 +339,8 @@ export const analyticsService = {
           trustProfile = snap.data() as TrustProfile;
         }
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Trust Profile] Subscription error:", error)
     );
 
     const trustHistoryUnsub = onSnapshot(
@@ -314,7 +348,8 @@ export const analyticsService = {
       (snap) => {
         trustHistory = snap.docs.map(doc => doc.data() as TrustEvent);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Trust History] Subscription error:", error)
     );
 
     const portfoliosUnsub = onSnapshot(
@@ -322,7 +357,8 @@ export const analyticsService = {
       (snap) => {
         portfolios = snap.docs.map(doc => doc.data() as any);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Portfolios] Subscription error:", error)
     );
 
     const jobsUnsub = onSnapshot(
@@ -330,7 +366,8 @@ export const analyticsService = {
       (snap) => {
         publishedJobs = snap.docs.map(doc => doc.data() as Job);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Jobs] Subscription error:", error)
     );
 
     const escrowsUnsub = onSnapshot(
@@ -338,7 +375,17 @@ export const analyticsService = {
       (snap) => {
         escrows = snap.docs.map(doc => doc.data() as EscrowTransaction);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Student Escrows] Subscription error:", error)
+    );
+
+    const reviewsUnsub = onSnapshot(
+      query(collection(db, "reviews"), where("revieweeId", "==", studentId), where("status", "==", "submitted")),
+      (snap) => {
+        reviews = snap.docs.map(doc => doc.data() as Review);
+        updateAnalytics();
+      },
+      (error) => console.error("[Analytics Student Reviews] Subscription error:", error)
     );
 
     return () => {
@@ -351,6 +398,7 @@ export const analyticsService = {
       portfoliosUnsub();
       jobsUnsub();
       escrowsUnsub();
+      reviewsUnsub();
     };
   },
 
@@ -378,7 +426,9 @@ export const analyticsService = {
           revisionHeavyProjects: [],
           escrowedFunds: 0,
           releasedPayouts: 0,
-          monthlySpendTrend: []
+          monthlySpendTrend: [],
+          averageCollaborationRating: 0,
+          reviewCount: 0
         });
       }, 0);
       return () => clearTimeout(timer);
@@ -391,6 +441,7 @@ export const analyticsService = {
     let activities: WorkflowActivity[] = [];
     let escrows: EscrowTransaction[] = [];
     let studentProfiles: any[] = [];
+    let reviews: Review[] = [];
 
     const updateAnalytics = () => {
       const totalJobs = jobs.length;
@@ -427,7 +478,7 @@ export const analyticsService = {
       const activeWfIds = new Set(workflows.filter(w => w.status === "active").map(w => w.workflowId));
       const delayedTasks = tasks.filter(t => 
         activeWfIds.has(t.workflowId) && 
-        t.status !== "completed" && 
+        t.status !== "approved" && 
         t.dueDate && 
         new Date(t.dueDate).getTime() < Date.now()
       );
@@ -446,7 +497,7 @@ export const analyticsService = {
           uid: p.uid,
           name: p.name,
           avatarUrl: p.avatarUrl || undefined,
-          trustScore: p.trustScore ?? 80,
+          trustScore: p.trustScore ?? 0,
           completedCount: completedCountMap[p.uid] || 0
         }))
         .sort((a, b) => {
@@ -511,6 +562,12 @@ export const analyticsService = {
         };
       });
 
+      // Reviews Metrics
+      const reviewCount = reviews.length;
+      const averageCollaborationRating = reviewCount > 0 
+        ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(2)) 
+        : 0;
+
       onUpdate({
         totalJobs,
         totalApplicationsReceived,
@@ -529,7 +586,9 @@ export const analyticsService = {
         revisionHeavyProjects,
         escrowedFunds,
         releasedPayouts,
-        monthlySpendTrend
+        monthlySpendTrend,
+        averageCollaborationRating,
+        reviewCount
       });
     };
 
@@ -538,7 +597,8 @@ export const analyticsService = {
       (snap) => {
         jobs = snap.docs.map(doc => doc.data() as Job);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Jobs] Subscription error:", error)
     );
 
     const appsUnsub = onSnapshot(
@@ -546,7 +606,8 @@ export const analyticsService = {
       (snap) => {
         apps = snap.docs.map(doc => doc.data() as Application);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Apps] Subscription error:", error)
     );
 
     const workflowsUnsub = onSnapshot(
@@ -554,7 +615,8 @@ export const analyticsService = {
       (snap) => {
         workflows = snap.docs.map(doc => doc.data() as Workflow);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Workflows] Subscription error:", error)
     );
 
     const tasksUnsub = onSnapshot(
@@ -562,7 +624,8 @@ export const analyticsService = {
       (snap) => {
         tasks = snap.docs.map(doc => doc.data() as WorkflowTask);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Tasks] Subscription error:", error)
     );
 
     const activitiesUnsub = onSnapshot(
@@ -570,7 +633,8 @@ export const analyticsService = {
       (snap) => {
         activities = snap.docs.map(doc => doc.data() as WorkflowActivity);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Activities] Subscription error:", error)
     );
 
     const escrowsUnsub = onSnapshot(
@@ -578,7 +642,8 @@ export const analyticsService = {
       (snap) => {
         escrows = snap.docs.map(doc => doc.data() as EscrowTransaction);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Escrows] Subscription error:", error)
     );
 
     const studentsUnsub = onSnapshot(
@@ -586,7 +651,17 @@ export const analyticsService = {
       (snap) => {
         studentProfiles = snap.docs.map(doc => doc.data() as any);
         updateAnalytics();
-      }
+      },
+      (error) => console.error("[Analytics Business Students] Subscription error:", error)
+    );
+
+    const reviewsUnsub = onSnapshot(
+      query(collection(db, "reviews"), where("revieweeId", "==", businessId), where("status", "==", "submitted")),
+      (snap) => {
+        reviews = snap.docs.map(doc => doc.data() as Review);
+        updateAnalytics();
+      },
+      (error) => console.error("[Analytics Business Reviews] Subscription error:", error)
     );
 
     return () => {
@@ -597,6 +672,7 @@ export const analyticsService = {
       activitiesUnsub();
       escrowsUnsub();
       studentsUnsub();
+      reviewsUnsub();
     };
   }
 };

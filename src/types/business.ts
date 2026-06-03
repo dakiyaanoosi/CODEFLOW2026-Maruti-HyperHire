@@ -18,11 +18,11 @@ export type TeamSize =
   | "500+";
 
 export type BudgetRange =
-  | "< $500/mo"
-  | "$500–$2k/mo"
-  | "$2k–$5k/mo"
-  | "$5k–$10k/mo"
-  | "$10k+/mo";
+  | "< ₹10k/mo"
+  | "₹10k–₹30k/mo"
+  | "₹30k–₹80k/mo"
+  | "₹80k–₹1.5L/mo"
+  | "₹1.5L+/mo";
 
 export interface HiringPreferences {
   remote: boolean;
@@ -63,40 +63,6 @@ export interface BusinessProfile {
   analytics?: ActivityAnalytics;
 }
 
-export const MOCK_BUSINESS_PROFILE: BusinessProfile = {
-  businessId: "sim_bus_nexa",
-  ownerId: "sim_user_owner",
-  companyName: "NexaStack Solutions",
-  industry: "Technology",
-  description:
-    "We build modern SaaS tools for hyperlocal businesses. Our team ships fast, iterates faster, and believes in student talent as the future of the workforce.",
-  budgetRange: "$2k–$5k/mo",
-  companySize: "11–50",
-  teamSize: "11–50",
-  location: "Bangalore, India",
-  website: "https://nexastack.dev",
-  hiringPreferences: {
-    remote: true,
-    partTime: true,
-    fullTime: false,
-    internship: true,
-  },
-  logoUrl: "",
-  verificationStatus: "Verified",
-  isVerified: true,
-  logoInitials: "NS",
-  activeJobs: 3,
-  totalHires: 9,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  analytics: {
-    jobsPosted: 14,
-    totalHires: 9,
-    activeListings: 3,
-    avgResponseHours: 6,
-  },
-};
-
 export const ALL_INDUSTRIES: Industry[] = [
   "Technology",
   "Design & Creative",
@@ -119,9 +85,9 @@ export const ALL_TEAM_SIZES: TeamSize[] = [
 ];
 
 export const ALL_BUDGET_RANGES: BudgetRange[] = [
-  "< $500/mo",
-  "$500–$2k/mo",
-  "$2k–$5k/mo",
-  "$5k–$10k/mo",
-  "$10k+/mo",
+  "< ₹10k/mo",
+  "₹10k–₹30k/mo",
+  "₹30k–₹80k/mo",
+  "₹80k–₹1.5L/mo",
+  "₹1.5L+/mo",
 ];

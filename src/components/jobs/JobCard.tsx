@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Briefcase, Calendar, MapPin, DollarSign, BarChart2 } from "lucide-react";
+import { Briefcase, Calendar, MapPin, IndianRupee, BarChart2 } from "lucide-react";
 import { Job } from "@/types/job";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function JobCard({ job, onClick }: JobCardProps) {
   const statusColors = {
     Draft: "bg-brand-surface-strong text-brand-muted border-brand-hairline",
     Published: "bg-brand-success/15 text-brand-success border-brand-success/20",
+    Completed: "bg-brand-info/10 text-brand-info border-brand-info/20",
   };
 
   return (
@@ -108,8 +109,8 @@ export function JobCard({ job, onClick }: JobCardProps) {
       {/* Footer statistics (Budget & Deadline) */}
       <div className="mt-auto pt-4 border-t border-brand-hairline/60 flex items-center justify-between text-xs font-semibold">
         <div className="flex items-center text-brand-ink">
-          <DollarSign className="h-4 w-4 text-brand-muted shrink-0 -ml-0.5" />
-          <span className="text-sm font-bold text-brand-ink">${job.budget}</span>
+          <IndianRupee className="h-4 w-4 text-brand-muted shrink-0 -ml-0.5" />
+          <span className="text-sm font-bold text-brand-ink">₹{job.budget}</span>
         </div>
         
         <div className="flex items-center gap-1 text-brand-muted font-medium">

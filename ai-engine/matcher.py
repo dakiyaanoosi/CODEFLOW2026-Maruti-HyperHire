@@ -53,6 +53,23 @@ def compute_score_and_reasoning(
         - reasoning (str explanation)
     """
     
+    # If the candidate profile is empty (no skills, empty bio, and no portfolios)
+    if not candidate.get("skills") and not candidate.get("bio", "").strip() and not portfolios:
+        return (
+            0.0,
+            0.0,
+            0.0,
+            ScoreBreakdown(
+                semantic_similarity=0.0,
+                skill_overlap=0.0,
+                trust_score=0.0,
+                experience_level=0.0,
+                portfolio_relevance=0.0,
+                category_alignment=0.0
+            ),
+            "Please complete your profile by adding skills, a bio, or portfolio items to get personalized matching recommendations."
+        )
+
     # 1. Semantic Similarity
     job_text = compile_job_text(job)
     cand_text = compile_candidate_text(candidate)

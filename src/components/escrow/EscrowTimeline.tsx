@@ -7,6 +7,7 @@ const EVENT_CONFIG: Record<
   string,
   { label: string; Icon: React.ElementType; color: string; ring: string }
 > = {
+  created:            { label: "Escrow Created",      Icon: Clock,          color: "text-brand-muted",    ring: "bg-brand-hairline/25 border-brand-hairline" },
   funded:             { label: "Escrow Funded",       Icon: Banknote,       color: "text-brand-mustard",  ring: "bg-brand-yellow/20 border-brand-mustard/30" },
   completed:          { label: "Work Completed",      Icon: CheckCircle2,   color: "text-brand-success",  ring: "bg-brand-mint/20 border-brand-success/30" },
   released:           { label: "Funds Released",      Icon: Banknote,       color: "text-emerald-600",    ring: "bg-emerald-500/10 border-emerald-500/20" },
@@ -14,6 +15,7 @@ const EVENT_CONFIG: Record<
   submitted:          { label: "Work Submitted",      Icon: Send,           color: "text-brand-info",     ring: "bg-[#254fad]/10 border-[#458fff]/30" },
   approved:           { label: "Work Approved",       Icon: CheckCircle2,   color: "text-brand-success",  ring: "bg-brand-mint/20 border-brand-success/30" },
   disputed:           { label: "Dispute Raised",      Icon: AlertTriangle,  color: "text-brand-coral",    ring: "bg-brand-coral/10 border-brand-coral/30" },
+  eligible_for_release: { label: "Eligible for Release", Icon: CheckCircle2, color: "text-brand-success", ring: "bg-brand-mint/20 border-brand-success/30" },
 };
 function fmt(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
@@ -30,15 +32,20 @@ interface EscrowTimelineProps {
 export function EscrowTimeline({ events }: EscrowTimelineProps) {
   return (
     <ol className="relative pl-6">
-      {}
+      {/* Vertical line */}
       <span className="absolute left-[11px] top-3 bottom-3 w-px bg-brand-hairline" />
       {events.map((ev, i) => {
-        const cfg = EVENT_CONFIG[ev.type];
+        const cfg = EVENT_CONFIG[ev.type] || {
+          label: ev.type,
+          Icon: Clock,
+          color: "text-brand-muted",
+          ring: "bg-brand-hairline/25 border-brand-hairline",
+        };
         const Icon = cfg.Icon;
         const isLast = i === events.length - 1;
         return (
           <li key={i} className={cn("relative flex gap-3", !isLast && "pb-5")}>
-            {}
+            {/* Outline / Ring */}
             <div
               className={cn(
                 "absolute -left-6 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",

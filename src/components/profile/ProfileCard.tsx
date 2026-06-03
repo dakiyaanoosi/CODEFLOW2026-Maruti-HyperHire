@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Globe, DollarSign, Clock, GraduationCap, Camera } from "lucide-react";
+import { Globe, IndianRupee, Clock, GraduationCap, Camera, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { ProfileStrengthMeter } from "./ProfileStrengthMeter";
 import { VerificationBadge } from "./VerificationBadge";
 import { StudentProfile } from "@/types/profile";
+import { trustEngine } from "@/lib/trust/trust-engine";
 
 interface ProfileCardProps {
   profile: StudentProfile;
@@ -15,6 +16,8 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ profile, isEditing = false, onAvatarClick }: ProfileCardProps) {
+  const trustRank = trustEngine.calculateRank(profile.trustScore);
+
   return (
     <Card className="bg-white">
       <CardContent className="pt-6 space-y-5">
@@ -66,7 +69,7 @@ export function ProfileCard({ profile, isEditing = false, onAvatarClick }: Profi
               </span>
             )}
           </div>
-
+ 
           <div>
             <h2 className="text-[20px] font-medium leading-[1.5] text-brand-ink">
               {profile.name}
@@ -75,10 +78,23 @@ export function ProfileCard({ profile, isEditing = false, onAvatarClick }: Profi
               <GraduationCap className="h-3.5 w-3.5 shrink-0" />
               {profile.college}
             </div>
+            {profile.reviewCount && profile.reviewCount > 0 ? (
+              <div className="mt-1 flex items-center justify-center gap-1 text-xs text-brand-body">
+                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
+                <span className="font-bold text-brand-ink">
+                  {profile.averageRating ? profile.averageRating.toFixed(1) : "0.0"}
+                </span>
+                <span className="text-brand-muted">
+                  ({profile.reviewCount} {profile.reviewCount === 1 ? "review" : "reviews"})
+                </span>
+              </div>
+            ) : (
+              <div className="mt-1 text-[11px] text-brand-muted italic">No client reviews yet</div>
+            )}
           </div>
-
+ 
           <div className="flex flex-wrap justify-center gap-2">
-            <ConfidenceIndicator score={profile.trustScore} rank="Bronze" />
+            <ConfidenceIndicator score={profile.trustScore} rank={trustRank} />
             <VerificationBadge isVerified={profile.isVerified} />
           </div>
         </div>
@@ -92,10 +108,10 @@ export function ProfileCard({ profile, isEditing = false, onAvatarClick }: Profi
         <div className="space-y-3">
           <div className="flex items-center justify-between text-[13px]">
             <span className="flex items-center gap-2 text-brand-muted">
-              <DollarSign className="h-3.5 w-3.5" />
+              <IndianRupee className="h-3.5 w-3.5" />
               Hourly Rate
             </span>
-            <span className="font-medium text-brand-ink">${profile.hourlyRate}/hr</span>
+            <span className="font-medium text-brand-ink">₹{profile.hourlyRate}/hr</span>
           </div>
 
           <div className="flex items-center justify-between text-[13px]">

@@ -6,6 +6,8 @@ import { Globe, ExternalLink } from "lucide-react";
 import { ActivityAnalyticsCard } from "./ActivityAnalyticsCard";
 import { HiringStatisticsCard } from "./HiringStatisticsCard";
 import { BusinessProfile } from "@/types/business";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface BusinessProfileDetailsProps {
   profile: BusinessProfile;
@@ -16,12 +18,54 @@ export function BusinessProfileDetails({ profile }: BusinessProfileDetailsProps)
   const jobsPosted = profile.activeJobs ?? profile.analytics?.jobsPosted ?? 0;
   const totalHires = profile.totalHires ?? profile.analytics?.totalHires ?? 0;
   const activeListings = profile.activeJobs ?? profile.analytics?.activeListings ?? 0;
-  
+
+  const [avgResponseHours, setAvgResponseHours] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    async function calculateResponseTime() {
+      if (!profile.ownerId) return;
+      try {
+        if (!db) {
+          setAvgResponseHours(0);
+          return;
+        }
+
+        const q = query(
+          collection(db, "applications"),
+          where("businessId", "==", profile.ownerId)
+        );
+        const snap = await getDocs(q);
+        const apps = snap.docs.map((d) => d.data());
+
+        const respondedApps = apps.filter(
+          (a) => a.status !== "pending" && a.createdAt && a.updatedAt
+        );
+
+        if (respondedApps.length > 0) {
+          let totalMs = 0;
+          respondedApps.forEach((a) => {
+            const start = new Date(a.createdAt).getTime();
+            const end = new Date(a.updatedAt).getTime();
+            totalMs += Math.max(0, end - start);
+          });
+          const avgHours = totalMs / respondedApps.length / (1000 * 60 * 60);
+          setAvgResponseHours(Math.max(1, Math.round(avgHours)));
+        } else {
+          setAvgResponseHours(0);
+        }
+      } catch (e) {
+        console.error("Error calculating response time:", e);
+        setAvgResponseHours(0);
+      }
+    }
+    calculateResponseTime();
+  }, [profile.ownerId]);
+
   const resolvedAnalytics = {
     jobsPosted,
     totalHires,
     activeListings,
-    avgResponseHours: profile.analytics?.avgResponseHours ?? 12,
+    avgResponseHours,
   };
 
   return (

@@ -5,7 +5,6 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { useHyperAIStore } from "@/store/use-hyperai-store";
 import { jobService } from "@/lib/job-service";
 import { Job } from "@/types/job";
-import { generateMockJobs } from "@/lib/marketplace-utils";
 import { MarketplaceFeed } from "@/components/marketplace";
 import { Loader2, Store, Target } from "lucide-react";
 import { portfolioService } from "@/lib/portfolio-service";
@@ -29,7 +28,7 @@ export default function MarketplacePage() {
       setIsLoading(true);
       try {
         const rawJobs = await jobService.getJobs(undefined, true);
-        const activeJobs = rawJobs && rawJobs.length > 0 ? rawJobs : generateMockJobs();
+        const activeJobs = rawJobs || [];
         
         if (profile.role === "student") {
           try {
@@ -134,7 +133,13 @@ export default function MarketplacePage() {
 
       <div className="border-t border-brand-hairline" />
 
-      <MarketplaceFeed jobs={jobs} isLoading={isLoading} userSkills={userSkills} />
+      <React.Suspense fallback={
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
+        </div>
+      }>
+        <MarketplaceFeed jobs={jobs} isLoading={isLoading} userSkills={userSkills} />
+      </React.Suspense>
     </div>
   );
 }

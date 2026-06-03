@@ -33,15 +33,24 @@ export function WorkflowActivityFeed({ activities }: WorkflowActivityFeedProps) 
         
         {activities.map((act) => {
           const Icon = getIcon(act.type);
+          const isClient = act.actorId === act.businessId;
+          const isFreelancer = act.actorId === act.studentId;
+          const roleLabel = isClient ? "Client" : isFreelancer ? "Freelancer" : "System";
+          const roleColorClass = isClient ? "bg-brand-primary/10 text-brand-primary" : isFreelancer ? "bg-brand-success/10 text-brand-success" : "bg-brand-surface-strong text-brand-muted";
+
           return (
             <div key={act.activityId} className="relative pl-8">
               <div className="absolute left-0 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-brand-hairline shadow-sm">
                 <Icon className="w-3 h-3 text-brand-ink" />
               </div>
               <p className="text-sm text-brand-ink leading-snug">
-                <span className="font-semibold">{act.actorName}</span> {act.message}
+                <span className="font-semibold">{act.actorName}</span>{" "}
+                <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider", roleColorClass)}>
+                  {roleLabel}
+                </span>{" "}
+                {act.message}
               </p>
-              <p className="text-[10px] text-brand-muted mt-0.5">
+              <p className="text-[10px] text-brand-muted mt-1">
                 {formatDistanceToNow(new Date(act.createdAt))} ago
               </p>
             </div>

@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useAuthStore } from "@/store/use-auth-store";
+import { useAuthStore, SerializedUser } from "@/store/use-auth-store";
 import { authService } from "@/lib/auth-service";
 import { getFriendlyAuthErrorMessage } from "@/lib/auth-errors";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { RoleSelection } from "@/components/auth/role-selection";
 import Image from "next/image";
 
 const loginSchema = z.object({
@@ -29,6 +30,10 @@ export function LoginForm({ onSuccess, onNavigateToSignup }: LoginFormProps) {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+
+  // State for handling new Google users who need to pick a role
+  const [pendingGoogleUser, setPendingGoogleUser] = React.useState<SerializedUser | null>(null);
+  const [isCompletingSignup, setIsCompletingSignup] = React.useState(false);
 
   const {
     register,
@@ -70,12 +75,18 @@ export function LoginForm({ onSuccess, onNavigateToSignup }: LoginFormProps) {
     try {
       setLoading(true);
       const res = await authService.loginWithGoogle();
-      setUser(res.user);
-      setProfile(res.profile);
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push("/dashboard");
+      if (res.status === "existing") {
+        // Existing user — log in directly
+        setUser(res.user);
+        setProfile(res.profile);
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard");
+        }
+      } else if (res.status === "needs_role") {
+        // New Google user — show role selection
+        setPendingGoogleUser(res.user);
       }
     } catch (err: any) {
       console.error(err);
@@ -85,6 +96,74 @@ export function LoginForm({ onSuccess, onNavigateToSignup }: LoginFormProps) {
       setLoading(false);
     }
   };
+
+  const handleRoleSelectedForGoogle = async (role: "student" | "business") => {
+    if (!pendingGoogleUser) return;
+    setIsCompletingSignup(true);
+    setErrorMsg(null);
+    try {
+      setLoading(true);
+      const profile = await authService.completeGoogleSignup(
+        pendingGoogleUser.uid,
+        pendingGoogleUser.email || "",
+        pendingGoogleUser.displayName || "Google User",
+        role
+      );
+      setUser(pendingGoogleUser);
+      setProfile(profile);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(getFriendlyAuthErrorMessage(err));
+    } finally {
+      setIsCompletingSignup(false);
+      setLoading(false);
+    }
+  };
+
+  // If a new Google user needs to select a role, show role selection
+  if (pendingGoogleUser) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2 pb-1">
+          <button
+            onClick={() => setPendingGoogleUser(null)}
+            className="p-1.5 hover:bg-brand-surface-soft rounded-lg text-brand-muted hover:text-brand-ink transition-colors"
+            title="Back to login"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <span className="text-xs font-semibold bg-brand-surface-soft border border-brand-hairline text-brand-ink px-2.5 py-1 rounded-[6px]">
+            Welcome, {pendingGoogleUser.displayName || "new user"}!
+          </span>
+        </div>
+
+        <p className="text-sm text-brand-body leading-relaxed">
+          It looks like this is your first time here. Please select how you'd like to use HyperHire:
+        </p>
+
+        {errorMsg && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-[10px] text-xs text-red-600 flex items-start gap-2.5">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {isCompletingSignup ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-brand-muted text-sm">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Setting up your account...
+          </div>
+        ) : (
+          <RoleSelection onSelect={handleRoleSelectedForGoogle} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

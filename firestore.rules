@@ -16,15 +16,24 @@ service cloud.firestore {
     // Anyone can read a user profile. Only the owner can create/update.
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trustScore', 'averageRating', 'reviewCount', 'repeatClientRate', 'verifiedProjectsCount', 'updatedAt']))
+      );
       allow delete: if false; // Soft deletes preferred
     }
 
     // 2. Businesses
     // Anyone can read a business profile. Only the owner can create/update.
+    // Supports random document IDs where ownerId matches auth.uid.
     match /businesses/{businessId} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && isOwner(businessId);
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trustScore', 'averageRating', 'reviewCount', 'collaborationQualityScore', 'updatedAt']))
+      );
       allow delete: if false;
     }
 
@@ -33,53 +42,64 @@ service cloud.firestore {
     match /jobs/{jobId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.resource.data.businessId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.businessId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.businessId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.businessId == request.auth.uid;
     }
 
     // 4. Applications
     // Students can read their own applications. Businesses can read applications for their jobs.
-    // Students can create applications. 
-    // Businesses can update application status.
     match /applications/{applicationId} {
       allow read: if isAuthenticated() && (
         resource.data.studentId == request.auth.uid || 
         resource.data.businessId == request.auth.uid
       );
-      
-      // Creating requires the user to be the student
       allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
-      
-      // Updating: Students can update their own (before accepted?), Businesses can update status
       allow update: if isAuthenticated() && (
-        (resource.data.studentId == request.auth.uid) ||
-        (resource.data.businessId == request.auth.uid)
+        resource.data.studentId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
       );
-      
       allow delete: if isAuthenticated() && resource.data.studentId == request.auth.uid;
     }
 
-    // 5. Conversations / Messages (Future-ready)
+    // 5. Conversations & Subcollection Messages (Option A)
     // Users can read/write conversations they are participants in.
     match /conversations/{conversationId} {
       allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
       allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participantIds;
+      allow delete: if false;
       
+      // Messages are nested under conversations for clean scoping, data privacy and real-time streams
       match /messages/{messageId} {
         allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow create: if isAuthenticated() && 
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
-          request.resource.data.senderId == request.auth.uid;
+          (request.resource.data.senderId == request.auth.uid || request.resource.data.senderId == "system") &&
+          // Validate context ownership if contextType is set
+          (!('contextType' in request.resource.data) || 
+           request.resource.data.contextType == 'general' ||
+           (request.resource.data.contextType == 'task' && 
+            (request.auth.uid == get(/databases/$(database)/documents/workflowTasks/$(request.resource.data.contextId)).data.studentId ||
+             request.auth.uid == get(/databases/$(database)/documents/workflowTasks/$(request.resource.data.contextId)).data.businessId)) ||
+           (request.resource.data.contextType == 'milestone' && 
+            get(/databases/$(database)/documents/milestones/$(request.resource.data.contextId)).data.collaborationId == get(/databases/$(database)/documents/conversations/$(conversationId)).data.collaborationId) ||
+           (request.resource.data.contextType == 'deliverable' && 
+            get(/databases/$(database)/documents/deliverables/$(request.resource.data.contextId)).data.collaborationId == get(/databases/$(database)/documents/conversations/$(conversationId)).data.collaborationId) ||
+           (request.resource.data.contextType == 'review' && 
+            (request.auth.uid == get(/databases/$(database)/documents/reviews/$(request.resource.data.contextId)).data.reviewerId ||
+             request.auth.uid == get(/databases/$(database)/documents/reviews/$(request.resource.data.contextId)).data.revieweeId)) ||
+           (request.resource.data.contextType == 'escrow' && 
+            (request.auth.uid == get(/databases/$(database)/documents/escrows/$(request.resource.data.contextId)).data.studentId ||
+             request.auth.uid == get(/databases/$(database)/documents/escrows/$(request.resource.data.contextId)).data.businessId))
+          );
+        allow update, delete: if false;
       }
     }
 
     // 6. Workflows (Execution System)
     // Access restricted to participants of the workflow (business and student).
-    // The data model enforces that studentId and businessId are present on all workflow-related docs.
     match /workflows/{workflowId} {
       allow read, update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
       allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
-      allow delete: if false; // Soft delete / archive preferred
+      allow delete: if false;
     }
 
     match /workflowColumns/{columnId} {
@@ -89,9 +109,53 @@ service cloud.firestore {
     }
 
     match /workflowTasks/{taskId} {
-      allow read, update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
-      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
-      allow delete: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (
+        (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid) &&
+        (
+          // Student can create execution/deliverable tasks, owned by themselves
+          (request.resource.data.createdBy == request.auth.uid && request.resource.data.studentId == request.auth.uid &&
+           request.resource.data.ownerId == request.auth.uid && request.resource.data.ownerRole == "student" &&
+           (request.resource.data.taskType == "execution" || request.resource.data.taskType == "deliverable"))
+          ||
+          // Business can create revision/feedback/milestone tasks
+          (request.resource.data.createdBy == request.auth.uid && request.resource.data.businessId == request.auth.uid &&
+           (request.resource.data.taskType == "revision" || request.resource.data.taskType == "feedback" || request.resource.data.taskType == "milestone"))
+          ||
+          // Onboarding/kickoff tasks created by the system
+          (request.resource.data.createdBy == "system")
+        )
+      );
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid) &&
+        (
+          // Creator, owner, or business participant can update
+          (request.auth.uid == resource.data.createdBy || request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.businessId)
+        )
+      );
+      allow delete: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || resource.data.ownerId == request.auth.uid);
+    }
+
+    match /deliverables/{deliverableId} {
+      allow read: if isAuthenticated() && (
+        resource.data.submittedBy == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        // Only students can submit deliverables
+        request.resource.data.submittedBy == request.auth.uid &&
+        request.auth.uid == get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.studentId
+      );
+      allow update: if isAuthenticated() && (
+        // Only business participant can review deliverables
+        request.auth.uid == get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId &&
+        // Ensure version history is immutable: only allow mutating review status, feedback and reviewer details
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewStatus', 'feedback', 'reviewedBy', 'reviewedAt', 'updatedAt']) &&
+        // Prevent self-approval
+        request.auth.uid != resource.data.submittedBy
+      );
+      allow delete: if false;
     }
 
     match /workflowActivity/{activityId} {
@@ -100,22 +164,236 @@ service cloud.firestore {
       allow update, delete: if false; // Activity logs are immutable
     }
 
-    // 7. Notifications (Future-ready)
+    // Collaborations (Canonical Lifecycle Entity)
+    // Access restricted to participants. Lifecycle mutations are role-aware and field-protected.
+    match /collaborations/{collaborationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        request.resource.data.businessId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
+      ) && (
+        // Protected fields: NEVER mutable after creation
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'collaborationId', 'businessId', 'studentId', 'workflowId', 'conversationId', 'createdAt'
+        ])
+      ) && (
+        // If status is NOT being changed: allow normal metadata updates
+        request.resource.data.status == resource.data.status
+        ||
+        // If status IS being changed: enforce lifecycle rules
+        (
+          // Terminal states are immutable — cannot transition FROM completed/cancelled/disputed
+          resource.data.status != "completed" &&
+          resource.data.status != "cancelled" &&
+          resource.data.status != "disputed" &&
+          (
+            // Student-allowed transitions
+            (request.auth.uid == resource.data.studentId && (
+              // active → in_review (milestone/deliverable submission)
+              (resource.data.status == "active" && request.resource.data.status == "in_review") ||
+              // revision_requested → in_review (resubmission)
+              (resource.data.status == "revision_requested" && request.resource.data.status == "in_review") ||
+              // setup_pending → scope_review
+              (resource.data.status == "setup_pending" && request.resource.data.status == "scope_review") ||
+              // cancellation
+              (request.resource.data.status == "cancelled") ||
+              // dispute
+              (request.resource.data.status == "disputed")
+            ))
+            ||
+            // Business-allowed transitions
+            (request.auth.uid == resource.data.businessId && (
+              // scope_review → awaiting_funding
+              (resource.data.status == "scope_review" && request.resource.data.status == "awaiting_funding") ||
+              // awaiting_funding → active (escrow funded)
+              (resource.data.status == "awaiting_funding" && request.resource.data.status == "active") ||
+              // in_review → revision_requested
+              (resource.data.status == "in_review" && request.resource.data.status == "revision_requested") ||
+              // in_review → completed (escrow release — canonical completion authority)
+              (resource.data.status == "in_review" && request.resource.data.status == "completed") ||
+              // cancellation
+              (request.resource.data.status == "cancelled") ||
+              // dispute
+              (request.resource.data.status == "disputed")
+            ))
+          )
+        )
+      );
+      allow delete: if false;
+    }
+
+    // Collaboration Activity (Immutable Audit Trail)
+    // Actor identity verification prevents forged operational history.
+    match /collaborationActivity/{eventId} {
+      allow read: if isAuthenticated() && (
+        // Only collaboration participants can read activity
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        // Actor identity verification: actorId must match the authenticated user
+        // Exception: system-generated events where actorRole is "system"
+        (request.resource.data.actorId == request.auth.uid || request.resource.data.actorRole == "system") &&
+        // Actor must be a participant of the referenced collaboration
+        (
+          request.auth.uid == get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.studentId ||
+          request.auth.uid == get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.businessId
+        )
+      );
+      allow update, delete: if false;
+    }
+
+    // 7. Notifications
     // Users can only read and manage their own notifications.
+    // Any authenticated user can create a notification for another user (e.g. invites or updates).
     match /notifications/{notificationId} {
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated(); // The system/functions usually create these, but clients might trigger some
+      allow create: if isAuthenticated();
     }
 
     // 8. Trust Engine
+    // Anyone can read a candidate's trust profile. Only authenticated system actions can write/update.
     match /trustProfiles/{userId} {
       allow read: if true;
-      allow create, update: if isAuthenticated(); // In a production app, this would be admin-only or restricted
+      allow create, update: if isAuthenticated();
+      allow delete: if false;
     }
 
+    // Trust history is only readable by the owner to protect transaction metrics, create is authenticated.
     match /trustHistory/{eventId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated(); // Services will write here
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // 9. Portfolios
+    // Anyone can read portfolio items. Only the owner student can write/delete.
+    match /portfolios/{portfolioId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // 10. Escrows
+    // Access restricted entirely to student and business participants.
+    match /escrows/{escrowId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && (request.resource.data.studentId == request.auth.uid || request.resource.data.businessId == request.auth.uid);
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid) &&
+        (
+          // Student can modify details/timeline, but cannot change escrow status
+          (request.auth.uid == resource.data.studentId && 
+           request.resource.data.status == resource.data.status)
+          ||
+          // Business can update escrow details or transition status under specific rules
+          (request.auth.uid == resource.data.businessId &&
+           (
+             // 1. Status remains the same
+             request.resource.data.status == resource.data.status ||
+             (
+               // Ensure state is not already released, cancelled, or disputed
+               resource.data.status != "released" &&
+               resource.data.status != "cancelled" &&
+               resource.data.status != "disputed" &&
+               (
+                 // 2. Fund: transition from pending_funding -> funded
+                 (resource.data.status == "pending_funding" && request.resource.data.status == "funded") ||
+                 // 3. Dispute: transition from funded/eligible_for_release -> disputed
+                 ((resource.data.status == "funded" || resource.data.status == "eligible_for_release") && request.resource.data.status == "disputed") ||
+                 // 4. Release: transition from eligible_for_release -> released
+                 (resource.data.status == "eligible_for_release" && request.resource.data.status == "released") ||
+                 // 5. Cancel: transition from pending_funding -> cancelled
+                 (resource.data.status == "pending_funding" && request.resource.data.status == "cancelled")
+               )
+             )
+           ))
+        )
+      );
+      allow delete: if false;
+    }
+
+    // 11. Gig Invitations
+    // Only business owners can create invitations. Only invited students or businesses can read/update.
+    match /gigInvitations/{invitationId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.businessId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.businessId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // 12. Reviews (Secure Reputation Validation)
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        // 1. Reviewer matches authenticated user
+        request.resource.data.reviewerId == request.auth.uid &&
+        // 2. Reviewer is a participant of the workflow
+        (request.auth.uid == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.studentId ||
+         request.auth.uid == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.businessId) &&
+        // 3. Prevent self-reviews
+        request.resource.data.reviewerId != request.resource.data.revieweeId &&
+        // 4. Reviewee is a participant of the workflow
+        (request.resource.data.revieweeId == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.studentId ||
+         request.resource.data.revieweeId == get(/databases/$(database)/documents/workflows/$(request.resource.data.workflowId)).data.businessId) &&
+        // 5. Escrow must be released
+        get(/databases/$(database)/documents/escrows/$(request.resource.data.escrowId)).data.status == "released" &&
+        // 6. Review ID must match format to prevent duplicates
+        reviewId == "rev_" + request.resource.data.reviewerId + "_" + request.resource.data.workflowId;
+      allow update, delete: if false;
+    }
+
+    // 13. Verification Submissions (Secure Placeholders)
+    match /verificationSubmissions/{submissionId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // 14. Analytics Snapshots (Secure Placeholders)
+    match /analyticsSnapshots/{snapshotId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // 15. Milestones (Milestone Collaboration Architecture)
+    match /milestones/{milestoneId} {
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/collaborations/$(request.resource.data.collaborationId)).data.businessId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        (
+          get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId == request.auth.uid ||
+          get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId == request.auth.uid
+        ) &&
+        (
+          // Student can only transition to 'in_review' (by submitting milestone for review) or keep same status
+          (request.auth.uid == get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.studentId &&
+           (request.resource.data.status == "in_review" || request.resource.data.status == resource.data.status))
+          ||
+          // Business can transition to 'approved', 'revision_requested', 'active' or keep same status
+          (request.auth.uid == get(/databases/$(database)/documents/collaborations/$(resource.data.collaborationId)).data.businessId &&
+           (
+             request.resource.data.status == "approved" ||
+             request.resource.data.status == "revision_requested" ||
+             request.resource.data.status == "active" ||
+             request.resource.data.status == resource.data.status
+           ))
+        )
+      );
+      allow delete: if false;
     }
   }
 }

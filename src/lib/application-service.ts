@@ -1,5 +1,6 @@
 import { Application, ApplicationFormData, ApplicationStatus } from "@/types/application";
 import { db } from "@/lib/firebase";
+import { generateId } from "@/lib/id-utils";
 import { 
   collection, 
   doc, 
@@ -12,12 +13,12 @@ import {
   serverTimestamp,
   orderBy
 } from "firebase/firestore";
-import { workflowService } from "@/lib/workflow-service";
+
 import { messageService } from "@/lib/message-service";
 import { notificationService } from "@/lib/notification-service";
 
-function generateId(): string {
-  return `app_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+function applicationId(): string {
+  return generateId("app");
 }
 
 const COLLECTION_NAME = "applications";
@@ -47,7 +48,7 @@ export const applicationService = {
       throw new Error("You have already applied to this job.");
     }
 
-    const appId = generateId();
+    const appId = applicationId();
     const appRef = doc(db, COLLECTION_NAME, appId);
     const now = new Date().toISOString();
 
@@ -97,8 +98,8 @@ export const applicationService = {
       const apps = snapshot.docs.map(doc => doc.data() as Application);
       return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error("Firestore getApplicationsByStudent error:", e);
+      throw new Error(`Firestore query failed for getApplicationsByStudent: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 
@@ -113,8 +114,8 @@ export const applicationService = {
       const apps = snapshot.docs.map(doc => doc.data() as Application);
       return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error("Firestore getApplicationsByBusiness error:", e);
+      throw new Error(`Firestore query failed for getApplicationsByBusiness: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 
@@ -129,8 +130,8 @@ export const applicationService = {
       const apps = snapshot.docs.map(doc => doc.data() as Application);
       return apps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error("Firestore getApplicationsByJob error:", e);
+      throw new Error(`Firestore query failed for getApplicationsByJob: ${e instanceof Error ? e.message : String(e)}`);
     }
   },
 
@@ -144,30 +145,53 @@ export const applicationService = {
       throw new Error("Application not found.");
     }
     
+    const existingApp = snapshot.data() as Application;
     const now = new Date().toISOString();
+
+    // ── ACCEPTANCE FLOW: Provision-First, Accept-After ──────────────────
+    // Application acceptance MUST only finalize AFTER collaboration provisioning
+    // succeeds. If provisioning fails, the application remains in its current state.
+    if (status === "accepted") {
+      // 1. Attempt provisioning FIRST — if this fails, status stays unchanged
+      const { collaborationService } = await import("@/lib/collaboration-service");
+      const collab = await collaborationService.createCollaborationFromApplication(existingApp);
+
+      // 2. Provisioning succeeded — NOW mark application as accepted
+      await updateDoc(appRef, {
+        status,
+        updatedAt: now
+      });
+
+      const updatedApp = { ...existingApp, status, updatedAt: now } as Application;
+
+      // 3. Trigger notification to student
+      await notificationService.createNotification({
+        userId: updatedApp.studentId,
+        type: "success",
+        title: "Application Accepted! 🎉",
+        description: `Your application for "${updatedApp.jobTitle}" has been accepted.`,
+        relatedEntityId: applicationId,
+        relatedEntityType: "application",
+        actionUrl: `/workflows/${collab.workflowId}`
+      });
+
+      return updatedApp;
+    }
+
+    // ── ALL OTHER STATUS CHANGES ────────────────────────────────────────
     await updateDoc(appRef, {
       status,
       updatedAt: now
     });
     
-    const updatedApp = { ...snapshot.data(), status, updatedAt: now } as Application;
+    const updatedApp = { ...existingApp, status, updatedAt: now } as Application;
     
     // Workflow Automations
-    if (status === "shortlisted" || status === "accepted") {
+    if (status === "shortlisted") {
       try {
         await messageService.createConversationFromApplication(updatedApp);
       } catch (e) {
-        console.error("Error creating Conversation during workflow", e);
-      }
-    }
-
-    if (status === "accepted") {
-      try {
-        const workflowId = await workflowService.createWorkflowFromApplication(updatedApp);
-        const { escrowService } = await import("@/lib/escrow-service");
-        await escrowService.createEscrowFromAcceptedApplication(updatedApp, workflowId);
-      } catch (e) {
-        console.error("Error creating Workflow Workspace and Escrow during acceptance workflow", e);
+        console.error("Error creating Conversation during shortlisting", e);
       }
     }
 
@@ -175,10 +199,7 @@ export const applicationService = {
     let notifTitle = "Application Updated";
     let notifType: "success" | "warning" | "info" = "info";
     
-    if (status === "accepted") {
-      notifTitle = "Application Accepted! 🎉";
-      notifType = "success";
-    } else if (status === "rejected") {
+    if (status === "rejected") {
       notifTitle = "Application Declined";
       notifType = "warning";
     } else if (status === "shortlisted") {

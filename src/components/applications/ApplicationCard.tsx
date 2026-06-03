@@ -6,7 +6,7 @@ import { ApplicationStatusBadge } from "./ApplicationStatusBadge";
 import { motion } from "framer-motion";
 import {
   Clock,
-  DollarSign,
+  IndianRupee,
   Building2,
   Calendar,
   Sparkles,
@@ -60,8 +60,8 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       <div className="mt-auto pt-4 border-t border-brand-hairline/60 flex items-center justify-between text-xs font-semibold">
         <div className="flex items-center gap-3 text-brand-muted">
           <span className="flex items-center gap-1">
-            <DollarSign className="h-3.5 w-3.5" />
-            ${application.proposedBudget.toLocaleString()}
+            <IndianRupee className="h-3.5 w-3.5" />
+            ₹{application.proposedBudget.toLocaleString()}
           </span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />

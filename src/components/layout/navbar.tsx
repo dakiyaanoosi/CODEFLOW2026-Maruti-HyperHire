@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Building2, ChevronDown, LogOut, Menu, Search, User } from "lucide-react";
+import { Building2, ChevronDown, LogOut, Menu, User } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { authService } from "@/lib/auth-service";
 import { useRouter } from "next/navigation";
@@ -68,22 +68,9 @@ export function Navbar() {
           <Menu className="h-5 w-5" />
           <span className="sr-only">Open Menu</span>
         </Button>
-
-        <div className="relative hidden w-64 sm:block md:w-80">
-          <Search className="absolute left-3 top-3.5 h-4 w-4 text-brand-muted" />
-          <input
-            type="search"
-            placeholder="Search gigs, talent or settings..."
-            className="h-11 w-full rounded-[6px] border border-brand-hairline bg-white py-3 pl-10 pr-4 text-sm font-normal leading-[1.25] text-brand-ink outline-none focus:border-brand-info-border"
-          />
-        </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="sm:hidden">
-          <Search className="h-5 w-5" />
-        </Button>
-
         <NotificationCenter />
 
         <DropdownMenu>

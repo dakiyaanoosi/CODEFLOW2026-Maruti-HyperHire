@@ -14,6 +14,8 @@ interface WorkflowColumnProps {
   onDragEnd: () => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>, targetColumnId: string) => void;
   draggingId: string | null;
+  actorRole?: "student" | "business";
+  onAddTask?: () => void;
 }
 
 export function WorkflowColumn({
@@ -25,6 +27,8 @@ export function WorkflowColumn({
   onDragEnd,
   onDrop,
   draggingId,
+  actorRole,
+  onAddTask,
 }: WorkflowColumnProps) {
   const [isDragOver, setIsDragOver] = React.useState(false);
 
@@ -56,10 +60,23 @@ export function WorkflowColumn({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 py-3 mb-2">
-        <h3 className="text-sm font-semibold text-brand-ink">{column.name}</h3>
-        <span className="flex h-5 items-center justify-center rounded-full bg-brand-surface-strong px-2 text-xs font-semibold text-brand-muted">
-          {tasks.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-brand-ink">{column.name}</h3>
+          <span className="flex h-5 items-center justify-center rounded-full bg-brand-surface-strong px-2 text-xs font-semibold text-brand-muted">
+            {tasks.length}
+          </span>
+        </div>
+        {onAddTask && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddTask();
+            }}
+            className="px-2 py-0.5 rounded bg-brand-ink hover:bg-brand-primary text-white transition-all text-[11px] font-semibold"
+          >
+            + Add
+          </button>
+        )}
       </div>
 
       {/* Drop Zone / Task List */}

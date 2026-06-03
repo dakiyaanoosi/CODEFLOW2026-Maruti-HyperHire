@@ -1,13 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { X, Loader2, Send, Clock, DollarSign, FileText, MessageSquare, AlertCircle, Sparkles } from "lucide-react";
+import { X, Loader2, Send, Clock, IndianRupee, FileText, MessageSquare, AlertCircle, Sparkles } from "lucide-react";
 import { Job } from "@/types/job";
 import { ApplicationFormData } from "@/types/application";
 import { applicationService } from "@/lib/application-service";
 import { enhanceApplicationPitch } from "@/lib/ai-job-service";
-import { useProposalOptimization } from "@/lib/hyperai/optimization-service";
-import { OptimizationPanel } from "@/components/ai/hyperai/OptimizationPanel";
 import { useAuthStore } from "@/store/use-auth-store";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -48,14 +46,6 @@ export function ApplicationApplyModal({
   const [upsellMsg, setUpsellMsg] = React.useState<string | null>(null);
 
   const { profile } = useAuthStore();
-  const trustScore = profile?.trustScore || 80;
-
-  const { analysis, isAnalyzing } = useProposalOptimization(
-    form.proposalText, 
-    job?.description || "", 
-    job?.requiredSkills || [], 
-    trustScore
-  );
 
   const handleEnhance = async () => {
     if (!job) return;
@@ -80,7 +70,6 @@ export function ApplicationApplyModal({
         coverLetter: result.enhancedCoverMessage,
         proposalText: result.enhancedProposalText,
         estimatedDeliveryDays: result.recommendedDays || f.estimatedDeliveryDays,
-        proposedBudget: result.recommendedPrice || f.proposedBudget
       }));
       
       if (result.upsellSuggestion) {
@@ -282,10 +271,7 @@ export function ApplicationApplyModal({
                   )}
                 />
                 {fieldErrors.proposalText && <p className="text-xs text-red-600">{fieldErrors.proposalText}</p>}
-                <p className="text-xs text-brand-muted">{form.proposalText.length} characters</p>
-                
-                {/* HyperAI Strategic Proposal Coach */}
-                <OptimizationPanel analysis={analysis} isAnalyzing={isAnalyzing} type="proposal" />
+                <p className="text-xs text-brand-muted">{(form.proposalText || "").length} characters</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -307,11 +293,11 @@ export function ApplicationApplyModal({
 
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-1.5 text-sm font-medium text-brand-ink">
-                    <DollarSign className="h-3.5 w-3.5 text-brand-muted" />
-                    Price Quote (USD)
+                    <IndianRupee className="h-3.5 w-3.5 text-brand-muted" />
+                    Price Quote (INR)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">₹</span>
                     <input
                       type="number"
                       min={1}

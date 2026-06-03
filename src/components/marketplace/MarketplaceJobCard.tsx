@@ -5,7 +5,7 @@ import {
   Briefcase,
   Calendar,
   MapPin,
-  DollarSign,
+  IndianRupee,
   Flame,
   Clock,
   Zap,
@@ -229,7 +229,7 @@ export function MarketplaceJobCard({
           <div className="flex items-center gap-3">
             {/* Budget */}
             <div className="flex items-center text-brand-ink">
-              <DollarSign className="h-3.5 w-3.5 text-brand-muted -ml-0.5 shrink-0" />
+              <IndianRupee className="h-3.5 w-3.5 text-brand-muted -ml-0.5 shrink-0" />
               <span className="text-sm font-bold">{job.budget.toLocaleString()}</span>
             </div>
 

@@ -129,7 +129,7 @@ function simulateUpload(
         clearInterval(timer);
         if (onProgress) onProgress(100);
 
-        const publicId = "simulated_" + Math.random().toString(36).substring(2, 9);
+        const publicId = "simulated_" + Date.now().toString(36);
         const fileType = file.type;
 
         // Try reading small images as base64 for persistent local rendering
@@ -152,7 +152,7 @@ function simulateUpload(
         try {
           localUrl = URL.createObjectURL(file);
         } catch (e) {
-          localUrl = STOCK_IMAGES[Math.floor(Math.random() * STOCK_IMAGES.length)];
+          localUrl = STOCK_IMAGES[file.name.length % STOCK_IMAGES.length];
         }
 
         // Setup persistent fallback URLs for page refreshes
@@ -160,10 +160,10 @@ function simulateUpload(
         let thumbnailUrl = localUrl;
 
         if (fileType.startsWith("image/")) {
-          persistentUrl = STOCK_IMAGES[Math.floor(Math.random() * STOCK_IMAGES.length)];
+          persistentUrl = STOCK_IMAGES[file.name.length % STOCK_IMAGES.length];
           thumbnailUrl = persistentUrl;
         } else if (fileType.startsWith("video/")) {
-          persistentUrl = STOCK_VIDEOS[Math.floor(Math.random() * STOCK_VIDEOS.length)];
+          persistentUrl = STOCK_VIDEOS[file.name.length % STOCK_VIDEOS.length];
           thumbnailUrl = "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80"; // Camera/Video stock image
         } else if (fileType === "application/pdf") {
           persistentUrl = STOCK_PDF;

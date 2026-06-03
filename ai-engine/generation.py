@@ -96,11 +96,11 @@ def local_job_analysis(title: str, description: str, budget: float = 0.0, delive
     sentence = _sentences(description)[:1]
     summary_base = sentence[0] if sentence else f"{title} requires delivery across {category.lower()}."
     summary = (
-        f"{summary_base.rstrip('.')}."
+        f"[Fallback Mode] {summary_base.rstrip('.')}."
         f" Core execution areas: {', '.join(skills[:4])}."
     )
     if budget:
-        summary += f" Suggested scope should fit a budget near ${int(budget)}."
+        summary += f" Suggested scope should fit a budget near ₹{int(budget)}."
     return {
         "aiExtractedSkills": skills,
         "aiGeneratedSummary": summary,
@@ -132,6 +132,7 @@ def local_pitch_enhancement(
     skills = analysis["aiExtractedSkills"][:4]
     opener = "Hi," if tone.lower() == "conversational" else "Dear Hiring Team,"
     cover = (
+        f"[Fallback Mode]\n"
         f"{opener}\n\n"
         f"I'd like to work on {job_title}. Your brief points to {', '.join(skills).lower()} work, "
         f"and I can turn the requirements into clear deliverables with regular progress updates.\n\n"
@@ -139,7 +140,7 @@ def local_pitch_enhancement(
         "I can start by confirming scope, then share a concise execution plan before moving into delivery."
     )
     proposal = (
-        "### Proposed Approach\n"
+        "### Proposed Approach (Fallback Mode)\n"
         "1. Confirm success criteria, assets, timeline, and review points.\n"
         f"2. Execute the core work: {proposal_text.strip() or 'complete the requested deliverables with documented progress'}.\n"
         "3. Share a review build or draft, incorporate feedback, and hand over final files with notes.\n\n"
@@ -230,6 +231,14 @@ def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
         return None
 
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    
+    # Enforce no markdown styling instruction
+    sanitized_prompt = (
+        system_prompt +
+        "\n\nCRITICAL: Do NOT use any Markdown formatting characters (such as '**', '*', '_', '__', '#', or bullet dashes '-' / '*') in any text fields. Return plain text only for all string values."
+        "\n\nCRITICAL: The standard currency system of the platform is Indian Rupees (INR, ₹). All budget suggestions, price quotes, hourly rates, and money values MUST be calculated and represented in INR/₹. Do NOT refer to USD or dollars, and never use the '$' symbol."
+    )
+    
     body = {
         "systemInstruction": {
             "parts": [{"text": system_prompt}]
@@ -273,12 +282,9 @@ def call_gemini_json(system_prompt: str, user_payload: Dict[str, Any], schema: D
 
 
 def call_llm_json(system_prompt: str, user_payload: Dict[str, Any], schema: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    provider = os.getenv("LLM_PROVIDER", "auto").lower()
-    if provider == "openai":
-        return call_openai_json(system_prompt, user_payload, schema)
-    if provider == "gemini":
-        return call_gemini_json(system_prompt, user_payload, schema)
-    return (
-        call_openai_json(system_prompt, user_payload, schema)
-        or call_gemini_json(system_prompt, user_payload, schema)
-    )
+    # Standardize LLM switching using LLM_PROVIDER
+    provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+    if provider in ["fallback", "deterministic", "offline", "mock"]:
+        return None
+    # Always route to Gemini JSON generator
+    return call_gemini_json(system_prompt, user_payload, schema)

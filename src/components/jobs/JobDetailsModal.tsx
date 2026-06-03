@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Calendar, MapPin, DollarSign, BarChart2, Pencil, Trash2, AlertTriangle, Loader2, CheckSquare, Send } from "lucide-react";
+import { X, Calendar, MapPin, IndianRupee, BarChart2, Pencil, Trash2, AlertTriangle, Loader2, CheckSquare, Send } from "lucide-react";
 import { Job } from "@/types/job";
 import { jobService } from "@/lib/job-service";
 import { motion, AnimatePresence } from "framer-motion";
@@ -204,7 +204,7 @@ export function JobDetailsModal({
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">Budget</span>
                   <span className="text-base font-bold text-brand-ink flex items-center">
-                    <DollarSign className="h-4 w-4 text-brand-muted shrink-0 -ml-0.5" />
+                    <IndianRupee className="h-4 w-4 text-brand-muted shrink-0 -ml-0.5" />
                     {job.budget}
                   </span>
                 </div>

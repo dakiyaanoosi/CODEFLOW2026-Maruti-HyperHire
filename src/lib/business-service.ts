@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, setDoc, getDocs, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { BusinessProfile } from "@/types/business";
 
 const SIMULATED_BUSINESSES_KEY = "hyperhire_simulated_businesses";
@@ -49,8 +50,8 @@ export const businessService = {
         }
         return null;
       } catch (error) {
-        console.error("Firestore getBusinessProfileByOwner error, checking simulated:", error);
-        return this.getSimulatedProfileByOwner(ownerId);
+        console.error("Firestore getBusinessProfileByOwner error:", error);
+        throw error;
       }
     } else {
       return this.getSimulatedProfileByOwner(ownerId);
@@ -76,7 +77,7 @@ export const businessService = {
   ): Promise<BusinessProfile> {
     const businessId = isFirebaseConfigured && db
       ? doc(collection(db, "businesses")).id
-      : "bus_" + Math.random().toString(36).substring(2, 9);
+      : generateId("bus");
 
     const now = new Date().toISOString();
     const defaultProfile: BusinessProfile = {
@@ -94,7 +95,7 @@ export const businessService = {
         fullTime: true,
         internship: false,
       },
-      budgetRange: "< $500/mo",
+      budgetRange: "< ₹10k/mo",
       logoUrl: "",
       verificationStatus: "Unverified",
       activeJobs: 0,
@@ -108,8 +109,8 @@ export const businessService = {
         const docRef = doc(db, "businesses", businessId);
         await setDoc(docRef, cleanFirestoreData(defaultProfile));
       } catch (error) {
-        console.error("Firestore createDefaultBusinessProfile error, saving to simulated db:", error);
-        this.saveSimulatedProfile(defaultProfile);
+        console.error("Firestore createDefaultBusinessProfile error:", error);
+        throw error;
       }
     } else {
       this.saveSimulatedProfile(defaultProfile);
@@ -162,7 +163,8 @@ export const businessService = {
           return updated;
         }
       } catch (error) {
-        console.error("Firestore updateBusinessProfile error, falling back to simulated update:", error);
+        console.error("Firestore updateBusinessProfile error:", error);
+        throw error;
       }
     }
 

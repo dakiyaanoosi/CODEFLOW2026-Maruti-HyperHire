@@ -2,6 +2,7 @@ export interface Workflow {
   workflowId: string;
   jobId: string;
   applicationId: string;
+  collaborationId?: string;
   studentId: string;
   businessId: string;
   status: "Pending" | "In Progress" | "Revision" | "Completed" | "Paid" | "active" | "completed" | "archived";
@@ -34,10 +35,15 @@ export interface WorkflowTaskAttachment {
   size?: number;
 }
 
+export type TaskStatus = "pending" | "in_progress" | "submitted" | "revision_requested" | "approved";
+
+export type TaskType = "execution" | "deliverable" | "revision" | "feedback" | "milestone";
+
 export interface WorkflowTask {
   taskId: string;
   workflowId: string;
   columnId: string;
+  milestoneId?: string;
   title: string;
   description: string;
   priority: "Low" | "Medium" | "High";
@@ -45,11 +51,19 @@ export interface WorkflowTask {
   dueDate?: string;
   attachments: WorkflowTaskAttachment[];
   aiSuggestions: string[];
-  status: "active" | "blocked" | "completed";
+  status: TaskStatus;
   studentId: string;
   businessId: string;
   createdAt: string;
   updatedAt: string;
+
+  // Task ownership and role system
+  createdBy: string;
+  ownerId: string;
+  ownerRole: "student" | "business";
+  assignedTo: string;
+  assignedRole: "student" | "business";
+  taskType: TaskType;
 }
 
 export type WorkflowActivityType = 

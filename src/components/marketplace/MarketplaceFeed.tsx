@@ -18,6 +18,7 @@ import { TrendingJobsStrip } from "./TrendingJobsStrip";
 import { MarketplaceJobDetailModal } from "./MarketplaceJobDetailModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 9;
 
@@ -44,6 +45,9 @@ export function MarketplaceFeed({
   isLoading,
   userSkills = [],
 }: MarketplaceFeedProps) {
+  const searchParams = useSearchParams();
+  const targetJobId = searchParams.get("jobId") || searchParams.get("gigId");
+
   const [filters, setFilters] = React.useState<MarketplaceFilters>(DEFAULT_FILTERS);
   const [page, setPage] = React.useState(1);
   const [selectedJob, setSelectedJob] = React.useState<JobWithMatchScore | null>(null);
@@ -78,6 +82,16 @@ export function MarketplaceFeed({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [filters]);
+
+  // Auto-open job detail if jobId is present in query parameters
+  React.useEffect(() => {
+    if (targetJobId && enrichedJobs.length > 0) {
+      const match = enrichedJobs.find((j) => j.jobId === targetJobId);
+      if (match) {
+        setSelectedJob(match);
+      }
+    }
+  }, [targetJobId, enrichedJobs]);
 
   // Infinite scroll via IntersectionObserver
   React.useEffect(() => {
@@ -316,18 +330,21 @@ export function MarketplaceFeed({
                 <FolderOpen className="h-5 w-5" />
               </div>
               <h3 className="text-sm font-semibold text-brand-ink mb-1">
-                No gigs match your criteria
+                {jobs.length === 0 ? "No active gigs available" : "No gigs match your criteria"}
               </h3>
               <p className="text-xs text-brand-muted max-w-xs leading-relaxed mb-5">
-                Try adjusting your search or clearing some filters to see more
-                listings.
+                {jobs.length === 0
+                  ? "There are currently no active gigs listed in the marketplace. Check back later or create a new gig listing if you are a business."
+                  : "Try adjusting your search or clearing some filters to see more listings."}
               </p>
-              <button
-                onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="rounded-[10px] border border-brand-hairline bg-white px-4 py-2 text-xs font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors"
-              >
-                Reset all filters
-              </button>
+              {jobs.length > 0 && (
+                <button
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="rounded-[10px] border border-brand-hairline bg-white px-4 py-2 text-xs font-semibold text-brand-ink hover:bg-brand-surface-soft transition-colors"
+                >
+                  Reset all filters
+                </button>
+              )}
             </motion.div>
           )}
         </div>

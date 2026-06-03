@@ -3,14 +3,12 @@ import {
   doc,
   setDoc,
   getDoc,
-  getDocs,
   query,
   where,
   orderBy,
   onSnapshot,
   writeBatch,
   updateDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import {
@@ -18,20 +16,21 @@ import {
   WorkflowColumn,
   WorkflowTask,
   WorkflowActivity,
-  WorkflowActivityType,
+  TaskStatus,
 } from "@/types/workflow";
 import { Application } from "@/types/application";
 import { notificationService } from "@/lib/notification-service";
 import { trustService } from "@/lib/trust/trust-service";
+import { canCreateTask, canEditTask, canTransitionTaskStatus } from "./collaboration/permission-policy";
 
-const DEFAULT_COLUMNS = ["Pending", "In Progress", "Revision", "Completed", "Paid"];
+const DEFAULT_COLUMNS = ["Execution Work", "Deliverables", "Review/Revisions", "Completed Work"];
 
 export const workflowService = {
   /**
    * Creates a full workflow workspace from an accepted application.
    * Auto-provisions columns and an initial kickoff task, or onboarding tasks if requested.
    */
-  async createWorkflowFromApplication(app: Application, isOnboardingSeeded: boolean = false): Promise<string> {
+  async createWorkflowFromApplication(app: Application, isOnboardingSeeded: boolean = false, collaborationId?: string): Promise<string> {
     const batch = writeBatch(db!);
     const workflowId = `wf_${app.applicationId}`;
     
@@ -73,6 +72,8 @@ export const workflowService = {
 
     const todoColumnId = columnRefs[0];
 
+    const firstMilestoneId = collaborationId ? `ms_${collaborationId}_0` : undefined;
+
     // 3. Create Kickoff / Onboarding Tasks
     if (isOnboardingSeeded) {
       const onboardingTasks = [
@@ -89,17 +90,24 @@ export const workflowService = {
           taskId,
           workflowId,
           columnId: todoColumnId,
+          milestoneId: firstMilestoneId || undefined,
           title: taskData.title,
           description: taskData.desc,
           priority: "High",
           assigneeId: app.studentId,
           attachments: [],
           aiSuggestions: [],
-          status: "active",
+          status: "pending" as TaskStatus,
           studentId: app.studentId,
           businessId: app.businessId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          createdBy: "system",
+          ownerId: app.studentId,
+          ownerRole: "student",
+          assignedTo: app.studentId,
+          assignedRole: "student",
+          taskType: "execution",
         });
       });
     } else {
@@ -109,17 +117,24 @@ export const workflowService = {
         taskId,
         workflowId,
         columnId: todoColumnId,
+        milestoneId: firstMilestoneId || undefined,
         title: "Project Kickoff & Requirements Review",
         description: "Review the initial job requirements and set up milestones.",
         priority: "High",
         assigneeId: app.studentId,
         attachments: [],
         aiSuggestions: [],
-        status: "active",
+        status: "pending" as TaskStatus,
         studentId: app.studentId,
         businessId: app.businessId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        createdBy: "system",
+        ownerId: app.studentId,
+        ownerRole: "student",
+        assignedTo: app.studentId,
+        assignedRole: "student",
+        taskType: "execution",
       };
       batch.set(taskRef, newTask);
     }
@@ -234,15 +249,48 @@ export const workflowService = {
     studentId: string,
     businessId: string
   ) {
-    const batch = writeBatch(db!);
-
     const taskRef = doc(db!, "workflowTasks", taskId);
+    const taskSnap = await getDoc(taskRef);
+    if (!taskSnap.exists()) throw new Error("Task not found.");
+    const taskData = taskSnap.data() as WorkflowTask;
+
+    const { collaborationService } = await import("./collaboration-service");
+    const collab = await collaborationService.getCollaborationByWorkflowId(workflowId);
+    if (!collab) throw new Error("Collaboration not found.");
+
+    const actorRole = actorId === studentId ? "student" : "business";
+
+    // Map columns to target statuses
+    let targetStatus: TaskStatus;
+    if (newColumnName === "Execution Work") {
+      targetStatus = "in_progress";
+    } else if (newColumnName === "Deliverables") {
+      targetStatus = "submitted";
+    } else if (newColumnName === "Review/Revisions") {
+      targetStatus = "revision_requested";
+    } else if (newColumnName === "Completed Work") {
+      targetStatus = "approved";
+    } else {
+      // Fallbacks
+      if (newColumnName === "Pending") targetStatus = "pending";
+      else if (newColumnName === "In Progress") targetStatus = "in_progress";
+      else if (newColumnName === "Revision") targetStatus = "revision_requested";
+      else if (newColumnName === "Completed" || newColumnName === "Paid") targetStatus = "approved";
+      else throw new Error(`Invalid column name: '${newColumnName}'`);
+    }
+
+    if (!canTransitionTaskStatus(actorId, actorRole, collab.status, taskData, targetStatus)) {
+      throw new Error(`Permission denied: Cannot transition task status to '${targetStatus}' as a '${actorRole}'.`);
+    }
+
+    const batch = writeBatch(db!);
     batch.update(taskRef, {
       columnId: newColumnId,
+      status: targetStatus,
       updatedAt: new Date().toISOString(),
     });
 
-    if (newColumnName === "In Progress") {
+    if (targetStatus === "in_progress") {
       const workflowRef = doc(db!, "workflows", workflowId);
       batch.update(workflowRef, {
         status: "In Progress",
@@ -257,7 +305,7 @@ export const workflowService = {
       workflowId,
       taskId,
       type: "task_moved",
-      message: `Moved task to ${newColumnName}`,
+      message: `Moved task to ${newColumnName} (Status: ${targetStatus})`,
       actorId,
       actorName,
       studentId,
@@ -267,20 +315,29 @@ export const workflowService = {
 
     await batch.commit();
 
+    if (taskData.milestoneId) {
+      try {
+        const { milestoneService } = await import("./milestone-service");
+        await milestoneService.syncMilestoneProgress(taskData.milestoneId);
+      } catch (e) {
+        console.error("Error syncing milestone progress after moveTask:", e);
+      }
+    }
+
     // Trigger notification to the OTHER user
     const recipientId = actorId === studentId ? businessId : studentId;
     await notificationService.createNotification({
       userId: recipientId,
       type: "workflow",
       title: "Task Moved",
-      description: `${actorName} moved a task to ${newColumnName}`,
+      description: `${actorName} transitioned task to status ${targetStatus}`,
       relatedEntityId: workflowId,
       relatedEntityType: "workflow",
       actionUrl: `/workflows/${workflowId}`
     });
 
     // Trust Intelligence Logging
-    if (newColumnName === "Completed") {
+    if (targetStatus === "approved") {
       const studentImpact = actorId === studentId ? 2 : 1; // Student delivering gets +2
       await trustService.logTrustEvent(
         studentId,
@@ -291,13 +348,13 @@ export const workflowService = {
         taskId,
         "task"
       );
-    } else if (newColumnName === "Review" || newColumnName === "Revision") {
+    } else if (targetStatus === "submitted" || targetStatus === "revision_requested") {
       await trustService.logTrustEvent(
         studentId,
         "student",
         "collaboration",
         1,
-        "Submitted a deliverable for review",
+        targetStatus === "submitted" ? "Submitted a deliverable for review" : "Requested revision on task",
         taskId,
         "task"
       );
@@ -308,6 +365,15 @@ export const workflowService = {
    * Add a new task.
    */
   async addTask(task: Omit<WorkflowTask, "taskId" | "createdAt" | "updatedAt">) {
+    const { collaborationService } = await import("./collaboration-service");
+    const collab = await collaborationService.getCollaborationByWorkflowId(task.workflowId);
+    if (!collab) throw new Error("Collaboration not found.");
+
+    const actorRole = task.createdBy === task.studentId ? "student" : "business";
+    if (!canCreateTask(actorRole, collab.status, task.taskType)) {
+      throw new Error(`Permission denied: Cannot create task of type '${task.taskType}' as a '${actorRole}' in status '${collab.status}'.`);
+    }
+
     const taskId = `task_${Date.now()}`;
     const taskRef = doc(db!, "workflowTasks", taskId);
     
@@ -317,17 +383,49 @@ export const workflowService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    if (task.milestoneId) {
+      try {
+        const { milestoneService } = await import("./milestone-service");
+        await milestoneService.syncMilestoneProgress(task.milestoneId);
+      } catch (e) {
+        console.error("Error syncing milestone progress in addTask:", e);
+      }
+    }
   },
 
   /**
    * Update an existing task.
    */
-  async updateTask(taskId: string, updates: Partial<WorkflowTask>) {
+  async updateTask(taskId: string, updates: Partial<WorkflowTask>, actorId?: string, actorRole?: "student" | "business") {
     const taskRef = doc(db!, "workflowTasks", taskId);
+    
+    if (actorId && actorRole) {
+      const taskSnap = await getDoc(taskRef);
+      if (!taskSnap.exists()) throw new Error("Task not found.");
+      const currentTask = taskSnap.data() as WorkflowTask;
+      if (!canEditTask(actorId, actorRole, currentTask)) {
+        throw new Error("Permission denied: You are not authorized to edit this task.");
+      }
+    }
+
     await updateDoc(taskRef, {
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+
+    const taskSnap = await getDoc(taskRef);
+    if (taskSnap.exists()) {
+      const taskData = taskSnap.data() as WorkflowTask;
+      if (taskData.milestoneId) {
+        try {
+          const { milestoneService } = await import("./milestone-service");
+          await milestoneService.syncMilestoneProgress(taskData.milestoneId);
+        } catch (e) {
+          console.error("Error syncing milestone progress after updateTask:", e);
+        }
+      }
+    }
   },
 
   /**

@@ -7,7 +7,9 @@ import { ScoreResponse } from "@/services/ai/types";
 import { AISkeletonLoader } from "./AISkeletonLoader";
 import { AIExplanationCard } from "./AIExplanationCard";
 import { AIMatchVisualization } from "./AIMatchVisualization";
-import { Sparkles, User, ChevronDown, ChevronUp, AlertCircle, ArrowRight } from "lucide-react";
+import { Sparkles, User, ChevronDown, ChevronUp, AlertCircle, ArrowRight, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { InviteToGigModal } from "../talent/InviteToGigModal";
 
 interface BusinessAIRecommendationsProps {
   job: Job;
@@ -19,6 +21,12 @@ export function BusinessAIRecommendations({ job }: BusinessAIRecommendationsProp
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);
+  const [inviteCandidate, setInviteCandidate] = React.useState<{
+    id: string;
+    name: string;
+    score: number;
+    reasoning: string;
+  } | null>(null);
 
   React.useEffect(() => {
     async function loadCandidateMatches() {
@@ -149,12 +157,44 @@ export function BusinessAIRecommendations({ job }: BusinessAIRecommendationsProp
                     skillsMatched={matchedSkillsList}
                     experienceLevel={candidateData?.profile?.experienceLevel}
                   />
+
+                  {/* Action Buttons Row */}
+                  <div className="flex items-center gap-3 pt-2">
+                    <button 
+                      onClick={() => setInviteCandidate({
+                        id: match.candidate_id,
+                        name: candidateName,
+                        score: match.match_percentage,
+                        reasoning: match.reasoning
+                      })}
+                      className="flex-1 h-9 flex items-center justify-center gap-2 bg-brand-ink hover:bg-brand-ink/90 text-white text-xs font-semibold rounded-[8px] transition-colors shadow-sm cursor-pointer"
+                    >
+                      Invite to Gig <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                    <Link 
+                      href={`/profile/${match.candidate_id}`}
+                      className="h-9 px-4 flex items-center justify-center gap-2 bg-white border border-brand-hairline hover:bg-brand-surface text-brand-ink text-xs font-semibold rounded-[8px] transition-colors whitespace-nowrap"
+                    >
+                      Portfolio <ExternalLink className="h-3.5 w-3.5 text-brand-muted" />
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
           );
         })}
       </div>
+
+      {inviteCandidate && (
+        <InviteToGigModal
+          isOpen={!!inviteCandidate}
+          onClose={() => setInviteCandidate(null)}
+          studentId={inviteCandidate.id}
+          studentName={inviteCandidate.name}
+          aiMatchScore={inviteCandidate.score}
+          aiReasoning={inviteCandidate.reasoning}
+        />
+      )}
     </div>
   );
 }

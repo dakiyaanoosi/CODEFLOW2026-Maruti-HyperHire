@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Search, FolderOpen, Plus, Briefcase, FileText, CheckCircle2, Loader2 } from "lucide-react";
-import { Job, JobStatus } from "@/types/job";
+import { Search, FolderOpen, Plus, Briefcase, FileText, CheckCircle2 } from "lucide-react";
+import { Job } from "@/types/job";
 import { ALL_CATEGORIES } from "@/types/profile";
 import { JobCard } from "./JobCard";
 import { motion, AnimatePresence } from "framer-motion";
@@ -57,7 +57,8 @@ export function JobDashboard({
     const total = jobs.length;
     const published = jobs.filter((j) => j.status === "Published").length;
     const drafts = jobs.filter((j) => j.status === "Draft").length;
-    return { total, published, drafts };
+    const completed = jobs.filter((j) => j.status === "Completed").length;
+    return { total, published, drafts, completed };
   }, [jobs]);
 
   // Loading skeleton layout
@@ -96,11 +97,12 @@ export function JobDashboard({
     <div className="space-y-6">
       {/* Overview statistics cards (Only shown to business owners managing their posts) */}
       {canManage && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { label: "Total Gig Posts", value: stats.total, icon: Briefcase, color: "text-brand-ink" },
             { label: "Active Listings", value: stats.published, icon: CheckCircle2, color: "text-brand-success" },
             { label: "Draft Postings", value: stats.drafts, icon: FileText, color: "text-brand-muted" },
+            { label: "Completed Gigs", value: stats.completed, icon: CheckCircle2, color: "text-brand-info" },
           ].map((item, idx) => (
             <div
               key={idx}
@@ -137,7 +139,7 @@ export function JobDashboard({
           {/* Status Tabs */}
           {canManage && (
             <div className="flex items-center gap-1 rounded-[10px] border border-brand-hairline bg-brand-surface-soft p-1 h-11 shrink-0 select-none">
-              {["All", "Published", "Draft"].map((status) => (
+              {["All", "Published", "Draft", "Completed"].map((status) => (
                 <button
                   key={status}
                   onClick={() => setSelectedStatus(status)}

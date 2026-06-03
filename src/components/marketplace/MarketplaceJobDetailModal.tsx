@@ -6,7 +6,7 @@ import {
   Briefcase,
   Calendar,
   MapPin,
-  DollarSign,
+  IndianRupee,
   Flame,
   Zap,
   CheckCircle2,
@@ -203,9 +203,9 @@ export function MarketplaceJobDetailModal({
               <div className="grid grid-cols-3 gap-3">
                 {[
                   {
-                    icon: DollarSign,
+                    icon: IndianRupee,
                     label: "Budget",
-                    value: `$${job.budget.toLocaleString()}`,
+                    value: `₹${job.budget.toLocaleString()}`,
                     color: "text-brand-ink",
                   },
                   {
@@ -260,7 +260,11 @@ export function MarketplaceJobDetailModal({
                   />
                 </div>
               ) : (
-                <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft px-4 py-3.5">
+                <div className="rounded-[10px] border border-brand-hairline bg-brand-surface-soft px-4 py-3.5 space-y-2">
+                  <div className="text-[10px] font-bold text-brand-muted flex items-center gap-1.5 uppercase tracking-wide">
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-muted" />
+                    AI offline — Using deterministic fallback
+                  </div>
                   <MatchBar score={job.matchScore} />
                   {matchedSkills.length > 0 && (
                     <p className="mt-2 text-[11px] text-brand-muted font-medium">
@@ -272,6 +276,7 @@ export function MarketplaceJobDetailModal({
                   )}
                 </div>
               )}
+
 
               {/* Description */}
               <div>

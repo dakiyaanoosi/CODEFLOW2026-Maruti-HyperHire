@@ -282,13 +282,13 @@ def optimize_gig(payload: GigOptimizationPayload):
     insights = []
     weaknesses = []
     
-    if payload.budget > 0 and payload.budget < 100:
+    if payload.budget > 0 and payload.budget < 5000:
         market_comp = 50
         insights.append(OptimizationInsight(
             text="Current budget range may discourage high-trust, elite candidates. The marketplace average for this category is higher.",
             type="market_trend"
         ))
-    elif payload.budget > 0 and payload.budget < 500:
+    elif payload.budget > 0 and payload.budget < 25000:
         market_comp = 70
         insights.append(OptimizationInsight(
             text="Budget is competitive for intermediate candidates, but consider a slightly higher cap for elite experts.",

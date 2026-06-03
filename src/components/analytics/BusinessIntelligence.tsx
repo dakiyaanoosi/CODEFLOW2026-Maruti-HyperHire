@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import { 
   Loader2, TrendingUp, Users, CheckCircle, Briefcase, Wallet, 
-  Clock, AlertTriangle, UserCheck, BarChart2, ShieldAlert
+  Clock, AlertTriangle, UserCheck, BarChart2, ShieldAlert, Star
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -64,12 +64,13 @@ export function BusinessIntelligence() {
     <div className="space-y-6">
       
       {/* ─── HIRING INTELLIGENCE KPI ROW ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <KPICard label="Active Gigs" value={data.activeGigs} icon={Briefcase} />
         <KPICard label="Apps Received" value={data.applicationsReceived} icon={Users} />
         <KPICard label="Accepted Hires" value={data.acceptedHires} icon={CheckCircle} highlight={data.acceptedHires > 0} />
         <KPICard label="Avg Proposal Match" value={`${data.averageProposalQuality}%`} icon={TrendingUp} />
         <KPICard label="Workflows Finished" value={data.completedWorkflows} icon={CheckCircle} />
+        <KPICard label="Student Rating" value={data.reviewCount > 0 ? `${data.averageCollaborationRating.toFixed(1)} ★` : "—"} icon={Star} highlight={data.averageCollaborationRating >= 4.5} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

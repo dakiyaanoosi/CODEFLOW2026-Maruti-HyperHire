@@ -11,6 +11,7 @@ import { AISkeletonLoader } from "./AISkeletonLoader";
 import { AIExplanationCard } from "./AIExplanationCard";
 import { AIMatchVisualization } from "./AIMatchVisualization";
 import { Briefcase, Sparkles, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import Link from "next/link";
 
 export function StudentAIRecommendations() {
   const { user, profile } = useAuthStore();
@@ -166,6 +167,16 @@ export function StudentAIRecommendations() {
                     skillsMatched={matchingSkills}
                     experienceLevel={profile?.experienceLevel}
                   />
+
+                  {/* Action Row */}
+                  <div className="flex justify-end pt-2">
+                    <Link
+                      href={`/marketplace?jobId=${rec.job_id}`}
+                      className="inline-flex items-center gap-1.5 rounded-[8px] bg-brand-ink px-4 py-2 text-xs font-semibold text-white hover:bg-brand-primary-active transition-colors cursor-pointer"
+                    >
+                      Apply
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

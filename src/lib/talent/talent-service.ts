@@ -1,4 +1,4 @@
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { StudentProfile } from "@/types/profile";
 import { MinimalCandidatePayload } from "@/types/talent";
@@ -8,11 +8,47 @@ class TalentService {
   private unsubscribe: (() => void) | null = null;
   private listeners: ((students: (StudentProfile & { uid: string })[]) => void)[] = [];
 
+  // One-time database cleanup for stale mock trust scores
+  private async cleanStaleTrustScores() {
+    if (!db) return;
+    try {
+      const q = query(collection(db, "users"), where("role", "==", "student"));
+      const snap = await getDocs(q);
+      const batch = writeBatch(db);
+      let updatedCount = 0;
+      
+      for (const userDoc of snap.docs) {
+        const data = userDoc.data();
+        if (data.trustScore && data.trustScore !== 0) {
+          // Check if they have a real trust profile document
+          const trustProfileRef = doc(db, "trustProfiles", userDoc.id);
+          const trustProfileSnap = await getDoc(trustProfileRef);
+          if (!trustProfileSnap.exists()) {
+            console.log(`[TalentService] Queueing reset for stale trustScore of user ${userDoc.id} (${data.name})`);
+            batch.set(userDoc.ref, { trustScore: 0 }, { merge: true });
+            updatedCount++;
+          }
+        }
+      }
+      
+      if (updatedCount > 0) {
+        await batch.commit();
+        console.log(`[TalentService] Completed cleanup: reset trustScore for ${updatedCount} users.`);
+      }
+    } catch (e) {
+      console.error("[TalentService] Stale trust score cleanup error:", e);
+    }
+  }
+
   // Initializes the global pool of students
   public boot() {
     if (this.unsubscribe || !db) return; // Already booted or firebase disabled
 
     console.log("[TalentService] Booting scalable candidate pool...");
+    
+    // Clean stale mock data in Firestore background
+    this.cleanStaleTrustScores();
+
     const q = query(collection(db, "users"), where("role", "==", "student"));
     
     this.unsubscribe = onSnapshot(q, (snapshot) => {
@@ -63,7 +99,7 @@ class TalentService {
       userId: student.uid,
       skills: student.skills || [],
       bioSnippet: student.bio ? student.bio.substring(0, 300) : "",
-      trustScore: student.trustScore || 80,
+      trustScore: student.trustScore ?? 0,
       experienceLevel: student.experienceLevel || "Intermediate",
       preferredCategories: student.preferredCategories || []
     }));

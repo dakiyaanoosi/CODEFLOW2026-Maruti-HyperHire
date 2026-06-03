@@ -1,33 +1,46 @@
 "use client";
 
 import * as React from "react";
-import { Workflow, WorkflowColumn, WorkflowTask, WorkflowActivity } from "@/types/workflow";
+import { Workflow, WorkflowColumn, WorkflowTask } from "@/types/workflow";
 import { workflowService } from "@/lib/workflow-service";
 import { WorkflowColumn as ColumnComponent } from "./WorkflowColumn";
 import { WorkflowTaskDetail } from "./WorkflowTaskDetail";
-import { WorkflowActivityFeed } from "./WorkflowActivityFeed";
+import { CollaborationStatus } from "@/types/collaboration";
+import { canMoveTask } from "@/lib/collaboration/permission-policy";
+
+import { MilestoneStatus } from "@/types/milestone";
 
 interface WorkflowBoardProps {
   workflow: Workflow;
   columns: WorkflowColumn[];
   tasks: WorkflowTask[];
-  activities: WorkflowActivity[];
   actorId: string;
   actorName: string;
+  actorRole: "student" | "business";
+  collaborationStatus: CollaborationStatus;
+  activeMilestoneStatus?: MilestoneStatus;
+  onOpenCreateTask: (type: WorkflowTask["taskType"]) => void;
 }
 
 export function WorkflowBoard({
   workflow,
   columns,
   tasks,
-  activities,
   actorId,
   actorName,
+  actorRole,
+  collaborationStatus,
+  activeMilestoneStatus,
+  onOpenCreateTask,
 }: WorkflowBoardProps) {
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [selectedTask, setSelectedTask] = React.useState<WorkflowTask | null>(null);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
+    if (activeMilestoneStatus === "approved") {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData("taskId", taskId);
     e.dataTransfer.effectAllowed = "move";
     setDraggingId(taskId);
@@ -39,27 +52,41 @@ export function WorkflowBoard({
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetColumnId: string) => {
     e.preventDefault();
+    if (activeMilestoneStatus === "approved") return;
     const taskId = e.dataTransfer.getData("taskId");
     if (!taskId) return;
 
     const task = tasks.find((t) => t.taskId === taskId);
     if (!task || task.columnId === targetColumnId) return;
 
-    const targetCol = columns.find(c => c.columnId === targetColumnId);
+    const targetCol = columns.find((c) => c.columnId === targetColumnId);
     if (!targetCol) return;
 
-    // Optimistic UI could be handled by local state, but we rely on onSnapshot speed here
-    await workflowService.moveTask(
-      workflow.workflowId,
-      taskId,
-      targetColumnId,
-      targetCol.name,
-      actorId,
-      actorName,
-      workflow.studentId,
-      workflow.businessId
-    );
-    
+    const currentCol = columns.find((c) => c.columnId === task.columnId);
+    const currentColName = currentCol ? currentCol.name : "Execution Work";
+
+    if (!canMoveTask(actorId, actorRole, collaborationStatus, task, currentColName, targetCol.name)) {
+      alert(`Permission Denied: You cannot move this task from '${currentColName}' to '${targetCol.name}' as a '${actorRole}'.`);
+      setDraggingId(null);
+      return;
+    }
+
+    try {
+      await workflowService.moveTask(
+        workflow.workflowId,
+        taskId,
+        targetColumnId,
+        targetCol.name,
+        actorId,
+        actorName,
+        workflow.studentId,
+        workflow.businessId
+      );
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      alert(error.message || "Failed to move task.");
+    }
+
     setDraggingId(null);
   };
 
@@ -68,29 +95,60 @@ export function WorkflowBoard({
   };
 
   return (
-    <div className="flex h-full gap-6">
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex h-full gap-4" style={{ minWidth: "max-content" }}>
-          {columns.map((col) => (
-            <ColumnComponent
-              key={col.columnId}
-              column={col}
-              tasks={tasks.filter((t) => t.columnId === col.columnId)}
-              onTaskClick={handleTaskClick}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDrop={handleDrop}
-              draggingId={draggingId}
-              workflow={workflow}
-            />
-          ))}
-        </div>
-      </div>
+    <div className="w-full h-full pb-8">
+      {/* 4-column Board Container */}
+      <div className="overflow-x-auto min-w-0">
+        <div className="flex gap-5 min-h-[580px] pb-4">
+          {columns.map((col) => {
+            // Determine if column can receive new tasks
+            let onAddTask: (() => void) | undefined;
+            if (activeMilestoneStatus !== "approved" && ["active", "in_review", "revision_requested"].includes(collaborationStatus)) {
+              if (col.name === "Execution Work" && actorRole === "student") {
+                onAddTask = () => onOpenCreateTask("execution");
+              } else if (col.name === "Review/Revisions" && actorRole === "business") {
+                onAddTask = () => onOpenCreateTask("revision");
+              }
+            }
 
-      {/* Activity Feed Sidebar */}
-      <div className="hidden lg:block w-[320px] shrink-0 border-l border-brand-hairline pl-6 overflow-y-auto">
-        <WorkflowActivityFeed activities={activities} />
+            // Filter tasks for this column based on mapped status
+            const filteredTasks = tasks.filter((t) => {
+              if (col.name === "Execution Work") {
+                return t.status === "pending" || t.status === "in_progress";
+              }
+              if (col.name === "Deliverables") {
+                return t.status === "submitted";
+              }
+              if (col.name === "Review/Revisions") {
+                return t.status === "revision_requested";
+              }
+              if (col.name === "Completed Work") {
+                return t.status === "approved";
+              }
+              // Fallback support for old columns
+              if (col.name === "Pending") return t.status === "pending";
+              if (col.name === "In Progress") return t.status === "in_progress";
+              if (col.name === "Revision") return t.status === "revision_requested";
+              if (col.name === "Completed" || col.name === "Paid") return t.status === "approved";
+              return t.columnId === col.columnId;
+            });
+
+            return (
+              <ColumnComponent
+                key={col.columnId}
+                column={col}
+                tasks={filteredTasks}
+                onTaskClick={handleTaskClick}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDrop={handleDrop}
+                draggingId={draggingId}
+                workflow={workflow}
+                actorRole={actorRole}
+                onAddTask={onAddTask}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Detail Panel */}
@@ -98,6 +156,8 @@ export function WorkflowBoard({
         task={selectedTask}
         isOpen={!!selectedTask}
         onClose={() => setSelectedTask(null)}
+        actorId={actorId}
+        actorRole={actorRole}
         actorName={actorName}
         workflow={workflow}
         columns={columns}

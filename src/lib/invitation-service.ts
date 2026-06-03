@@ -1,10 +1,9 @@
 import { collection, doc, setDoc, getDocs, getDoc, query, where, updateDoc, writeBatch } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { generateId } from "@/lib/id-utils";
 import { GigInvitation } from "@/types/invitation";
 import { notificationService } from "./notification-service";
 import { applicationService } from "./application-service";
-import { workflowService } from "./workflow-service";
-import { messageService } from "./message-service";
 
 const SIMULATED_INVITES_KEY = "hyperhire_simulated_invites";
 
@@ -34,7 +33,7 @@ export const invitationService = {
       return snapshot.docs.map(doc => doc.data() as GigInvitation);
     } catch (error) {
       console.error("Firestore getPendingInvitations error:", error);
-      return [];
+      throw new Error(`Firestore query failed for getPendingInvitations: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 
@@ -72,7 +71,7 @@ export const invitationService = {
 
     const invitationId = isFirebaseConfigured && db
       ? doc(collection(db, "gigInvitations")).id
-      : "inv_" + Math.random().toString(36).substring(2, 9);
+      : generateId("inv");
 
     const invitation: GigInvitation = {
       ...data,
@@ -135,13 +134,14 @@ export const invitationService = {
       const items = snapshot.docs.map(doc => doc.data() as GigInvitation);
       return items.sort((a, b) => b.createdAt - a.createdAt);
     } catch (error) {
-      console.error(error);
-      return [];
+      console.error("Firestore getInvitationsForStudent error:", error);
+      throw new Error(`Firestore query failed for getInvitationsForStudent: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 
   /**
-   * Master Orchestrator: Converts an Invitation into a Collaboration Workspace
+   * Master Orchestrator: Converts an Invitation into a Collaboration
+   * via the canonical collaboration lifecycle pipeline.
    */
   async acceptInvitation(
     invitationId: string,
@@ -170,7 +170,6 @@ export const invitationService = {
     // 1. Synthesize Application or Link Existing
     let app: any = null;
     
-    // First, check if the application already exists
     const q = query(
       collection(db, "applications"),
       where("jobId", "==", invite.jobId),
@@ -179,10 +178,8 @@ export const invitationService = {
     const existingAppSnap = await getDocs(q);
     
     if (!existingAppSnap.empty) {
-      // Re-use existing application if the student had already applied
       app = existingAppSnap.docs[0].data();
     } else {
-      // Create new application
       app = await applicationService.submitApplication(
         {
           coverLetter: `[Auto-generated] I am thrilled to accept your invitation to collaborate on ${invite.jobTitle}.`,
@@ -205,45 +202,44 @@ export const invitationService = {
     await updateDoc(doc(db, "applications", app.applicationId), {
       status: "collaboration_started"
     });
-    
-    const updatedApp = { ...app, status: "collaboration_started" as any };
 
-    // 2. Provision Workflow (Seeded with 4 onboarding tasks)
-    const workflowId = await workflowService.createWorkflowFromApplication(updatedApp, true); // true = isOnboardingSeeded
+    // 2. Provision collaboration through canonical pipeline
+    const { collaborationService } = await import("@/lib/collaboration-service");
+    const collab = await collaborationService.createCollaborationFromInvitation(
+      {
+        invitationId,
+        jobId: invite.jobId,
+        jobTitle: invite.jobTitle,
+        businessId: invite.businessId,
+        businessName: invite.businessName,
+        studentId: invite.studentId,
+      },
+      studentName,
+      studentAvatar,
+      acceptanceNote
+    );
 
-    // 3. Initialize Conversation
-    const conversation = await messageService.createConversationFromApplication(updatedApp);
-    
-    // Seed initial message if there's an acceptance note
-    if (acceptanceNote) {
-      await messageService.sendMessage(
-        conversation.conversationId,
-        invite.studentId,
-        "student",
-        acceptanceNote
-      );
-    }
-
-    // 4. Update Invitation Record
+    // 3. Update Invitation Record with collaboration linkage
     await updateDoc(ref, {
       status: "accepted",
       acceptedAt: now,
       collaborationStartedAt: now,
       acceptanceNote: acceptanceNote || null,
       applicationId: app.applicationId,
-      workflowId: workflowId,
-      conversationId: conversation.conversationId
+      workflowId: collab.workflowId,
+      conversationId: collab.conversationId,
+      collaborationId: collab.collaborationId,
     });
 
-    // 5. Notify Business
+    // 4. Notify Business
     await notificationService.createNotification({
       userId: invite.businessId,
       type: "success",
       title: "Invitation Accepted! 🎉",
       description: `${studentName} accepted your invitation for "${invite.jobTitle}". A collaboration workspace has been provisioned.`,
-      relatedEntityId: workflowId,
-      relatedEntityType: "workflow",
-      actionUrl: `/workflows/${workflowId}`
+      relatedEntityId: collab.collaborationId,
+      relatedEntityType: "collaboration" as any,
+      actionUrl: `/workflows/${collab.workflowId}`
     });
   },
 

@@ -10,12 +10,13 @@ import {
 import { getEscrowSummary } from "@/lib/escrow-service";
 import type { EscrowSummary, EscrowTransaction, EscrowStatus } from "@/types/escrow";
 const FILTER_TABS: { label: string; value: EscrowStatus | "all" }[] = [
-  { label: "All",                value: "all" },
-  { label: "Funded",             value: "funded" },
-  { label: "In Progress",        value: "in_progress" },
-  { label: "Revision Requested", value: "revision_requested" },
-  { label: "Completed",          value: "completed" },
-  { label: "Released",           value: "released" },
+  { label: "All",      value: "all" },
+  { label: "Pending Funding",  value: "pending_funding" },
+  { label: "Funded",   value: "funded" },
+  { label: "Eligible for Release", value: "eligible_for_release" },
+  { label: "Released", value: "released" },
+  { label: "Disputed", value: "disputed" },
+  { label: "Cancelled", value: "cancelled" },
 ];
 export default function EscrowPage() {
   const { user, profile } = useAuthStore();
@@ -26,7 +27,7 @@ export default function EscrowPage() {
   const [selected, setSelected] = React.useState<EscrowTransaction | null>(null);
   React.useEffect(() => {
     if (!user?.uid) return;
-    setLoading(true);
+    Promise.resolve().then(() => setLoading(true));
     getEscrowSummary(user.uid, role)
       .then(setSummary)
       .finally(() => setLoading(false));
@@ -42,8 +43,8 @@ export default function EscrowPage() {
         totalReleased: txns
           .filter((t) => t.status === "released")
           .reduce((s, t) => s + (t.payoutAmount ?? t.amount * 0.9), 0),
-        pendingApproval: txns.filter((t) => t.status === "completed").length,
-        inReview: txns.filter((t) => t.status === "completed").length,
+        pendingApproval: txns.filter((t) => t.status === "funded" && t.timeline && t.timeline.length > 0 && t.timeline[t.timeline.length - 1].type === "submitted").length,
+        inReview: txns.filter((t) => t.status === "funded" && t.timeline && t.timeline.length > 0 && t.timeline[t.timeline.length - 1].type === "submitted").length,
         transactions: txns,
       };
     });

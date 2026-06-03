@@ -52,7 +52,7 @@ def _build_system_prompt(req: ChatRequest) -> str:
         job = req.activeJob
         context_lines.append(
             f"Active Job: {job.get('title')} | Category: {job.get('category')} | "
-            f"Budget: ${job.get('budget', 0)} | Skills: {', '.join(job.get('requiredSkills', []))}"
+            f"Budget: ₹{job.get('budget', 0)} | Skills: {', '.join(job.get('requiredSkills', []))}"
         )
 
     if req.activeProfile:
